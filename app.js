@@ -1,61 +1,86 @@
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.documentElement;
   const themeToggle = document.getElementById('themeToggle');
-  const savedTheme = localStorage.getItem('theme');
+  const viewTitle = document.getElementById('viewTitle');
 
+  const savedTheme = localStorage.getItem('theme');
   if (savedTheme) {
     root.setAttribute('data-theme', savedTheme);
-    themeToggle.textContent = savedTheme === 'dark' ? '🌙' : '☀';
-  } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    root.setAttribute('data-theme', 'dark');
-    themeToggle.textContent = '🌙';
+    if (themeToggle) themeToggle.textContent = savedTheme === 'dark' ? '🌙' : '☀';
+  } else {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+    if (themeToggle) themeToggle.textContent = prefersDark ? '🌙' : '☀';
   }
 
-  themeToggle.addEventListener('click', () => {
-    const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-    const next = current === 'dark' ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
-    themeToggle.textContent = next === 'dark' ? '🌙' : '☀';
-  });
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      themeToggle.textContent = next === 'dark' ? '🌙' : '☀';
+    });
+  }
 
   const savedSettings = JSON.parse(localStorage.getItem('v60-settings') || '{}');
-  const API_BASE = savedSettings.scriptUrl || '';
-  let beans = [];
+  const sheetUrlInput = document.getElementById('sheetUrlInput');
+  const scriptUrlInput = document.getElementById('scriptUrlInput');
+  const photoFolderInput = document.getElementById('photoFolderInput');
+  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+
+  if (sheetUrlInput) sheetUrlInput.value = savedSettings.sheetUrl || '';
+  if (scriptUrlInput) scriptUrlInput.value = savedSettings.scriptUrl || '';
+  if (photoFolderInput) photoFolderInput.value = savedSettings.photoFolder || '';
+
+  if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener('click', () => {
+      const nextSettings = {
+        sheetUrl: sheetUrlInput?.value.trim() || '',
+        scriptUrl: scriptUrlInput?.value.trim() || '',
+        photoFolder: photoFolderInput?.value.trim() || ''
+      };
+      localStorage.setItem('v60-settings', JSON.stringify(nextSettings));
+      alert('Settings saved. Reload the page, then the app can fetch your sheet data.');
+    });
+  }
 
   const views = ['dashboard', 'library', 'helper', 'settings'];
 
   function showView(name) {
-    views.forEach(v => {
-      const section = document.getElementById(`view-${v}`);
-      if (section) section.classList.toggle('hidden', v !== name);
+    views.forEach((view) => {
+      const el = document.getElementById(`view-${view}`);
+      if (!el) return;
+      if (view === name) {
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
     });
 
-    const title = document.getElementById('viewTitle');
-    if (title) {
-      title.textContent =
-        name === 'dashboard' ? 'Dashboard' :
-        name === 'library' ? 'Bean Library' :
-        name === 'helper' ? 'Recipe Helper' :
-        'Settings';
-    }
-
-    document.querySelectorAll('.nav-btn').forEach(btn => {
+    document.querySelectorAll('.nav-btn').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.view === name);
     });
+
+    if (viewTitle) {
+      const labels = {
+        dashboard: 'Dashboard',
+        library: 'Bean Library',
+        helper: 'Recipe Helper',
+        settings: 'Settings'
+      };
+      viewTitle.textContent = labels[name] || 'Dashboard';
+    }
   }
 
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => showView(btn.dataset.view));
+  document.querySelectorAll('.nav-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.view;
+      showView(target);
+    });
   });
 
-  async function fetchBeans() {
-    if (!API_BASE) return [];
-    const res = await fetch(`${API_BASE}?type=beans`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'Failed to load beans');
-    return json.data;
-  }
+  let beans = [];
 
   function normalizeBean(row) {
     return {
@@ -83,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const filtered = !q
       ? beans
-      : beans.filter(b =>
+      : beans.filter((b) =>
           [
             b.bean,
             b.roaster,
@@ -92,7 +117,10 @@ document.addEventListener('DOMContentLoaded', () => {
             b.process,
             b.roast,
             (b.notes || []).join(' ')
-          ].join(' ').toLowerCase().includes(q)
+          ]
+            .join(' ')
+            .toLowerCase()
+            .includes(q)
         );
 
     if (!filtered.length) {
@@ -100,9 +128,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    beanList.innerHTML = filtered.map(b => `
-      <div style="border:1px solid #ccc; border-radius:12px; padding:12px; margin-bottom:12px;">
-        <h3 style="margin:0 0 6px 0;">${b.bean || 'Untitled bean'}</h3>
+    beanList.innerHTML = filtered.map((b) => `
+      <div class="bean-card">
+        <h3>${b.bean || 'Untitled bean'}</h3>
         <div><strong>Roaster:</strong> ${b.roaster || '-'}</div>
         <div><strong>Origin:</strong> ${b.origin_country || '-'}</div>
         <div><strong>Process:</strong> ${b.process || '-'}</div>
@@ -114,29 +142,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadBeansFromApi() {
+    const currentSettings = JSON.parse(localStorage.getItem('v60-settings') || '{}');
+    if (!currentSettings.scriptUrl) return;
+
     try {
-      const rows = await fetchBeans();
-      beans = rows.map(normalizeBean);
+      const res = await fetch(`${currentSettings.scriptUrl}?type=beans`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Failed to load beans');
+      beans = (json.data || []).map(normalizeBean);
       renderBeans('');
     } catch (err) {
-      console.error(err);
+      console.error('Could not load beans', err);
     }
-  }
-
-  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-  if (saveSettingsBtn) {
-    saveSettingsBtn.addEventListener('click', () => {
-      const sheetUrl = document.getElementById('sheetUrlInput')?.value.trim() || '';
-      const scriptUrl = document.getElementById('scriptUrlInput')?.value.trim() || '';
-      const photoFolder = document.getElementById('photoFolderInput')?.value.trim() || '';
-      localStorage.setItem('v60-settings', JSON.stringify({ sheetUrl, scriptUrl, photoFolder }));
-      alert('Settings saved. Reload the page, then the app can fetch your sheet data.');
-    });
   }
 
   const beanSearch = document.getElementById('beanSearch');
   if (beanSearch) {
-    beanSearch.addEventListener('input', () => renderBeans(beanSearch.value));
+    beanSearch.addEventListener('input', () => {
+      renderBeans(beanSearch.value);
+    });
   }
 
   showView('dashboard');
