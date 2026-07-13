@@ -40,28 +40,26 @@
           <div class="tiny">View</div>
           <div class="top-title" id="viewTitle">Dashboard</div>
         </div>
-        <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
-          ☀
-        </button>
+        <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">☀</button>
       </header>
 
       <section class="content">
         <section id="view-dashboard">
           <h2>Welcome to your V60 notebook</h2>
           <p class="muted">
-            This is a test version running from GitHub Pages. We’ll wire Google Sheets and Apps Script next.
+            This is your live V60 app running on GitHub Pages with Google Sheets as the bean database.
           </p>
         </section>
 
-<section id="view-library" class="hidden">
-  <h2>Bean Library</h2>
-  <p class="muted">Search and browse beans from Google Sheets.</p>
+        <section id="view-library" class="hidden">
+          <h2>Bean Library</h2>
+          <p class="muted">Search and browse beans from Google Sheets.</p>
 
-  <div style="display:grid; gap:12px; max-width:700px; margin-top:16px;">
-    <input id="beanSearch" type="text" placeholder="Search by bean, roaster, origin..." />
-    <div id="beanList"></div>
-  </div>
-</section>
+          <div style="display:grid; gap:12px; max-width:700px; margin-top:16px;">
+            <input id="beanSearch" type="text" placeholder="Search by bean, roaster, origin..." />
+            <div id="beanList"></div>
+          </div>
+        </section>
 
         <section id="view-helper" class="hidden">
           <h2>Recipe Helper</h2>
@@ -70,7 +68,7 @@
 
         <section id="view-settings" class="hidden">
           <h2>Settings</h2>
-          <p class="muted">We’ll store your sheet URL, Apps Script URL, and photo folder ID here.</p>
+          <p class="muted">Store your sheet URL, Apps Script URL, and photo folder ID here.</p>
 
           <div style="display:grid; gap:12px; max-width:700px; margin-top:16px;">
             <label for="sheetUrlInput">Google Sheet URL</label>
@@ -89,6 +87,6 @@
     </main>
   </div>
 
-  <script src="app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
