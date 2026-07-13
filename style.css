@@ -97,6 +97,13 @@ p {
   margin-bottom: 4px;
 }
 
+.bean-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+
 .nav-btn,
 button {
   appearance: 
