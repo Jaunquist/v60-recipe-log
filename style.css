@@ -1,1 +1,102 @@
+:root {
+  --bg: #f6f3ee;
+  --panel: #fbf9f4;
+  --panel-2: #ffffff;
+  --line: #d8d1c7;
+  --text: #1e1b18;
+  --muted: #6f675f;
+  --accent: #8b5e3c;
+  --accent-dark: #6f482d;
+  --shadow: 0 10px 30px rgba(40, 28, 20, 0.08);
+  --radius: 16px;
+}
 
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Satoshi", system-ui, sans-serif;
+}
+
+body {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: "Cabinet Grotesk", "Satoshi", sans-serif;
+  line-height: 1.1;
+}
+
+p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+}
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  padding: 28px 20px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.brand {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 32px;
+}
+
+.logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow);
+}
+
+.brand h1 {
+  font-size: 2rem;
+  margin-bottom: 6px;
+}
+
+.tiny {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.nav {
+  display: grid;
+  gap: 10px;
+}
+
+.nav-title {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.nav-btn,
+button {
+  appearance: 
