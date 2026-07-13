@@ -81,6 +81,32 @@ function showView(name) {
     name === 'dashboard' ? 'Dashboard' :
     name === 'library' ? 'Bean Library' :
     name === 'helper' ? 'Recipe Helper' :
+
+    const saveBeanBtn = document.getElementById('saveBeanBtn');
+
+if (saveBeanBtn) {
+  saveBeanBtn.addEventListener('click', async () => {
+    if (!lastGeneratedBean) {
+      alert('Generate a recipe first.');
+      return;
+    }
+
+    try {
+      await saveBeanToApi(lastGeneratedBean);
+      alert('Bean saved to Google Sheet.');
+
+      // reload from API so the library reflects the real sheet
+      await loadBeansFromApi();
+
+      // optional: switch to library view after save
+      showView('library');
+    } catch (err) {
+      console.error(err);
+      alert(`Save failed: ${err.message}`);
+    }
+  });
+}
+    
     'Settings';
 
 const saveSettingsBtn = document.getElementById('saveSettingsBtn');
