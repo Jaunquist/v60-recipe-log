@@ -107,3 +107,7 @@ p {
 .nav-btn,
 button {
   appearance: 
+
+.hidden {
+  display: none !important;
+}
