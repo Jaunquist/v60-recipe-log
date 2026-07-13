@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>V60 Recipe Log</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 9h13l-1 8H5l-1-8Z"></path>
+            <path d="M9 5h6l1 4H8l1-4Z"></path>
+            <path d="M17 10c1.5-2 3-3 5-3"></path>
+          </svg>
+        </div>
+        <div>
+          <h1>V60 Recipe Log</h1>
+          <div class="tiny">Beans, recipes, and brew notes</div>
+        </div>
+      </div>
+
+      <div class="nav">
+        <div class="nav-title">Menu</div>
+        <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+        <button class="nav-btn" data-view="library">Bean Library</button>
+        <button class="nav-btn" data-view="helper">Recipe Helper</button>
+        <button class="nav-btn" data-view="settings">Settings</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="tiny">View</div>
+          <div class="top-title" id="viewTitle">Dashboard</div>
+        </div>
+        <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
+          ☀
+        </button>
+      </header>
+
+      <section class="content">
+        <section id="view-dashboard">
+          <h2>Welcome to your V60 notebook</h2>
+          <p class="muted">
+            This is a test version running from GitHub Pages. We’ll wire Google Sheets and Apps Script next.
+          </p>
+        </section>
+
+        <section id="view-library" class="hidden">
+          <h2>Bean Library</h2>
+          <p class="muted">This will list your beans from Google Sheets.</p>
+        </section>
+
+        <section id="view-helper" class="hidden">
+          <h2>Recipe Helper</h2>
+          <p class="muted">This will generate hot and iced V60 recipes.</p>
+        </section>
+
+        <section id="view-settings" class="hidden">
+          <h2>Settings</h2>
+          <p class="muted">We’ll store your sheet URL, Apps Script URL, and photo folder ID here.</p>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
