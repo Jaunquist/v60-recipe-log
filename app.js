@@ -3,6 +3,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggle = document.getElementById('themeToggle');
   const viewTitle = document.getElementById('viewTitle');
 
+  const sheetUrlInput = document.getElementById('sheetUrlInput');
+  const scriptUrlInput = document.getElementById('scriptUrlInput');
+  const photoFolderInput = document.getElementById('photoFolderInput');
+  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+  const beanSearch = document.getElementById('beanSearch');
+  const beanList = document.getElementById('beanList');
+
+  const helperBeanName = document.getElementById('helperBeanName');
+  const helperRoast = document.getElementById('helperRoast');
+  const helperProcess = document.getElementById('helperProcess');
+  const helperStyle = document.getElementById('helperStyle');
+  const helperDose = document.getElementById('helperDose');
+  const generateRecipeBtn = document.getElementById('generateRecipeBtn');
+  const recipeOutput = document.getElementById('recipeOutput');
+
   const savedTheme = localStorage.getItem('theme');
   if (savedTheme) {
     root.setAttribute('data-theme', savedTheme);
@@ -23,21 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const sheetUrlInput = document.getElementById('sheetUrlInput');
-  const scriptUrlInput = document.getElementById('scriptUrlInput');
-  const photoFolderInput = document.getElementById('photoFolderInput');
-  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-  const beanSearch = document.getElementById('beanSearch');
-  const beanList = document.getElementById('beanList');
-
-  const helperBeanName = document.getElementById('helperBeanName');
-  const helperRoast = document.getElementById('helperRoast');
-  const helperProcess = document.getElementById('helperProcess');
-  const helperStyle = document.getElementById('helperStyle');
-  const helperDose = document.getElementById('helperDose');
-  const generateRecipeBtn = document.getElementById('generateRecipeBtn');
-  const recipeOutput = document.getElementById('recipeOutput');
-
   const savedSettings = JSON.parse(localStorage.getItem('v60-settings') || '{}');
   if (sheetUrlInput) sheetUrlInput.value = savedSettings.sheetUrl || '';
   if (scriptUrlInput) scriptUrlInput.value = savedSettings.scriptUrl || '';
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         photoFolder: photoFolderInput?.value.trim() || ''
       };
       localStorage.setItem('v60-settings', JSON.stringify(nextSettings));
-      alert('Settings saved. Reload the page, then the app can fetch your sheet data.');
+      alert('Settings saved.');
     });
   }
 
@@ -190,31 +190,31 @@ document.addEventListener('DOMContentLoaded', () => {
       temp = 96;
       ratio = 16;
       grind = 'medium-fine';
-      notes.push('Use slightly hotter water to help fully extract a light roast.');
+      notes.push('Use slightly hotter water for light roasts.');
     } else if (roast === 'medium') {
       temp = 93;
       ratio = 15.5;
       grind = 'medium-fine';
-      notes.push('Medium roasts usually like a balanced temp and standard V60 grind.');
+      notes.push('Medium roasts usually like balanced extraction.');
     } else {
       temp = 88;
       ratio = 15;
       grind = 'medium';
-      notes.push('Darker roasts often taste sweeter with slightly cooler water.');
+      notes.push('Darker roasts often taste sweeter with cooler water.');
     }
 
     if (process === 'washed') {
-      notes.push('Washed coffees usually reward clarity, so keep pours controlled and even.');
+      notes.push('Washed coffees usually reward clarity and clean pours.');
     } else if (process === 'natural') {
       ratio -= 0.3;
-      notes.push('Naturals can get intense fast, so a touch stronger and slightly gentler pouring helps.');
+      notes.push('Naturals can get intense quickly, so keep the brew a touch tighter.');
     } else if (process === 'anaerobic') {
       ratio -= 0.5;
       temp -= 1;
-      notes.push('Anaerobic lots can become boozy or loud, so keep extraction a little tighter.');
+      notes.push('Anaerobic lots can get loud fast, so lower extraction slightly.');
     } else if (process === 'honey') {
       ratio -= 0.2;
-      notes.push('Honey process often likes a sweet, rounded extraction with moderate agitation.');
+      notes.push('Honey coffees often like a rounded, sweet extraction.');
     }
 
     if (style === 'hot') {
@@ -232,12 +232,12 @@ document.addEventListener('DOMContentLoaded', () => {
           `Target time: ${targetTime}`
         ],
         steps: [
-          'Rinse the filter thoroughly and preheat the brewer/server.',
-          `Add ${dose}g coffee, level the bed, and start the timer.`,
+          'Rinse the filter and preheat the brewer.',
+          `Add ${dose}g coffee and level the bed.`,
           `Pour ${bloom}g for the bloom and wait 30–45 seconds.`,
-          `Continue in 2 to 3 controlled pours until you reach ${water}g total water.`,
-          'Finish with a gentle swirl to flatten the bed and draw down evenly.',
-          'Taste and adjust next brew: grind finer if sour, coarser if bitter or slow.'
+          `Continue pouring until you reach ${water}g total water.`,
+          'Finish with a gentle swirl.',
+          'Adjust finer if sour, coarser if bitter or slow.'
         ],
         notes
       };
@@ -258,19 +258,19 @@ document.addEventListener('DOMContentLoaded', () => {
         `Final ratio: ~1:${finalRatio}`,
         `Temp: ${Math.max(temp, 93)}°C`,
         `Grind: slightly finer than hot V60`,
-        'Target time: 2:30–3:00'
+        `Target time: 2:30–3:00`
       ],
       steps: [
         `Place ${ice}g ice in the server.`,
-        'Rinse the filter, but do not leave hot rinse water in the server.',
+        'Rinse the filter and discard the rinse water.',
         `Add ${dose}g coffee and bloom with ${bloom}g water for 30–45 seconds.`,
-        `Pour the remaining hot water in 2 steady pours until you reach ${hotWater}g total hot water.`,
-        'Give the brewer a gentle swirl near the end for even drawdown.',
-        'Swirl the finished brew with the ice and serve immediately.'
+        `Pour remaining water until you reach ${hotWater}g total hot water.`,
+        'Give the brewer a gentle swirl.',
+        'Swirl the brewed coffee over ice and serve.'
       ],
       notes: [
         ...notes,
-        'Iced V60 works best as a stronger brew over ice so the melt brings it back into balance.'
+        'Iced V60 works best as a stronger brew over ice.'
       ]
     };
   }
@@ -283,13 +283,11 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="recipe-meta">
         ${recipe.meta.map((item) => `<div>${item}</div>`).join('')}
       </div>
-
       <ol class="recipe-steps">
         ${recipe.steps.map((step) => `<li>${step}</li>`).join('')}
       </ol>
-
       <div class="recipe-meta">
-        ${recipe.notes.map((note) => `<div>Tip: ${note}</div>`).join('')}
+        ${recipe.notes.map((note) => `<div><strong>Tip:</strong> ${note}</div>`).join('')}
       </div>
     `;
   }
