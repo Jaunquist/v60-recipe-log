@@ -165,9 +165,45 @@ if (saveSettingsBtn) {
 
 // Placeholder UI hooks
 function renderBeans(filter = '') {
-  console.log('Render beans', filter, beans);
-}
+  const beanList = document.getElementById('beanList');
+  if (!beanList) return;
 
+  const q = filter.trim().toLowerCase();
+
+  const filtered = !q
+    ? beans
+    : beans.filter(b =>
+        [
+          b.bean,
+          b.roaster,
+          b.origin_country,
+          b.origin_region,
+          b.process,
+          b.roast,
+          (b.notes || []).join(' ')
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(q)
+      );
+
+  if (!filtered.length) {
+    beanList.innerHTML = '<p class="muted">No beans found.</p>';
+    return;
+  }
+
+  beanList.innerHTML = filtered.map(b => `
+    <div style="border:1px solid #ccc; border-radius:12px; padding:12px; margin-bottom:12px;">
+      <h3 style="margin:0 0 6px 0;">${b.bean || 'Untitled bean'}</h3>
+      <div><strong>Roaster:</strong> ${b.roaster || '-'}</div>
+      <div><strong>Origin:</strong> ${b.origin_country || '-'}</div>
+      <div><strong>Process:</strong> ${b.process || '-'}</div>
+      <div><strong>Roast:</strong> ${b.roast || '-'}</div>
+      <div><strong>Notes:</strong> ${(b.notes || []).join(', ') || '-'}</div>
+      <div><strong>Recipe:</strong> ${b.recipe?.dose_g || '-'}g / ${b.recipe?.water_g || '-'}g / ${b.recipe?.temp_c || '-'}°C</div>
+    </div>
+  `).join('');
+}
 function updateStats() {
   console.log('Update stats', beans.length);
 }
@@ -190,6 +226,13 @@ if (saveBeanBtn) {
       console.error(err);
       alert(`Save failed: ${err.message}`);
     }
+  });
+}
+
+const beanSearch = document.getElementById('beanSearch');
+if (beanSearch) {
+  beanSearch.addEventListener('input', () => {
+    renderBeans(beanSearch.value);
   });
 }
 
