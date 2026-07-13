@@ -107,6 +107,56 @@ if (saveSettingsBtn) {
     data: beanObject
   })
 });
+
+async function saveBeanToApi(beanObj) {
+  if (!API_BASE) {
+    throw new Error('Missing Apps Script URL in Settings');
+  }
+
+  const payload = {
+    type: 'bean',
+    data: {
+      id: beanObj.id || '',
+      bean: beanObj.bean || '',
+      roaster: beanObj.roaster || '',
+      origin_country: beanObj.origin_country || '',
+      origin_region: beanObj.origin_region || '',
+      purchase_country: beanObj.purchase_country || '',
+      purchase_city: beanObj.purchase_city || '',
+      variety: beanObj.variety || '',
+      process: beanObj.process || '',
+      roast: beanObj.roast || '',
+      notes: Array.isArray(beanObj.notes) ? beanObj.notes.join('|') : (beanObj.notes || ''),
+      brew_method: 'V60',
+      dose_g: beanObj.recipe?.dose_g || '',
+      water_g: beanObj.recipe?.water_g || '',
+      temp_c: beanObj.recipe?.temp_c || '',
+      grind: beanObj.recipe?.grind || '',
+      target_time: beanObj.recipe?.target_time || '',
+      pours: Array.isArray(beanObj.recipe?.pours) ? beanObj.recipe.pours.join('|') : '',
+      recipe_style: beanObj.recipe?.style || '',
+      taste_summary: beanObj.taste_summary || '',
+      source: beanObj.source || 'App save',
+      photo_url: beanObj.photo_url || '',
+      initial_notes: beanObj.initial_notes || ''
+    }
+  };
+
+  const res = await fetch(API_BASE, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const json = await res.json();
+  if (!json.success) {
+    throw new Error(json.error || 'Save failed');
+  }
+
+  return json;
+}
   
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.view === name);
