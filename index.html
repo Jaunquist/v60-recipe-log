@@ -53,10 +53,15 @@
           </p>
         </section>
 
-        <section id="view-library" class="hidden">
-          <h2>Bean Library</h2>
-          <p class="muted">This will list your beans from Google Sheets.</p>
-        </section>
+<section id="view-library" class="hidden">
+  <h2>Bean Library</h2>
+  <p class="muted">Search and browse beans from Google Sheets.</p>
+
+  <div style="display:grid; gap:12px; max-width:700px; margin-top:16px;">
+    <input id="beanSearch" type="text" placeholder="Search by bean, roaster, origin..." />
+    <div id="beanList"></div>
+  </div>
+</section>
 
         <section id="view-helper" class="hidden">
           <h2>Recipe Helper</h2>
