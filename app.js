@@ -1,168 +1,92 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const root = document.documentElement;
-  const themeToggle = document.getElementById('themeToggle');
-  const viewTitle = document.getElementById('viewTitle');
-
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme) {
-    root.setAttribute('data-theme', savedTheme);
-    if (themeToggle) themeToggle.textContent = savedTheme === 'dark' ? '🌙' : '☀';
-  } else {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-    if (themeToggle) themeToggle.textContent = prefersDark ? '🌙' : '☀';
-  }
-
-  if (themeToggle) {
-    themeToggle.addEventListener('click', () => {
-      const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-      const next = current === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', next);
-      localStorage.setItem('theme', next);
-      themeToggle.textContent = next === 'dark' ? '🌙' : '☀';
-    });
-  }
-
-  const savedSettings = JSON.parse(localStorage.getItem('v60-settings') || '{}');
-  const sheetUrlInput = document.getElementById('sheetUrlInput');
-  const scriptUrlInput = document.getElementById('scriptUrlInput');
-  const photoFolderInput = document.getElementById('photoFolderInput');
-  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-
-  if (sheetUrlInput) sheetUrlInput.value = savedSettings.sheetUrl || '';
-  if (scriptUrlInput) scriptUrlInput.value = savedSettings.scriptUrl || '';
-  if (photoFolderInput) photoFolderInput.value = savedSettings.photoFolder || '';
-
-  if (saveSettingsBtn) {
-    saveSettingsBtn.addEventListener('click', () => {
-      const nextSettings = {
-        sheetUrl: sheetUrlInput?.value.trim() || '',
-        scriptUrl: scriptUrlInput?.value.trim() || '',
-        photoFolder: photoFolderInput?.value.trim() || ''
-      };
-      localStorage.setItem('v60-settings', JSON.stringify(nextSettings));
-      alert('Settings saved. Reload the page, then the app can fetch your sheet data.');
-    });
-  }
-
-const views = ['dashboard', 'library', 'helper', 'settings'];
-
-function showView(name) {
-  views.forEach((view) => {
-    const el = document.getElementById(`view-${view}`);
-    if (!el) return;
-
-    if (view === name) {
-      el.classList.remove('hidden');
-    } else {
-      el.classList.add('hidden');
-    }
-  });
-
-  document.querySelectorAll('.nav-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.view === name);
-  });
-
-  const titleMap = {
-    dashboard: 'Dashboard',
-    library: 'Bean Library',
-    helper: 'Recipe Helper',
-    settings: 'Settings'
-  };
-
-  const viewTitle = document.getElementById('viewTitle');
-  if (viewTitle) viewTitle.textContent = titleMap[name] || 'Dashboard';
-}
-
-document.querySelectorAll('.nav-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    showView(btn.dataset.view);
-  });
-});
-
-let beans = [];
-
-  function normalizeBean(row) {
-    return {
-      id: row.id || '',
-      bean: row.bean || '',
-      roaster: row.roaster || '',
-      origin_country: row.origin_country || '',
-      origin_region: row.origin_region || '',
-      process: row.process || '',
-      roast: row.roast || '',
-      notes: row.notes ? String(row.notes).split('|').map(s => s.trim()).filter(Boolean) : [],
-      recipe: {
-        dose_g: row.dose_g || '',
-        water_g: row.water_g || '',
-        temp_c: row.temp_c || ''
-      }
-    };
-  }
-
-  function renderBeans(filter = '') {
-    const beanList = document.getElementById('beanList');
-    if (!beanList) return;
-
-    const q = filter.trim().toLowerCase();
-
-    const filtered = !q
-      ? beans
-      : beans.filter((b) =>
-          [
-            b.bean,
-            b.roaster,
-            b.origin_country,
-            b.origin_region,
-            b.process,
-            b.roast,
-            (b.notes || []).join(' ')
-          ]
-            .join(' ')
-            .toLowerCase()
-            .includes(q)
-        );
-
-    if (!filtered.length) {
-      beanList.innerHTML = '<p class="muted">No beans found.</p>';
-      return;
-    }
-
-    beanList.innerHTML = filtered.map((b) => `
-      <div class="bean-card">
-        <h3>${b.bean || 'Untitled bean'}</h3>
-        <div><strong>Roaster:</strong> ${b.roaster || '-'}</div>
-        <div><strong>Origin:</strong> ${b.origin_country || '-'}</div>
-        <div><strong>Process:</strong> ${b.process || '-'}</div>
-        <div><strong>Roast:</strong> ${b.roast || '-'}</div>
-        <div><strong>Notes:</strong> ${(b.notes || []).join(', ') || '-'}</div>
-        <div><strong>Recipe:</strong> ${b.recipe?.dose_g || '-'}g / ${b.recipe?.water_g || '-'}g / ${b.recipe?.temp_c || '-'}°C</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>V60 Recipe Log</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 9h13l-1 8H5l-1-8Z"></path>
+            <path d="M9 5h6l1 4H8l1-4Z"></path>
+            <path d="M17 10c1.5-2 3-3 5-3"></path>
+          </svg>
+        </div>
+        <div>
+          <h1>V60 Recipe Log</h1>
+          <div class="tiny">Beans, recipes, and brew notes</div>
+        </div>
       </div>
-    `).join('');
-  }
 
-  async function loadBeansFromApi() {
-    const currentSettings = JSON.parse(localStorage.getItem('v60-settings') || '{}');
-    if (!currentSettings.scriptUrl) return;
+      <div class="nav">
+        <div class="nav-title">Menu</div>
+        <button class="nav-btn active" data-view="dashboard" type="button">Dashboard</button>
+        <button class="nav-btn" data-view="library" type="button">Bean Library</button>
+        <button class="nav-btn" data-view="helper" type="button">Recipe Helper</button>
+        <button class="nav-btn" data-view="settings" type="button">Settings</button>
+      </div>
+    </aside>
 
-    try {
-      const res = await fetch(`${currentSettings.scriptUrl}?type=beans`);
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Failed to load beans');
-      beans = (json.data || []).map(normalizeBean);
-      renderBeans('');
-    } catch (err) {
-      console.error('Could not load beans', err);
-    }
-  }
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="tiny">View</div>
+          <div class="top-title" id="viewTitle">Dashboard</div>
+        </div>
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">☀</button>
+      </header>
 
-  const beanSearch = document.getElementById('beanSearch');
-  if (beanSearch) {
-    beanSearch.addEventListener('input', () => {
-      renderBeans(beanSearch.value);
-    });
-  }
+      <section class="content">
+        <section id="view-dashboard" class="panel">
+          <h2>Welcome to your V60 notebook</h2>
+          <p class="muted">
+            This is your live V60 app running on GitHub Pages with Google Sheets as the bean database.
+          </p>
+        </section>
 
-  showView('dashboard');
-  loadBeansFromApi();
-});
+        <section id="view-library" class="panel hidden">
+          <h2>Bean Library</h2>
+          <p class="muted">Search and browse beans from Google Sheets.</p>
+
+          <div class="library-stack">
+            <input id="beanSearch" type="text" placeholder="Search by bean, roaster, origin..." />
+            <div id="beanList"></div>
+          </div>
+        </section>
+
+        <section id="view-helper" class="panel hidden">
+          <h2>Recipe Helper</h2>
+          <p class="muted">Use this section for new bean recipe suggestions next.</p>
+        </section>
+
+        <section id="view-settings" class="panel hidden">
+          <h2>Settings</h2>
+          <p class="muted">Store your sheet URL, Apps Script URL, and photo folder ID here.</p>
+
+          <div class="settings-grid">
+            <label for="sheetUrlInput">Google Sheet URL</label>
+            <input id="sheetUrlInput" type="text" placeholder="https://docs.google.com/spreadsheets/d/..." />
+
+            <label for="scriptUrlInput">Apps Script web app URL</label>
+            <input id="scriptUrlInput" type="text" placeholder="https://script.google.com/macros/s/.../exec" />
+
+            <label for="photoFolderInput">Google Drive photo folder ID</label>
+            <input id="photoFolderInput" type="text" placeholder="Your Drive folder ID" />
+
+            <button id="saveSettingsBtn" type="button">Save settings</button>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
