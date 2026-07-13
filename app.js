@@ -45,42 +45,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const views = ['dashboard', 'library', 'helper', 'settings'];
+const views = ['dashboard', 'library', 'helper', 'settings'];
 
-  function showView(name) {
-    views.forEach((view) => {
-      const el = document.getElementById(`view-${view}`);
-      if (!el) return;
-      if (view === name) {
-        el.classList.remove('hidden');
-      } else {
-        el.classList.add('hidden');
-      }
-    });
+function showView(name) {
+  views.forEach((view) => {
+    const el = document.getElementById(`view-${view}`);
+    if (!el) return;
 
-    document.querySelectorAll('.nav-btn').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.view === name);
-    });
-
-    if (viewTitle) {
-      const labels = {
-        dashboard: 'Dashboard',
-        library: 'Bean Library',
-        helper: 'Recipe Helper',
-        settings: 'Settings'
-      };
-      viewTitle.textContent = labels[name] || 'Dashboard';
+    if (view === name) {
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
     }
-  }
-
-  document.querySelectorAll('.nav-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const target = btn.dataset.view;
-      showView(target);
-    });
   });
 
-  let beans = [];
+  document.querySelectorAll('.nav-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.view === name);
+  });
+
+  const titleMap = {
+    dashboard: 'Dashboard',
+    library: 'Bean Library',
+    helper: 'Recipe Helper',
+    settings: 'Settings'
+  };
+
+  const viewTitle = document.getElementById('viewTitle');
+  if (viewTitle) viewTitle.textContent = titleMap[name] || 'Dashboard';
+}
+
+document.querySelectorAll('.nav-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    showView(btn.dataset.view);
+  });
+});
+
+let beans = [];
 
   function normalizeBean(row) {
     return {
