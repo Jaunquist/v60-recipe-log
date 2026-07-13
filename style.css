@@ -97,21 +97,59 @@ p {
   margin-bottom: 4px;
 }
 
-.bean-card {
-  background: white;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 16px;
-}
-
 .nav-btn,
 button {
-  appearance: 
-
-.hidden {
-  display: none !important;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  cursor: pointer;
+  transition: 160ms ease;
 }
 
-section.hidden {
-  display: none !important;
+.nav-btn:hover,
+button:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
 }
+
+.nav-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.main {
+  min-width: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px 0;
+}
+
+.top-title {
+  font-size: 1.35rem;
+  font-family: "Cabinet Grotesk", "Satoshi", sans-serif;
+}
+
+.theme-toggle {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.content {
+  padding: 24px 28px 40px;
+}
+
+.content section {
+  background: var(--panel);
+  border: 1px solid var(--line);
