@@ -108,6 +108,6 @@ p {
 button {
   appearance: 
 
-.hidden {
+section.hidden {
   display: none !important;
 }
