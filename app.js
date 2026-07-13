@@ -23,31 +23,6 @@ const savedSettings = JSON.parse(localStorage.getItem('v60-settings') || '{}');
 const API_BASE = savedSettings.scriptUrl || '';
 let beans = [];
 
-// View switching
-const views = ['dashboard','library','helper','settings'];
-
-function showView(name) {
-  views.forEach(v => {
-    document.getElementById(`view-${v}`).classList.toggle('hidden', v !== name);
-  });
-  document.getElementById('viewTitle').textContent =
-    name === 'dashboard' ? 'Dashboard' :
-    name === 'library' ? 'Bean Library' :
-    name === 'helper' ? 'Recipe Helper' :
-    'Settings';
-
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.view === name);
-  });
-}
-
-document.querySelectorAll('.nav-btn').forEach(btn => {
-  btn.addEventListener('click', () => showView(btn.dataset.view));
-});
-
-// Initial view
-showView('dashboard');
-
 async function fetchBeans() {
   if (!API_BASE) return [];
   const url = `${API_BASE}?type=beans`;
@@ -94,3 +69,53 @@ async function loadBeansFromApi() {
     alert('Could not load beans from Google Sheets yet. Check your Apps Script URL in Settings.');
   }
 }
+
+// View switching
+const views = ['dashboard','library','helper','settings'];
+
+function showView(name) {
+  views.forEach(v => {
+    document.getElementById(`view-${v}`).classList.toggle('hidden', v !== name);
+  });
+  document.getElementById('viewTitle').textContent =
+    name === 'dashboard' ? 'Dashboard' :
+    name === 'library' ? 'Bean Library' :
+    name === 'helper' ? 'Recipe Helper' :
+    'Settings';
+
+const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+if (saveSettingsBtn) {
+  saveSettingsBtn.addEventListener('click', () => {
+    const sheetUrl = document.getElementById('sheetUrlInput').value.trim();
+    const scriptUrl = document.getElementById('scriptUrlInput').value.trim();
+    const photoFolder = document.getElementById('photoFolderInput').value.trim();
+    const payload = { sheetUrl, scriptUrl, photoFolder };
+    localStorage.setItem('v60-settings', JSON.stringify(payload));
+    alert('Settings saved. Reload the page, then the app can fetch your sheet data.');
+  });
+}
+
+  loadBeansFromApi();
+
+  fetch(API_BASE, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'text/plain;charset=utf-8'
+  },
+  body: JSON.stringify({
+    type: 'bean',
+    data: beanObject
+  })
+});
+  
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === name);
+  });
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => showView(btn.dataset.view));
+});
+
+// Initial view
+showView('dashboard');
