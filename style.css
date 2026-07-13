@@ -150,6 +150,88 @@ button:hover {
   padding: 24px 28px 40px;
 }
 
-.content section {
+.panel {
   background: var(--panel);
   border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.panel + .panel {
+  margin-top: 18px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.library-stack,
+.settings-grid {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+  margin-top: 16px;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(139, 94, 60, 0.12);
+}
+
+label {
+  font-weight: 600;
+}
+
+.bean-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+#beanList > .bean-card + .bean-card {
+  margin-top: 12px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .topbar,
+  .content {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .brand h1 {
+    font-size: 1.7rem;
+  }
+}
