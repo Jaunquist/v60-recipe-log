@@ -27,10 +27,10 @@
 
       <div class="nav">
         <div class="nav-title">Menu</div>
-        <button class="nav-btn active" data-view="dashboard">Dashboard</button>
-        <button class="nav-btn" data-view="library">Bean Library</button>
-        <button class="nav-btn" data-view="helper">Recipe Helper</button>
-        <button class="nav-btn" data-view="settings">Settings</button>
+        <button class="nav-btn active" data-view="dashboard" type="button">Dashboard</button>
+        <button class="nav-btn" data-view="library" type="button">Bean Library</button>
+        <button class="nav-btn" data-view="helper" type="button">Recipe Helper</button>
+        <button class="nav-btn" data-view="settings" type="button">Settings</button>
       </div>
     </aside>
 
@@ -40,37 +40,78 @@
           <div class="tiny">View</div>
           <div class="top-title" id="viewTitle">Dashboard</div>
         </div>
-        <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">☀</button>
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">☀</button>
       </header>
 
       <section class="content">
-        <section id="view-dashboard">
+        <section id="view-dashboard" class="panel">
           <h2>Welcome to your V60 notebook</h2>
           <p class="muted">
             This is your live V60 app running on GitHub Pages with Google Sheets as the bean database.
           </p>
         </section>
 
-        <section id="view-library" class="hidden">
+        <section id="view-library" class="panel hidden">
           <h2>Bean Library</h2>
           <p class="muted">Search and browse beans from Google Sheets.</p>
 
-          <div style="display:grid; gap:12px; max-width:700px; margin-top:16px;">
+          <div class="library-stack">
             <input id="beanSearch" type="text" placeholder="Search by bean, roaster, origin..." />
             <div id="beanList"></div>
           </div>
         </section>
 
-        <section id="view-helper" class="hidden">
+        <section id="view-helper" class="panel hidden">
           <h2>Recipe Helper</h2>
-          <p class="muted">This will generate hot and iced V60 recipes.</p>
+          <p class="muted">Build a quick starter recipe for hot or iced V60.</p>
+
+          <div class="helper-grid">
+            <div class="helper-form">
+              <label for="helperBeanName">Bean name</label>
+              <input id="helperBeanName" type="text" placeholder="e.g. Ethiopia Bombe" />
+
+              <label for="helperRoast">Roast level</label>
+              <select id="helperRoast">
+                <option value="light">Light</option>
+                <option value="medium">Medium</option>
+                <option value="dark">Dark</option>
+              </select>
+
+              <label for="helperProcess">Process</label>
+              <select id="helperProcess">
+                <option value="washed">Washed</option>
+                <option value="natural">Natural</option>
+                <option value="anaerobic">Anaerobic</option>
+                <option value="honey">Honey</option>
+                <option value="other">Other</option>
+              </select>
+
+              <label for="helperStyle">Brew style</label>
+              <select id="helperStyle">
+                <option value="hot">Hot V60</option>
+                <option value="iced">Iced V60</option>
+              </select>
+
+              <label for="helperDose">Dose (g)</label>
+              <input id="helperDose" type="number" min="12" max="40" step="1" value="18" />
+
+              <button id="generateRecipeBtn" type="button">Generate recipe</button>
+            </div>
+
+            <div class="helper-output">
+              <div id="recipeOutput" class="recipe-card">
+                <h3>Starter recipe</h3>
+                <p class="muted">Choose your bean details, then generate a recipe.</p>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <section id="view-settings" class="hidden">
+        <section id="view-settings" class="panel hidden">
           <h2>Settings</h2>
           <p class="muted">Store your sheet URL, Apps Script URL, and photo folder ID here.</p>
 
-          <div style="display:grid; gap:12px; max-width:700px; margin-top:16px;">
+          <div class="settings-grid">
             <label for="sheetUrlInput">Google Sheet URL</label>
             <input id="sheetUrlInput" type="text" placeholder="https://docs.google.com/spreadsheets/d/..." />
 
