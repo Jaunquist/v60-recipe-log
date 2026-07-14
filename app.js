@@ -188,7 +188,19 @@ async function bootstrapApp() {
 async function fetchJson(url) {
   const response = await fetch(url, { method: 'GET' });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-  return response.json();
+
+  let result;
+  try {
+    result = await response.json();
+  } catch (error) {
+    throw new Error('Invalid JSON response from backend.');
+  }
+
+  if (result && result.success === false) {
+    throw new Error(result.error || 'Backend request failed.');
+  }
+
+  return result;
 }
 
 async function postJson(payload) {
@@ -202,8 +214,17 @@ async function postJson(payload) {
 
   if (!response.ok) throw new Error(`POST failed: ${response.status}`);
 
-  const result = await response.json();
-  if (!result.success) throw new Error(result.error || 'Request failed.');
+  let result;
+  try {
+    result = await response.json();
+  } catch (error) {
+    throw new Error('Invalid JSON response from backend.');
+  }
+
+  if (result && result.success === false) {
+    throw new Error(result.error || 'Backend request failed.');
+  }
+
   return result;
 }
 
@@ -284,8 +305,6 @@ function renderBeanList() {
     const title = escapeHtml(bean.name || bean.bean || 'Untitled Bean');
     const origin = bean.origin ? `<div class="bean-card__origin">${formatOriginWithFlag(bean.origin)}</div>` : '';
     const roaster = bean.roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(bean.roaster)}</div>` : '';
-    const variety = bean.variety ? `<div class="bean-card__meta"><strong>Variety:</strong> ${escapeHtml(bean.variety)}</div>` : '';
-    const purchaseCountry = bean.purchase_country ? `<div class="bean-card__meta"><strong>Purchased in:</strong> ${escapeHtml(bean.purchase_country)}</div>` : '';
     const process = bean.process ? `<div class="bean-card__meta"><strong>Process:</strong> ${escapeHtml(bean.process)}</div>` : '';
     const notes = bean.notes ? `<div class="bean-card__meta"><strong>Notes:</strong> ${escapeHtml(bean.notes)}</div>` : '';
 
@@ -296,8 +315,6 @@ function renderBeanList() {
           ${origin}
         </div>
         ${roaster}
-        ${variety}
-        ${purchaseCountry}
         ${process}
         ${notes}
       </div>
@@ -340,8 +357,6 @@ function renderRecipeHelper() {
       const parts = [`<strong>${escapeHtml(bean.name || bean.bean || 'Untitled Bean')}</strong>`];
       if (bean.roaster) parts.push(escapeHtml(bean.roaster));
       if (bean.origin) parts.push(formatOriginWithFlag(bean.origin));
-      if (bean.variety) parts.push(`Variety: ${escapeHtml(bean.variety)}`);
-      if (bean.purchase_country) parts.push(`Purchased in: ${escapeHtml(bean.purchase_country)}`);
       if (bean.process) parts.push(escapeHtml(bean.process));
       summary.innerHTML = parts.join(' · ');
     } else {
@@ -400,7 +415,6 @@ async function onSaveBean(event) {
   event.preventDefault();
 
   const beanData = collectBeanFormData();
-
   setStatus('Saving bean...', 'info');
 
   try {
@@ -436,17 +450,19 @@ async function onSaveBean(event) {
 async function onResearchBean() {
   const beanData = collectBeanFormData();
   const name = beanData.bean || beanData.name || '';
+  const researchStatus = document.getElementById('researchStatus');
 
   if (!name) {
     setStatus('Enter at least a bean name before research.', 'error');
+    if (researchStatus) {
+      researchStatus.textContent = 'Enter a bean name first.';
+    }
     return;
   }
 
   setStatus('Researching bean (baseline debug)...', 'info');
-
-  const researchStatus = document.getElementById('researchStatus');
   if (researchStatus) {
-    researchStatus.textContent = 'Research in progress…';
+    researchStatus.textContent = 'Research in progress...';
   }
 
   try {
@@ -455,22 +471,27 @@ async function onResearchBean() {
       beanData
     });
 
-    const researchedBean = result?.data?.bean;
-    if (researchedBean) {
-      fillBeanForm(researchedBean);
+    const researchedBean = result?.data?.bean || null;
 
-      if (researchStatus) {
-        researchStatus.textContent = `Research complete via ${result.data.provider || 'debug'} (${result.data.model || 'baseline'}).`;
-      }
+    if (!researchedBean) {
+      throw new Error('Backend returned no bean data.');
+    }
+
+    fillBeanForm(researchedBean);
+
+    if (researchStatus) {
+      const provider = result?.data?.provider || 'debug';
+      const model = result?.data?.model || 'baseline';
+      researchStatus.textContent = `Research complete via ${provider} (${model}).`;
     }
 
     setStatus('Bean research complete.', 'success');
   } catch (error) {
-    console.error(error);
+    console.error('Research bean failed:', error);
     if (researchStatus) {
-      researchStatus.textContent = 'Research failed. You can still fill fields manually.';
+      researchStatus.textContent = `Research failed: ${error.message}`;
     }
-    setStatus(error.message || 'Failed to research bean.', 'error');
+    setStatus(`Failed to research bean: ${error.message}`, 'error');
   }
 }
 
@@ -481,27 +502,31 @@ function collectBeanFormData() {
     roaster: document.getElementById('beanRoaster')?.value.trim() || '',
     origin_country: document.getElementById('beanOriginCountry')?.value.trim() || '',
     origin_region: document.getElementById('beanOriginRegion')?.value.trim() || '',
-    variety: document.getElementById('beanVariety')?.value.trim() || '',
-    purchase_country: document.getElementById('beanPurchaseCountry')?.value.trim() || '',
     process: document.getElementById('beanProcess')?.value.trim() || '',
     notes: document.getElementById('beanNotes')?.value.trim() || ''
   };
 }
 
 function fillBeanForm(bean) {
-  if (bean.bean || bean.name) document.getElementById('beanName').value = bean.bean || bean.name;
-  if (bean.roaster) document.getElementById('beanRoaster').value = bean.roaster;
-  if (bean.origin_country) document.getElementById('beanOriginCountry').value = bean.origin_country;
-  if (bean.origin_region) document.getElementById('beanOriginRegion').value = bean.origin_region;
-  if (bean.variety) document.getElementById('beanVariety').value = bean.variety;
-  if (bean.purchase_country) document.getElementById('beanPurchaseCountry').value = bean.purchase_country;
-  if (bean.process) document.getElementById('beanProcess').value = bean.process;
-  if (bean.notes) document.getElementById('beanNotes').value = bean.notes;
+  const beanName = document.getElementById('beanName');
+  const beanRoaster = document.getElementById('beanRoaster');
+  const beanOriginCountry = document.getElementById('beanOriginCountry');
+  const beanOriginRegion = document.getElementById('beanOriginRegion');
+  const beanProcess = document.getElementById('beanProcess');
+  const beanNotes = document.getElementById('beanNotes');
+
+  if (beanName && (bean.bean || bean.name)) beanName.value = bean.bean || bean.name;
+  if (beanRoaster && bean.roaster) beanRoaster.value = bean.roaster;
+  if (beanOriginCountry && bean.origin_country) beanOriginCountry.value = bean.origin_country;
+  if (beanOriginRegion && bean.origin_region) beanOriginRegion.value = bean.origin_region;
+  if (beanProcess && bean.process) beanProcess.value = bean.process;
+  if (beanNotes && bean.notes) beanNotes.value = bean.notes;
 }
 
 function resetAddBeanForm() {
   const form = document.getElementById('addBeanForm');
   if (form) form.reset();
+
   const researchStatus = document.getElementById('researchStatus');
   if (researchStatus) {
     researchStatus.textContent = 'Optional: tap Research Bean to auto-fill origin and notes.';
@@ -526,6 +551,7 @@ function formatOriginWithFlag(origin) {
   const code = inferCountryCode(origin);
   const flag = code ? countryCodeToFlag(code) : '';
   const text = escapeHtml(origin);
+
   return flag
     ? `<span class="origin-flag" aria-hidden="true">${flag}</span> <span>${text}</span>`
     : `<span>${text}</span>`;
@@ -543,14 +569,44 @@ function inferCountryCode(origin) {
 
   const normalized = origin.trim().toLowerCase();
   const map = {
-    ethiopia: 'ET', kenya: 'KE', rwanda: 'RW', burundi: 'BI', uganda: 'UG', tanzania: 'TZ',
-    colombia: 'CO', brazil: 'BR', peru: 'PE', bolivia: 'BO', ecuador: 'EC', guatemala: 'GT',
-    honduras: 'HN', 'el salvador': 'SV', elsalvador: 'SV', nicaragua: 'NI',
-    'costa rica': 'CR', costarica: 'CR', panama: 'PA', mexico: 'MX',
-    indonesia: 'ID', sumatra: 'ID', java: 'ID', sulawesi: 'ID', bali: 'ID',
-    yemen: 'YE', india: 'IN', vietnam: 'VN', laos: 'LA', thailand: 'TH',
-    myanmar: 'MM', china: 'CN', taiwan: 'TW', japan: 'JP', philippines: 'PH',
-    'papua new guinea': 'PG', papuanewguinea: 'PG', png: 'PG'
+    ethiopia: 'ET',
+    kenya: 'KE',
+    rwanda: 'RW',
+    burundi: 'BI',
+    uganda: 'UG',
+    tanzania: 'TZ',
+    colombia: 'CO',
+    brazil: 'BR',
+    peru: 'PE',
+    bolivia: 'BO',
+    ecuador: 'EC',
+    guatemala: 'GT',
+    honduras: 'HN',
+    'el salvador': 'SV',
+    elsalvador: 'SV',
+    nicaragua: 'NI',
+    'costa rica': 'CR',
+    costarica: 'CR',
+    panama: 'PA',
+    mexico: 'MX',
+    indonesia: 'ID',
+    sumatra: 'ID',
+    java: 'ID',
+    sulawesi: 'ID',
+    bali: 'ID',
+    yemen: 'YE',
+    india: 'IN',
+    vietnam: 'VN',
+    laos: 'LA',
+    thailand: 'TH',
+    myanmar: 'MM',
+    china: 'CN',
+    taiwan: 'TW',
+    japan: 'JP',
+    philippines: 'PH',
+    'papua new guinea': 'PG',
+    papuanewguinea: 'PG',
+    png: 'PG'
   };
 
   if (map[normalized]) return map[normalized];
