@@ -7,10 +7,8 @@ const appState = {
     scriptUrl: '',
     photoFolder: ''
   },
-  recipes: [],
   activeBeanId: '',
-  currentHelperBeanId: '',
-  helperLocked: false
+  currentHelperBeanId: ''
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -26,25 +24,31 @@ function bindEvents() {
 
   const photoFolderInput = document.getElementById('photoFolder');
   if (photoFolderInput) {
-    photoFolderInput.addEventListener('blur', () => {
-      photoFolderInput.value = normalizeDriveFolderValue(photoFolderInput.value);
-    });
-
     photoFolderInput.addEventListener('paste', () => {
       requestAnimationFrame(() => {
-        photoFolderInput.value = normalizeDriveFolderValue(photoFolderInput.value);
+        const cleaned = normalizeDriveFolderValue(photoFolderInput.value);
+        photoFolderInput.value = cleaned;
+        updatePhotoFolderHint(cleaned);
       });
     });
-  }
 
-  const beanSelect = document.getElementById('beanSelect');
-  if (beanSelect) {
-    beanSelect.addEventListener('change', onBeanChange);
+    photoFolderInput.addEventListener('blur', () => {
+      const cleaned = normalizeDriveFolderValue(photoFolderInput.value);
+      photoFolderInput.value = cleaned;
+      updatePhotoFolderHint(cleaned);
+    });
+
+    photoFolderInput.addEventListener('input', () => {
+      updatePhotoFolderHint(photoFolderInput.value.trim());
+    });
   }
 
   const helperBeanSelect = document.getElementById('helperBeanSelect');
   if (helperBeanSelect) {
-    helperBeanSelect.addEventListener('change', onHelperBeanChange);
+    helperBeanSelect.addEventListener('change', (event) => {
+      appState.currentHelperBeanId = event.target.value;
+      renderRecipeHelper();
+    });
   }
 
   const helperDose = document.getElementById('helperDose');
@@ -53,8 +57,10 @@ function bindEvents() {
   const helperMethod = document.getElementById('helperMethod');
 
   [helperDose, helperRatio, helperTarget, helperMethod].forEach((el) => {
-    if (el) el.addEventListener('input', renderRecipeHelper);
-    if (el) el.addEventListener('change', renderRecipeHelper);
+    if (el) {
+      el.addEventListener('input', renderRecipeHelper);
+      el.addEventListener('change', renderRecipeHelper);
+    }
   });
 }
 
@@ -71,7 +77,7 @@ async function bootstrapApp() {
     appState.settings = normalizeSettings(settings || {});
 
     hydrateSettingsForm();
-    renderBeansEverywhere();
+    renderBeanSelect();
     renderRecipeHelper();
 
     setStatus('Ready.', 'success');
@@ -106,17 +112,26 @@ function hydrateSettingsForm() {
   if (scriptUrlInput) scriptUrlInput.value = appState.settings.scriptUrl || '';
   if (photoFolderInput) photoFolderInput.value = appState.settings.photoFolder || '';
 
-  updateSettingsHints();
+  updatePhotoFolderHint(appState.settings.photoFolder || '');
 }
 
-function updateSettingsHints() {
-  const photoFolderHint = document.getElementById('photoFolderHint');
-  if (!photoFolderHint) return;
+function updatePhotoFolderHint(value) {
+  const hint = document.getElementById('photoFolderHint');
+  if (!hint) return;
 
-  if (appState.settings.photoFolder) {
-    photoFolderHint.textContent = `Stored folder ID: ${appState.settings.photoFolder}`;
+  const trimmed = String(value || '').trim();
+
+  if (!trimmed) {
+    hint.textContent = 'Paste a full Google Drive folder URL and it will auto-convert to the folder ID.';
+    return;
+  }
+
+  const extracted = extractDriveFolderId(trimmed);
+
+  if (extracted) {
+    hint.textContent = `Folder ID ready: ${extracted}`;
   } else {
-    photoFolderHint.textContent = 'Paste a Google Drive folder link or folder ID.';
+    hint.textContent = 'Could not detect a valid Google Drive folder ID yet.';
   }
 }
 
@@ -127,26 +142,28 @@ async function onSaveSettings(event) {
   const scriptUrlInput = document.getElementById('scriptUrl');
   const photoFolderInput = document.getElementById('photoFolder');
 
+  const cleanedPhotoFolder = normalizeDriveFolderValue(photoFolderInput ? photoFolderInput.value : '');
+
+  if (photoFolderInput) {
+    photoFolderInput.value = cleanedPhotoFolder;
+  }
+
   const payload = {
     action: 'saveSettings',
     sheetUrl: sheetUrlInput ? sheetUrlInput.value.trim() : '',
     scriptUrl: scriptUrlInput ? scriptUrlInput.value.trim() : '',
-    photoFolder: normalizeDriveFolderValue(photoFolderInput ? photoFolderInput.value : '')
+    photoFolder: cleanedPhotoFolder
   };
-
-  if (photoFolderInput) {
-    photoFolderInput.value = payload.photoFolder;
-  }
 
   setStatus('Saving shared settings...', 'info');
 
   try {
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify(payload),
       headers: {
         'Content-Type': 'text/plain;charset=utf-8'
-      }
+      },
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
@@ -173,84 +190,31 @@ async function onSaveSettings(event) {
   }
 }
 
-function renderBeansEverywhere() {
-  renderBeanSelect('beanSelect', appState.activeBeanId, (value) => {
-    appState.activeBeanId = value;
-  });
-
-  renderBeanSelect('helperBeanSelect', appState.currentHelperBeanId, (value) => {
-    appState.currentHelperBeanId = value;
-  });
-
-  renderBeanList();
-  renderRecipeHelper();
-}
-
-function renderBeanSelect(selectId, selectedId, onResolved) {
-  const select = document.getElementById(selectId);
+function renderBeanSelect() {
+  const select = document.getElementById('helperBeanSelect');
   if (!select) return;
 
-  const previousValue = selectedId || select.value || '';
-  const options = ['<option value="">Select bean</option>']
-    .concat(
-      appState.beans.map((bean) => {
-        const label = formatBeanLabel(bean);
-        return `<option value="${escapeHtml(bean.id || bean.name || '')}">${escapeHtml(label)}</option>`;
-      })
-    );
+  const previousValue = appState.currentHelperBeanId || '';
 
-  select.innerHTML = options.join('');
+  select.innerHTML = [
+    '<option value="">Select bean</option>',
+    ...appState.beans.map((bean) => {
+      const id = bean.id || bean.name || '';
+      const label = formatBeanLabel(bean);
+      return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+    })
+  ].join('');
 
   const exists = appState.beans.some((bean) => String(bean.id || bean.name || '') === String(previousValue));
-  const nextValue = exists ? previousValue : '';
-
-  select.value = nextValue;
-  onResolved(nextValue);
-}
-
-function renderBeanList() {
-  const container = document.getElementById('beanList');
-  if (!container) return;
-
-  if (!appState.beans.length) {
-    container.innerHTML = '<div class="empty-state">No beans found.</div>';
-    return;
-  }
-
-  container.innerHTML = appState.beans.map((bean) => {
-    const originDisplay = formatOriginWithFlag(bean.origin);
-    const roaster = bean.roaster || '';
-    const process = bean.process || '';
-    const notes = bean.notes || '';
-
-    return `
-      <div class="bean-card">
-        <div class="bean-card__header">
-          <h3 class="bean-card__title">${escapeHtml(bean.name || 'Untitled Bean')}</h3>
-          ${originDisplay ? `<div class="bean-card__origin">${originDisplay}</div>` : ''}
-        </div>
-        ${roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(roaster)}</div>` : ''}
-        ${process ? `<div class="bean-card__meta"><strong>Process:</strong> ${escapeHtml(process)}</div>` : ''}
-        ${notes ? `<div class="bean-card__meta"><strong>Notes:</strong> ${escapeHtml(notes)}</div>` : ''}
-      </div>
-    `;
-  }).join('');
-}
-
-function onBeanChange(event) {
-  appState.activeBeanId = event.target.value;
-}
-
-function onHelperBeanChange(event) {
-  appState.currentHelperBeanId = event.target.value;
-  renderRecipeHelper();
+  appState.currentHelperBeanId = exists ? previousValue : '';
+  select.value = appState.currentHelperBeanId;
 }
 
 function renderRecipeHelper() {
   const summary = document.getElementById('helperBeanSummary');
   const output = document.getElementById('helperOutput');
-
   const bean = getBeanById(appState.currentHelperBeanId);
+
   const dose = parseFloat(document.getElementById('helperDose')?.value || '');
   const ratio = parseFloat(document.getElementById('helperRatio')?.value || '');
   const target = parseFloat(document.getElementById('helperTarget')?.value || '');
@@ -258,22 +222,10 @@ function renderRecipeHelper() {
 
   if (summary) {
     if (bean) {
-      const parts = [
-        `<strong>${escapeHtml(bean.name || 'Untitled Bean')}</strong>`
-      ];
-
-      if (bean.roaster) {
-        parts.push(escapeHtml(bean.roaster));
-      }
-
-      if (bean.origin) {
-        parts.push(formatOriginWithFlag(bean.origin));
-      }
-
-      if (bean.process) {
-        parts.push(escapeHtml(bean.process));
-      }
-
+      const parts = [`<strong>${escapeHtml(bean.name || 'Untitled Bean')}</strong>`];
+      if (bean.roaster) parts.push(escapeHtml(bean.roaster));
+      if (bean.origin) parts.push(formatOriginWithFlag(bean.origin));
+      if (bean.process) parts.push(escapeHtml(bean.process));
       summary.innerHTML = parts.join(' · ');
     } else {
       summary.textContent = 'Select a bean to see its summary.';
@@ -293,7 +245,6 @@ function renderRecipeHelper() {
 
   const computedTarget = target || (dose * ratio);
   const computedRatio = ratio || (computedTarget / dose);
-
   const bloomWater = round1(dose * 3);
   const remainingWater = Math.max(0, computedTarget - bloomWater);
   const pour2 = round1(remainingWater * 0.5);
@@ -345,7 +296,9 @@ function formatOriginWithFlag(origin) {
   const code = inferCountryCode(origin);
   const flag = code ? countryCodeToFlag(code) : '';
   const text = escapeHtml(origin);
-  return flag ? `<span class="origin-flag" aria-hidden="true">${flag}</span> <span>${text}</span>` : `<span>${text}</span>`;
+  return flag
+    ? `<span class="origin-flag" aria-hidden="true">${flag}</span> <span>${text}</span>`
+    : `<span>${text}</span>`;
 }
 
 function plainOriginWithFlag(origin) {
@@ -374,14 +327,13 @@ function inferCountryCode(origin) {
     ecuador: 'EC',
     guatemala: 'GT',
     honduras: 'HN',
-    elsalvador: 'SV',
     'el salvador': 'SV',
+    elsalvador: 'SV',
     nicaragua: 'NI',
-    costarica: 'CR',
     'costa rica': 'CR',
+    costarica: 'CR',
     panama: 'PA',
     mexico: 'MX',
-    jamaica: 'JM',
     indonesia: 'ID',
     sumatra: 'ID',
     java: 'ID',
@@ -397,8 +349,8 @@ function inferCountryCode(origin) {
     taiwan: 'TW',
     japan: 'JP',
     philippines: 'PH',
-    papuanewguinea: 'PG',
     'papua new guinea': 'PG',
+    papuanewguinea: 'PG',
     png: 'PG'
   };
 
@@ -421,11 +373,10 @@ function countryCodeToFlag(code) {
 }
 
 function normalizeDriveFolderValue(value) {
-  const input = String(value || '').trim();
-  if (!input) return '';
-
-  const extracted = extractDriveFolderId(input);
-  return extracted || input;
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  const extracted = extractDriveFolderId(trimmed);
+  return extracted || trimmed;
 }
 
 function extractDriveFolderId(value) {
@@ -452,7 +403,6 @@ function extractDriveFolderId(value) {
 function setStatus(message, type = 'info') {
   const el = document.getElementById('appStatus');
   if (!el) return;
-
   el.textContent = message;
   el.dataset.status = type;
 }
