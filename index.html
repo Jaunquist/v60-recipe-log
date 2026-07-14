@@ -9,7 +9,7 @@
   <meta http-equiv="expires" content="0" />
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=6" />
+  <link rel="stylesheet" href="./style.css?v=8" />
 </head>
 <body>
   <div class="app">
@@ -43,7 +43,6 @@
           <div class="tiny">View</div>
           <div class="top-title" id="viewTitle">Dashboard</div>
         </div>
-        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">☀</button>
       </header>
 
       <section class="content">
@@ -51,21 +50,24 @@
 
         <section id="view-dashboard" class="panel">
           <h2>Welcome to your V60 notebook</h2>
-          <p class="muted">This is your live V60 app running on GitHub Pages with Google Sheets as the bean database.</p>
+          <p class="muted">Use this app to add beans, research bag details from photos, and generate hot or iced summer recipes when appropriate.</p>
         </section>
 
         <section id="view-library" class="panel hidden">
-          <h2>Bean Library</h2>
-          <p class="muted">Browse beans from your shared Google Sheets backend.</p>
-
-          <div class="library-stack">
-            <div id="beanList"></div>
+          <div class="section-head">
+            <div>
+              <h2>Bean Library</h2>
+              <p class="muted">Browse and manage beans from your shared Google Sheets backend.</p>
+            </div>
+            <button id="openAddBeanBtn" class="save-btn" type="button">Add Bean</button>
           </div>
+
+          <div id="beanList" class="bean-list"></div>
         </section>
 
         <section id="view-helper" class="panel hidden">
           <h2>Recipe Helper</h2>
-          <p class="muted">Quick calculator for your V60 brews.</p>
+          <p class="muted">Select a bean to preview available recipe modes.</p>
 
           <div class="helper-layout">
             <div class="helper-form">
@@ -78,25 +80,16 @@
                 Select a bean to see its summary.
               </div>
 
-              <label for="helperDose">Dose (g)</label>
-              <input id="helperDose" type="number" min="1" step="0.1" value="18" />
-
-              <label for="helperRatio">Ratio</label>
-              <input id="helperRatio" type="number" min="1" step="0.1" value="16" />
-
-              <label for="helperTarget">Target Yield (g)</label>
-              <input id="helperTarget" type="number" min="1" step="0.1" placeholder="Optional if using ratio" />
-
-              <label for="helperMethod">Method</label>
-              <select id="helperMethod">
-                <option value="v60">V60</option>
-              </select>
+              <div id="helperModeToggleWrap" class="mode-toggle-wrap hidden">
+                <div class="tiny">Recipe mode</div>
+                <div id="helperModeToggle" class="mode-toggle"></div>
+              </div>
             </div>
 
             <div class="helper-output">
               <div id="helperOutput" class="recipe-card">
                 <div class="helper-placeholder">
-                  Enter dose plus either brew ratio or target beverage weight.
+                  Select a bean to view its saved recipe.
                 </div>
               </div>
             </div>
@@ -109,28 +102,13 @@
 
           <form id="settings-form" class="settings-grid">
             <label for="sheetUrl">Google Sheet URL</label>
-            <input
-              id="sheetUrl"
-              name="sheetUrl"
-              type="text"
-              placeholder="https://docs.google.com/spreadsheets/d/..."
-            />
+            <input id="sheetUrl" name="sheetUrl" type="text" placeholder="https://docs.google.com/spreadsheets/d/..." />
 
             <label for="scriptUrl">Apps Script web app URL</label>
-            <input
-              id="scriptUrl"
-              name="scriptUrl"
-              type="text"
-              placeholder="https://script.google.com/macros/s/.../exec"
-            />
+            <input id="scriptUrl" name="scriptUrl" type="text" placeholder="https://script.google.com/macros/s/.../exec" />
 
             <label for="photoFolder">Google Drive photo folder</label>
-            <input
-              id="photoFolder"
-              name="photoFolder"
-              type="text"
-              placeholder="Paste folder link or folder ID"
-            />
+            <input id="photoFolder" name="photoFolder" type="text" placeholder="Paste folder link or folder ID" />
 
             <small id="photoFolderHint" class="field-hint">
               Paste a full Google Drive folder URL and it will auto-convert to the folder ID.
@@ -143,6 +121,89 @@
     </main>
   </div>
 
-  <script src="./app.js?v=6"></script>
+  <div id="addBeanModal" class="modal hidden">
+    <div class="modal__backdrop" data-close-add-bean="true"></div>
+    <div class="modal__dialog">
+      <div class="section-head">
+        <div>
+          <h2>Add Bean</h2>
+          <p class="muted">Step 1: research bean. Step 2: confirm details. Step 3: generate recipe.</p>
+        </div>
+        <button id="closeAddBeanBtn" class="icon-btn" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <form id="addBeanForm" class="settings-grid">
+        <label for="beanPhoto">Bean photo</label>
+        <input id="beanPhoto" type="file" accept="image/*" capture="environment" />
+
+        <div id="beanPhotoPreviewWrap" class="photo-preview hidden">
+          <img id="beanPhotoPreview" alt="Bean photo preview" />
+        </div>
+
+        <label for="beanName">Bean name</label>
+        <input id="beanName" type="text" placeholder="e.g. Melon Maple" />
+
+        <label for="beanRoaster">Roaster</label>
+        <input id="beanRoaster" type="text" placeholder="e.g. Yardstick" />
+
+        <label for="beanOriginCountry">Origin country</label>
+        <input id="beanOriginCountry" type="text" placeholder="e.g. Ethiopia" />
+
+        <label for="beanOriginRegion">Origin region</label>
+        <input id="beanOriginRegion" type="text" placeholder="e.g. Yirgacheffe" />
+
+        <label for="beanPurchaseCountry">Purchase country</label>
+        <input id="beanPurchaseCountry" type="text" placeholder="e.g. Philippines" />
+
+        <label for="beanPurchaseCity">Purchase city</label>
+        <input id="beanPurchaseCity" type="text" placeholder="e.g. Manila" />
+
+        <label for="beanVariety">Variety</label>
+        <input id="beanVariety" type="text" placeholder="e.g. Heirloom" />
+
+        <label for="beanProcess">Process</label>
+        <input id="beanProcess" type="text" placeholder="e.g. Washed" />
+
+        <label for="beanRoast">Roast</label>
+        <input id="beanRoast" type="text" placeholder="e.g. Light" />
+
+        <label for="beanNotes">Bag tasting notes</label>
+        <textarea id="beanNotes" rows="3" placeholder="e.g. Melon, maple, caramel"></textarea>
+
+        <label for="beanInitialNotes">Initial notes / brew goal</label>
+        <textarea id="beanInitialNotes" rows="3" placeholder="What are you hoping to taste, or what happened in the first brew?"></textarea>
+
+        <div class="action-row">
+          <button id="researchBeanBtn" class="save-btn" type="button">Research Bean</button>
+          <button id="generateRecipeBtn" class="save-btn save-btn--secondary" type="button">Generate Recipe</button>
+          <button id="saveBeanBtn" class="save-btn" type="submit">Save Bean</button>
+        </div>
+      </form>
+
+      <div class="panel panel--inner">
+        <h3>Research status</h3>
+        <div id="researchStatus" class="muted">No AI research yet.</div>
+      </div>
+
+      <div class="panel panel--inner">
+        <div class="section-head">
+          <div>
+            <h3>Recipe result</h3>
+            <p id="recipeNotes" class="muted">No recipe generated yet.</p>
+          </div>
+          <div id="recipeModeToggleWrap" class="mode-toggle-wrap hidden">
+            <div class="tiny">Available modes</div>
+            <div id="recipeModeToggle" class="mode-toggle"></div>
+          </div>
+        </div>
+
+        <div id="researchRecipePreview" class="recipe-preview">
+          <div class="helper-placeholder">Generate a recipe after confirming bean details.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js?v=8"></script>
 </body>
 </html>
