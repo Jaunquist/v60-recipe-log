@@ -4,11 +4,7 @@
   <meta charset="UTF-8" />
   <title>Bean Ledger</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- Fonts -->
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet" />
-
-  <!-- Styles -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -16,7 +12,6 @@
     <aside class="sidebar">
       <div class="brand">
         <div class="logo">
-          <!-- simple SVG bean logo -->
           <svg viewBox="0 0 64 64" aria-hidden="true" width="32" height="32">
             <ellipse cx="32" cy="30" rx="19" ry="25" fill="#8b5e3c" transform="rotate(-18 32 30)"></ellipse>
             <path d="M27 13c7 8 10 24 5 35" stroke="#e7c3a3" stroke-width="3.3" stroke-linecap="round" fill="none"></path>
@@ -24,7 +19,7 @@
         </div>
         <div>
           <h1>Bean Ledger</h1>
-          <small class="tiny">Log beans, brew helpers, shared sheet settings.</small>
+          <small class="tiny">Beans, OCR, recipes, and shared brew notes.</small>
         </div>
       </div>
 
@@ -46,13 +41,10 @@
     <main class="main">
       <header class="topbar">
         <div class="top-title" id="viewTitle">Bean Library</div>
-        <div id="appStatus" class="app-status" data-status="info">
-          Loading app…
-        </div>
+        <div id="appStatus" class="app-status" data-status="info">Loading app…</div>
       </header>
 
       <section class="content">
-        <!-- Bean Library -->
         <div id="view-library" class="panel">
           <div class="section-head">
             <div>
@@ -66,16 +58,14 @@
           </div>
 
           <div id="tagFilterBar" class="tag-filter-bar"></div>
-
           <div id="beanList" class="bean-list"></div>
         </div>
 
-        <!-- Recipe Helper -->
         <div id="view-helper" class="panel hidden">
           <div class="section-head">
             <div>
               <h2>Recipe Helper</h2>
-              <p class="muted">Dial in dose, ratio, and pours for a selected bean.</p>
+              <p class="muted">Generate hot or iced recommendations from the bean profile.</p>
             </div>
           </div>
 
@@ -94,22 +84,17 @@
                   <input id="helperDose" type="number" inputmode="decimal" placeholder="e.g. 18" />
                 </div>
                 <div>
-                  <label for="helperRatio">Ratio (e.g. 15)</label>
-                  <input id="helperRatio" type="number" inputmode="decimal" placeholder="e.g. 15" />
-                  <small class="field-hint">If blank, we’ll calculate from target yield.</small>
+                  <label for="helperRatio">Ratio</label>
+                  <input id="helperRatio" type="number" inputmode="decimal" placeholder="e.g. 16" />
                 </div>
                 <div>
                   <label for="helperTarget">Target beverage (g)</label>
-                  <input id="helperTarget" type="number" inputmode="decimal" placeholder="e.g. 270" />
-                  <small class="field-hint">If blank, we’ll calculate from dose × ratio.</small>
+                  <input id="helperTarget" type="number" inputmode="decimal" placeholder="Optional override" />
                 </div>
                 <div>
                   <label for="helperMethod">Method</label>
                   <select id="helperMethod">
                     <option value="v60">V60</option>
-                    <option value="kalita">Kalita</option>
-                    <option value="chemex">Chemex</option>
-                    <option value="espresso">Espresso</option>
                   </select>
                 </div>
               </div>
@@ -117,14 +102,25 @@
               <div id="helperBeanSummary" class="helper-bean-summary">
                 Select a bean to see its summary.
               </div>
+
+              <div class="action-row">
+                <button id="generateRecipeBtn" type="button">Generate recipe</button>
+                <small id="recipeStatus" class="field-hint">Pick a bean, then generate a recipe based on its profile.</small>
+              </div>
             </div>
 
             <div class="helper-output">
               <div class="recipe-card">
-                <h3>Recipe</h3>
+                <div class="recipe-card__header">
+                  <div>
+                    <h3>Recommendation</h3>
+                    <p class="muted">Hot is always available. Iced appears only when the bean profile supports it.</p>
+                  </div>
+                  <div id="recipeStyleToggle" class="recipe-style-toggle hidden"></div>
+                </div>
                 <div id="helperOutput">
                   <div class="helper-placeholder">
-                    Enter dose plus either brew ratio or target beverage weight.
+                    Generate a recipe to see grind size, pours, time, and expected notes.
                   </div>
                 </div>
               </div>
@@ -132,7 +128,6 @@
           </div>
         </div>
 
-        <!-- Settings -->
         <div id="view-settings" class="panel hidden">
           <div class="section-head">
             <div>
@@ -169,22 +164,18 @@
     </main>
   </div>
 
-  <!-- Add Bean Modal -->
   <div id="addBeanModal" class="modal hidden" aria-hidden="true">
     <div class="modal__backdrop" data-close-add-bean="true"></div>
     <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="addBeanTitle">
       <header class="modal-header">
         <div>
           <h2 id="addBeanTitle">Add / Edit Bean</h2>
-          <p class="muted">Upload a photo, then fill in or research metadata.</p>
+          <p class="muted">Upload a photo, research the bean, then save.</p>
         </div>
-        <button id="closeAddBeanBtn" type="button" class="icon-btn" aria-label="Close">
-          ✕
-        </button>
+        <button id="closeAddBeanBtn" type="button" class="icon-btn" aria-label="Close">✕</button>
       </header>
 
       <main class="modal-body">
-        <!-- Photo + OCR section at top -->
         <section class="photo-upload-card">
           <div class="photo-upload-card__top">
             <div class="bean-photo-preview" id="beanAvatar">
@@ -205,23 +196,17 @@
                 </div>
               </div>
 
-              <div id="beanPhotoMeta" class="photo-meta">
-                No photo uploaded yet.
-              </div>
-
-              <div id="ocrStatusLine" class="ocr-status ocr-status--neutral">
-                OCR: not run yet
-              </div>
+              <div id="beanPhotoMeta" class="photo-meta">No photo uploaded yet.</div>
+              <div id="ocrStatusLine" class="ocr-status ocr-status--neutral">OCR: not run yet</div>
             </div>
           </div>
 
           <div class="photo-file-meta">
             <div><strong>Photo text (OCR / filename)</strong></div>
-            <textarea id="beanPhotoText" rows="2" placeholder="Auto-filled from OCR or filename"></textarea>
+            <textarea id="beanPhotoText" rows="2" placeholder="Rough OCR + filename guess. Edit to fix before saving."></textarea>
           </div>
         </section>
 
-        <!-- Bean fields -->
         <form id="addBeanForm" class="settings-grid" autocomplete="off">
           <div>
             <label for="beanName">Bean name</label>
