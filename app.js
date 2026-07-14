@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMNB7D2p_qCWhvTulP9GY274aSkJPxr-7l8YGkVFj3hPYlISysdNfAw0ndFYNNII4-gw/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYBxl1qUzFWUiPppkUFbTa_o56fhKx6PFZ-Xz3yoec4woUdalKYnd159LhoaLwq8t8Cw/exec';
 
 const appState = {
   beans: [],
@@ -282,8 +282,10 @@ function renderBeanList() {
 
   beanList.innerHTML = appState.beans.map((bean) => {
     const title = escapeHtml(bean.name || bean.bean || 'Untitled Bean');
-    const roaster = bean.roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(bean.roaster)}</div>` : '';
     const origin = bean.origin ? `<div class="bean-card__origin">${formatOriginWithFlag(bean.origin)}</div>` : '';
+    const roaster = bean.roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(bean.roaster)}</div>` : '';
+    const variety = bean.variety ? `<div class="bean-card__meta"><strong>Variety:</strong> ${escapeHtml(bean.variety)}</div>` : '';
+    const purchaseCountry = bean.purchase_country ? `<div class="bean-card__meta"><strong>Purchased in:</strong> ${escapeHtml(bean.purchase_country)}</div>` : '';
     const process = bean.process ? `<div class="bean-card__meta"><strong>Process:</strong> ${escapeHtml(bean.process)}</div>` : '';
     const notes = bean.notes ? `<div class="bean-card__meta"><strong>Notes:</strong> ${escapeHtml(bean.notes)}</div>` : '';
 
@@ -294,6 +296,8 @@ function renderBeanList() {
           ${origin}
         </div>
         ${roaster}
+        ${variety}
+        ${purchaseCountry}
         ${process}
         ${notes}
       </div>
@@ -336,6 +340,8 @@ function renderRecipeHelper() {
       const parts = [`<strong>${escapeHtml(bean.name || bean.bean || 'Untitled Bean')}</strong>`];
       if (bean.roaster) parts.push(escapeHtml(bean.roaster));
       if (bean.origin) parts.push(formatOriginWithFlag(bean.origin));
+      if (bean.variety) parts.push(`Variety: ${escapeHtml(bean.variety)}`);
+      if (bean.purchase_country) parts.push(`Purchased in: ${escapeHtml(bean.purchase_country)}`);
       if (bean.process) parts.push(escapeHtml(bean.process));
       summary.innerHTML = parts.join(' · ');
     } else {
@@ -475,6 +481,8 @@ function collectBeanFormData() {
     roaster: document.getElementById('beanRoaster')?.value.trim() || '',
     origin_country: document.getElementById('beanOriginCountry')?.value.trim() || '',
     origin_region: document.getElementById('beanOriginRegion')?.value.trim() || '',
+    variety: document.getElementById('beanVariety')?.value.trim() || '',
+    purchase_country: document.getElementById('beanPurchaseCountry')?.value.trim() || '',
     process: document.getElementById('beanProcess')?.value.trim() || '',
     notes: document.getElementById('beanNotes')?.value.trim() || ''
   };
@@ -485,6 +493,8 @@ function fillBeanForm(bean) {
   if (bean.roaster) document.getElementById('beanRoaster').value = bean.roaster;
   if (bean.origin_country) document.getElementById('beanOriginCountry').value = bean.origin_country;
   if (bean.origin_region) document.getElementById('beanOriginRegion').value = bean.origin_region;
+  if (bean.variety) document.getElementById('beanVariety').value = bean.variety;
+  if (bean.purchase_country) document.getElementById('beanPurchaseCountry').value = bean.purchase_country;
   if (bean.process) document.getElementById('beanProcess').value = bean.process;
   if (bean.notes) document.getElementById('beanNotes').value = bean.notes;
 }
@@ -492,6 +502,10 @@ function fillBeanForm(bean) {
 function resetAddBeanForm() {
   const form = document.getElementById('addBeanForm');
   if (form) form.reset();
+  const researchStatus = document.getElementById('researchStatus');
+  if (researchStatus) {
+    researchStatus.textContent = 'Optional: tap Research Bean to auto-fill origin and notes.';
+  }
 }
 
 function getBeanById(id) {
