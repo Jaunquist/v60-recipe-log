@@ -45,7 +45,8 @@ const appState = {
     fileName: '',
     driveLink: '',
     previewDataUrl: '',
-    photoText: ''
+    photoText: '',
+    ocrStatus: 'not_run'
   }
 };
 
@@ -221,6 +222,7 @@ function bindAddBeanModal() {
   const researchBtn = document.getElementById('researchBeanBtn');
   const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
   const tagInput = document.getElementById('beanTagInput');
+  const fileInput = document.getElementById('beanPhotoFile');
 
   if (openBtn) {
     openBtn.addEventListener('click', (event) => {
@@ -229,6 +231,7 @@ function bindAddBeanModal() {
       renderDraftTags();
       renderPhotoMeta();
       renderBeanAvatar();
+      renderOcrStatusLine(appState.uploadedPhoto.ocrStatus || 'not_run');
     });
   }
 
@@ -263,6 +266,19 @@ function bindAddBeanModal() {
     uploadPhotoBtn.addEventListener('click', (event) => {
       event.preventDefault();
       onUploadPhoto();
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+      if (!file) {
+        renderOcrStatusLine('not_run');
+        return;
+      }
+      appState.uploadedPhoto.fileName = file.name || '';
+      appState.uploadedPhoto.ocrStatus = 'ready_to_upload';
+      renderOcrStatusLine('ready_to_upload');
     });
   }
 
@@ -309,6 +325,7 @@ async function bootstrapApp() {
     renderDraftTags();
     renderPhotoMeta();
     renderBeanAvatar();
+    renderOcrStatusLine(appState.uploadedPhoto.ocrStatus || 'not_run');
 
     setStatus('Ready.', 'success');
   } catch (error) {
@@ -779,11 +796,13 @@ async function onUploadPhoto() {
   if (!file) {
     setStatus('Choose a photo first.', 'error');
     if (researchStatus) researchStatus.textContent = 'Choose a photo before uploading.';
+    renderOcrStatusLine('no_file_selected');
     return;
   }
 
   setStatus('Compressing photo...', 'info');
   if (researchStatus) researchStatus.textContent = 'Compressing photo before upload...';
+  renderOcrStatusLine('uploading');
 
   try {
     const compressed = await compressImageFile(file, 1600, 0.82);
@@ -804,21 +823,23 @@ async function onUploadPhoto() {
       fileName: result?.data?.fileName || compressed.fileName,
       driveLink: result?.data?.driveLink || '',
       previewDataUrl: sanitizeImageSource(result?.data?.previewDataUrl || compressed.previewDataUrl),
-      photoText: result?.data?.photoText || inferPhotoTextFromFileName(file.name)
+      photoText: result?.data?.photoText || inferPhotoTextFromFileName(file.name),
+      ocrStatus: result?.data?.ocrStatus || 'unknown'
     };
 
     renderPhotoMeta();
     renderBeanAvatar();
+    renderOcrStatusLine(appState.uploadedPhoto.ocrStatus);
 
     if (researchStatus) {
-      const ocrStatus = result?.data?.ocrStatus || 'uploaded';
-      researchStatus.textContent = `Photo uploaded. OCR status: ${ocrStatus}. You can now run Research Bean.`;
+      researchStatus.textContent = `Photo uploaded. OCR status: ${appState.uploadedPhoto.ocrStatus}. You can now run Research Bean.`;
     }
 
     setStatus('Photo uploaded successfully.', 'success');
   } catch (error) {
     console.error(error);
     if (researchStatus) researchStatus.textContent = `Photo upload failed: ${error.message}`;
+    renderOcrStatusLine('upload_failed');
     setStatus(`Failed to upload photo: ${error.message}`, 'error');
   }
 }
@@ -842,7 +863,7 @@ function collectBeanFormData() {
     photo_file_name: appState.uploadedPhoto.fileName || '',
     photo_drive_link: appState.uploadedPhoto.driveLink || '',
     photo_preview_data_url: sanitizeImageSource(appState.uploadedPhoto.previewDataUrl || ''),
-    photo_text: appState.uploadedPhoto.photoText || ''
+    photo_text: appState.uploadedPhoto.photoText || document.getElementById('beanPhotoText')?.value.trim() || ''
   };
 }
 
@@ -858,6 +879,7 @@ function fillBeanForm(bean) {
   const beanAltitude = document.getElementById('beanAltitude');
   const beanProcess = document.getElementById('beanProcess');
   const beanNotes = document.getElementById('beanNotes');
+  const beanPhotoText = document.getElementById('beanPhotoText');
 
   if (beanName && (bean.bean || bean.name)) beanName.value = bean.bean || bean.name;
   if (beanRoaster && bean.roaster) beanRoaster.value = bean.roaster;
@@ -870,22 +892,25 @@ function fillBeanForm(bean) {
   if (beanAltitude && bean.altitude) beanAltitude.value = bean.altitude;
   if (beanProcess && bean.process) beanProcess.value = bean.process;
   if (beanNotes && bean.notes) beanNotes.value = bean.notes;
+  if (beanPhotoText) beanPhotoText.value = bean.photo_text || '';
 
   if (bean.tags) {
     appState.draftTags = normalizeTagArray(bean.tags);
     renderDraftTags();
   }
 
-  if (bean.photo_file_id || bean.photo_drive_link || bean.photo_preview_data_url) {
+  if (bean.photo_file_id || bean.photo_drive_link || bean.photo_preview_data_url || bean.photo_text) {
     appState.uploadedPhoto = {
       fileId: bean.photo_file_id || '',
       fileName: bean.photo_file_name || '',
       driveLink: bean.photo_drive_link || '',
       previewDataUrl: sanitizeImageSource(bean.photo_preview_data_url || ''),
-      photoText: bean.photo_text || ''
+      photoText: bean.photo_text || '',
+      ocrStatus: bean.photo_text ? 'ok' : 'not_run'
     };
     renderPhotoMeta();
     renderBeanAvatar();
+    renderOcrStatusLine(appState.uploadedPhoto.ocrStatus);
   }
 }
 
@@ -899,16 +924,18 @@ function resetAddBeanForm() {
     fileName: '',
     driveLink: '',
     previewDataUrl: '',
-    photoText: ''
+    photoText: '',
+    ocrStatus: 'not_run'
   };
 
   renderDraftTags();
   renderPhotoMeta();
   renderBeanAvatar();
+  renderOcrStatusLine('not_run');
 
   const researchStatus = document.getElementById('researchStatus');
   if (researchStatus) {
-    researchStatus.textContent = 'Uploading compresses the photo first. Research Bean will use uploaded photo metadata and photo text when present.';
+    researchStatus.textContent = 'Upload a bean photo first, then run Research Bean to use OCR text and metadata.';
   }
 }
 
@@ -972,6 +999,43 @@ function renderPhotoMeta() {
   meta.innerHTML = `Uploaded: ${link}`;
 }
 
+function renderOcrStatusLine(status) {
+  const el = document.getElementById('ocrStatusLine');
+  if (!el) return;
+
+  const map = {
+    not_run: { text: 'OCR: not run yet', cls: 'ocr-status ocr-status--neutral' },
+    ready_to_upload: { text: 'OCR: ready after upload', cls: 'ocr-status ocr-status--neutral' },
+    uploading: { text: 'OCR: uploading photo and running OCR...', cls: 'ocr-status ocr-status--neutral' },
+    ok: { text: 'OCR: success', cls: 'ocr-status ocr-status--success' },
+    empty: { text: 'OCR: no text detected', cls: 'ocr-status ocr-status--warning' },
+    empty_or_failed: { text: 'OCR: empty or failed', cls: 'ocr-status ocr-status--warning' },
+    missing_api_key: { text: 'OCR: missing Vision API key', cls: 'ocr-status ocr-status--error' },
+    no_file_selected: { text: 'OCR: choose a photo first', cls: 'ocr-status ocr-status--warning' },
+    upload_failed: { text: 'OCR: upload failed', cls: 'ocr-status ocr-status--error' },
+    unknown: { text: 'OCR: unknown result', cls: 'ocr-status ocr-status--warning' }
+  };
+
+  const matchedVisionHttp = /^vision_http_/i.test(status || '');
+  const matchedVisionError = /^vision_error_/i.test(status || '');
+
+  if (matchedVisionHttp) {
+    el.className = 'ocr-status ocr-status--error';
+    el.textContent = `OCR: Vision HTTP error (${status.replace('vision_http_', '')})`;
+    return;
+  }
+
+  if (matchedVisionError) {
+    el.className = 'ocr-status ocr-status--error';
+    el.textContent = `OCR: ${status.replace(/^vision_error_/i, '').trim() || 'Vision error'}`;
+    return;
+  }
+
+  const item = map[status] || map.unknown;
+  el.className = item.cls;
+  el.textContent = item.text;
+}
+
 function renderBeanAvatar() {
   const avatar = document.getElementById('beanAvatar');
   if (!avatar) return;
@@ -983,8 +1047,11 @@ function renderBeanAvatar() {
     return;
   }
 
-  avatar.setAttribute('data-roast', 'medium');
-  avatar.innerHTML = getBeanSvgMarkup('medium', 'bean-avatar__svg');
+  avatar.innerHTML = `
+    <div class="bean-photo-preview--empty">
+      No photo yet. Upload one to see a preview.
+    </div>
+  `;
 }
 
 function getBeanById(id) {
