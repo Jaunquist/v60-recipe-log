@@ -52,6 +52,10 @@ small {
   display: block;
 }
 
+a {
+  color: var(--accent-dark);
+}
+
 img {
   max-width: 100%;
   display: block;
@@ -393,6 +397,15 @@ button:hover {
   line-height: 1;
 }
 
+.photo-meta {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  font-size: 13px;
+  color: #374151;
+}
+
 input,
 textarea,
 select {
@@ -457,7 +470,7 @@ label {
 
 .modal__dialog {
   position: relative;
-  max-width: 600px;
+  max-width: 680px;
   margin: 32px auto;
   background: var(--panel);
   border: 1px solid var(--line);
