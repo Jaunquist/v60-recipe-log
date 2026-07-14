@@ -44,6 +44,7 @@ const appState = {
     fileId: '',
     fileName: '',
     driveLink: '',
+    previewDataUrl: '',
     photoText: ''
   }
 };
@@ -207,6 +208,7 @@ function bindAddBeanModal() {
       modal?.classList.remove('hidden');
       renderDraftTags();
       renderPhotoMeta();
+      renderBeanAvatar();
     });
   }
 
@@ -276,6 +278,7 @@ async function bootstrapApp() {
     renderRecipeHelper();
     renderDraftTags();
     renderPhotoMeta();
+    renderBeanAvatar();
 
     setStatus('Ready.', 'success');
   } catch (error) {
@@ -440,6 +443,9 @@ function renderBeanList() {
 
   beanList.innerHTML = filteredBeans.map((bean) => {
     const title = escapeHtml(bean.name || bean.bean || 'Untitled Bean');
+    const avatar = bean.photo_preview_data_url
+      ? `<img class="bean-card__avatar" src="${escapeHtml(bean.photo_preview_data_url)}" alt="${title}" />`
+      : `<div class="bean-card__avatar bean-card__avatar--placeholder">No photo</div>`;
     const origin = bean.origin ? `<div class="bean-card__origin">${formatOriginWithFlag(bean.origin)}</div>` : '';
     const roaster = bean.roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(bean.roaster)}</div>` : '';
     const purchaseCountry = bean.purchase_country ? `<div class="bean-card__meta"><strong>Purchased in:</strong> ${escapeHtml(bean.purchase_country)}</div>` : '';
@@ -450,13 +456,16 @@ function renderBeanList() {
     const process = bean.process ? `<div class="bean-card__meta"><strong>Process:</strong> ${escapeHtml(bean.process)}</div>` : '';
     const notes = bean.notes ? `<div class="bean-card__meta"><strong>Notes:</strong> ${escapeHtml(bean.notes)}</div>` : '';
     const photo = bean.photo_drive_link ? `<div class="bean-card__meta"><a href="${escapeHtml(bean.photo_drive_link)}" target="_blank" rel="noopener noreferrer">Open photo in Drive</a></div>` : '';
-    const tags = renderTagChips(bean.tags || [], false);
+    const tags = renderTagChips(bean.tags || []);
 
     return `
       <div class="bean-card">
-        <div class="bean-card__header">
-          <div class="bean-card__title">${title}</div>
-          ${origin}
+        <div class="bean-card__top">
+          ${avatar}
+          <div class="bean-card__header">
+            <div class="bean-card__title">${title}</div>
+            ${origin}
+          </div>
         </div>
         ${roaster}
         ${purchaseCountry}
@@ -573,6 +582,10 @@ function renderRecipeHelper() {
 
   if (summary) {
     if (bean) {
+      const avatar = bean.photo_preview_data_url
+        ? `<img class="helper-avatar" src="${escapeHtml(bean.photo_preview_data_url)}" alt="${escapeHtml(bean.name || bean.bean || 'Bean')}" />`
+        : `<div class="helper-avatar helper-avatar--placeholder">No photo</div>`;
+
       const parts = [`<strong>${escapeHtml(bean.name || bean.bean || 'Untitled Bean')}</strong>`];
       if (bean.roaster) parts.push(escapeHtml(bean.roaster));
       if (bean.origin) parts.push(formatOriginWithFlag(bean.origin));
@@ -580,11 +593,14 @@ function renderRecipeHelper() {
       if (bean.variety) parts.push(`Variety: ${escapeHtml(bean.variety)}`);
       if (bean.process) parts.push(escapeHtml(bean.process));
       if (bean.producer) parts.push(`Producer: ${escapeHtml(bean.producer)}`);
-      summary.innerHTML = parts.join(' · ');
 
-      if (bean.tags && bean.tags.length) {
-        summary.innerHTML += `<div class="helper-tags">${renderTagChips(bean.tags, false)}</div>`;
-      }
+      summary.innerHTML = `
+        <div class="helper-summary-top">
+          ${avatar}
+          <div class="helper-summary-copy">${parts.join(' · ')}</div>
+        </div>
+        ${bean.tags && bean.tags.length ? `<div class="helper-tags">${renderTagChips(bean.tags)}</div>` : ''}
+      `;
     } else {
       summary.textContent = 'Select a bean to see its summary.';
     }
@@ -680,7 +696,7 @@ async function onResearchBean() {
   const name = beanData.bean || beanData.name || '';
   const researchStatus = document.getElementById('researchStatus');
 
-  if (!name && !beanData.photo_text) {
+  if (!name && !beanData.photo_file_id && !beanData.photo_text) {
     setStatus('Enter a bean name or upload a photo before research.', 'error');
     if (researchStatus) {
       researchStatus.textContent = 'Enter a bean name or upload a photo first.';
@@ -688,7 +704,7 @@ async function onResearchBean() {
     return;
   }
 
-  setStatus('Researching bean (baseline debug)...', 'info');
+  setStatus('Researching bean...', 'info');
   if (researchStatus) {
     researchStatus.textContent = 'Research in progress...';
   }
@@ -734,31 +750,37 @@ async function onUploadPhoto() {
     return;
   }
 
-  setStatus('Uploading bean photo...', 'info');
-  if (researchStatus) researchStatus.textContent = 'Uploading photo...';
+  setStatus('Compressing photo...', 'info');
+  if (researchStatus) researchStatus.textContent = 'Compressing photo before upload...';
 
   try {
-    const base64 = await fileToBase64(file);
+    const compressed = await compressImageFile(file, 1600, 0.82);
+
+    setStatus('Uploading bean photo...', 'info');
+    if (researchStatus) researchStatus.textContent = 'Uploading compressed photo...';
 
     const result = await postJson({
       action: 'uploadbeanphoto',
-      fileName: file.name,
-      mimeType: file.type || 'image/jpeg',
-      base64
+      fileName: compressed.fileName,
+      mimeType: compressed.mimeType,
+      base64: compressed.dataUrl,
+      previewDataUrl: compressed.previewDataUrl
     });
 
     appState.uploadedPhoto = {
       fileId: result?.data?.fileId || '',
-      fileName: result?.data?.fileName || file.name,
+      fileName: result?.data?.fileName || compressed.fileName,
       driveLink: result?.data?.driveLink || '',
-      photoText: result?.data?.photoText || ''
+      previewDataUrl: result?.data?.previewDataUrl || compressed.previewDataUrl,
+      photoText: result?.data?.photoText || inferPhotoTextFromFileName(file.name)
     };
 
     renderPhotoMeta();
+    renderBeanAvatar();
 
     if (researchStatus) {
       const ocrStatus = result?.data?.ocrStatus || 'uploaded';
-      researchStatus.textContent = `Photo uploaded. OCR status: ${ocrStatus}.`;
+      researchStatus.textContent = `Photo uploaded. OCR status: ${ocrStatus}. You can now run Research Bean.`;
     }
 
     setStatus('Photo uploaded successfully.', 'success');
@@ -774,7 +796,7 @@ function collectBeanFormData() {
     bean: document.getElementById('beanName')?.value.trim() || '',
     name: document.getElementById('beanName')?.value.trim() || '',
     roaster: document.getElementById('beanRoaster')?.value.trim() || '',
-    origin_country: document.getElementById('beanOriginCountry')?.value.trim() || '',
+    origin_country: normalizeCountryValue(document.getElementById('beanOriginCountry')?.value || ''),
     origin_region: document.getElementById('beanOriginRegion')?.value.trim() || '',
     purchase_country: normalizeCountryValue(document.getElementById('beanPurchaseCountry')?.value || ''),
     variety: document.getElementById('beanVariety')?.value.trim() || '',
@@ -787,6 +809,7 @@ function collectBeanFormData() {
     photo_file_id: appState.uploadedPhoto.fileId || '',
     photo_file_name: appState.uploadedPhoto.fileName || '',
     photo_drive_link: appState.uploadedPhoto.driveLink || '',
+    photo_preview_data_url: appState.uploadedPhoto.previewDataUrl || '',
     photo_text: appState.uploadedPhoto.photoText || ''
   };
 }
@@ -806,7 +829,7 @@ function fillBeanForm(bean) {
 
   if (beanName && (bean.bean || bean.name)) beanName.value = bean.bean || bean.name;
   if (beanRoaster && bean.roaster) beanRoaster.value = bean.roaster;
-  if (beanOriginCountry && bean.origin_country) beanOriginCountry.value = bean.origin_country;
+  if (beanOriginCountry && bean.origin_country) beanOriginCountry.value = normalizeCountryValue(bean.origin_country);
   if (beanOriginRegion && bean.origin_region) beanOriginRegion.value = bean.origin_region;
   if (beanPurchaseCountry && bean.purchase_country) beanPurchaseCountry.value = normalizeCountryValue(bean.purchase_country);
   if (beanVariety && bean.variety) beanVariety.value = bean.variety;
@@ -821,14 +844,16 @@ function fillBeanForm(bean) {
     renderDraftTags();
   }
 
-  if (bean.photo_file_id || bean.photo_drive_link) {
+  if (bean.photo_file_id || bean.photo_drive_link || bean.photo_preview_data_url) {
     appState.uploadedPhoto = {
       fileId: bean.photo_file_id || '',
       fileName: bean.photo_file_name || '',
       driveLink: bean.photo_drive_link || '',
+      previewDataUrl: bean.photo_preview_data_url || '',
       photoText: bean.photo_text || ''
     };
     renderPhotoMeta();
+    renderBeanAvatar();
   }
 }
 
@@ -841,15 +866,17 @@ function resetAddBeanForm() {
     fileId: '',
     fileName: '',
     driveLink: '',
+    previewDataUrl: '',
     photoText: ''
   };
 
   renderDraftTags();
   renderPhotoMeta();
+  renderBeanAvatar();
 
   const researchStatus = document.getElementById('researchStatus');
   if (researchStatus) {
-    researchStatus.textContent = 'Research Bean can fill structured fields from typed data now. Photo OCR scaffolding is included for the next step.';
+    researchStatus.textContent = 'Uploading compresses the photo first. Research Bean will use uploaded photo metadata and photo text when present.';
   }
 }
 
@@ -903,7 +930,7 @@ function renderPhotoMeta() {
   const meta = document.getElementById('beanPhotoMeta');
   if (!meta) return;
 
-  if (!appState.uploadedPhoto.fileId) {
+  if (!appState.uploadedPhoto.fileId && !appState.uploadedPhoto.previewDataUrl) {
     meta.textContent = 'No photo uploaded yet.';
     return;
   }
@@ -913,6 +940,18 @@ function renderPhotoMeta() {
     : escapeHtml(appState.uploadedPhoto.fileName || 'Uploaded photo');
 
   meta.innerHTML = `Uploaded: ${link}`;
+}
+
+function renderBeanAvatar() {
+  const avatar = document.getElementById('beanAvatar');
+  if (!avatar) return;
+
+  if (appState.uploadedPhoto.previewDataUrl) {
+    avatar.innerHTML = `<img src="${escapeHtml(appState.uploadedPhoto.previewDataUrl)}" alt="Bean avatar preview" />`;
+    return;
+  }
+
+  avatar.textContent = 'No photo';
 }
 
 function getBeanById(id) {
@@ -1059,19 +1098,62 @@ function normalizeCountryValue(value) {
   return raw;
 }
 
-async function fileToBase64(file) {
+function inferPhotoTextFromFileName(fileName) {
+  const raw = String(fileName || '').replace(/\.[^.]+$/, '');
+  return raw.replace(/[_-]+/g, ' ').trim();
+}
+
+async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
+  const dataUrl = await fileToDataUrl(file);
+  const image = await loadImage(dataUrl);
+
+  let { width, height } = image;
+  if (width > height && width > maxDimension) {
+    height = Math.round((height * maxDimension) / width);
+    width = maxDimension;
+  } else if (height >= width && height > maxDimension) {
+    width = Math.round((width * maxDimension) / height);
+    height = maxDimension;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0, width, height);
+
+  const outputMime = 'image/jpeg';
+  const compressedDataUrl = canvas.toDataURL(outputMime, quality);
+  const previewDataUrl = canvas.toDataURL(outputMime, 0.72);
+
+  const safeBaseName = (file.name || 'bean-photo').replace(/\.[^.]+$/, '');
+  const fileName = `${safeBaseName}.jpg`;
+
+  return {
+    dataUrl: compressedDataUrl,
+    previewDataUrl,
+    fileName,
+    mimeType: outputMime
+  };
+}
+
+async function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = () => {
-      resolve(String(reader.result || ''));
-    };
-
-    reader.onerror = () => {
-      reject(new Error('Failed to read file.'));
-    };
-
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read file.'));
     reader.readAsDataURL(file);
+  });
+}
+
+async function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image for compression.'));
+    img.src = src;
   });
 }
 
