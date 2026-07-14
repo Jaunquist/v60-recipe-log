@@ -5,6 +5,7 @@
   <title>Bean Ledger</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -26,14 +27,14 @@
       <div class="nav">
         <div>
           <div class="nav-title">Views</div>
-          <button class="nav-btn active" data-view="library">Bean Library</button>
-          <button class="nav-btn" data-view="helper">Recipe Helper</button>
-          <button class="nav-btn" data-view="settings">Settings</button>
+          <button class="nav-btn active" data-view="library" type="button">Bean Library</button>
+          <button class="nav-btn" data-view="helper" type="button">Recipe Helper</button>
+          <button class="nav-btn" data-view="settings" type="button">Settings</button>
         </div>
 
-        <div style="margin-top: 20px;">
+        <div class="nav-group">
           <div class="nav-title">Actions</div>
-          <button id="openAddBeanBtn" class="nav-btn">Add bean</button>
+          <button id="openAddBeanBtn" class="nav-btn" type="button">Add bean</button>
         </div>
       </div>
     </aside>
@@ -45,13 +46,13 @@
       </header>
 
       <section class="content">
-        <div id="view-library" class="panel">
+        <section id="view-library" class="panel">
           <div class="section-head">
             <div>
               <h2>Bean Library</h2>
               <p class="muted">Compact summaries first. Tap a bean to expand details and recipes.</p>
             </div>
-            <div>
+            <div class="section-head__search">
               <label for="beanSearchInput" class="tiny">Search</label>
               <input id="beanSearchInput" type="search" placeholder="Search by name, roaster, country, notes…" />
             </div>
@@ -59,9 +60,9 @@
 
           <div id="tagFilterBar" class="tag-filter-bar"></div>
           <div id="beanList" class="bean-list"></div>
-        </div>
+        </section>
 
-        <div id="view-helper" class="panel hidden">
+        <section id="view-helper" class="panel hidden">
           <div class="section-head">
             <div>
               <h2>Recipe Helper</h2>
@@ -105,9 +106,9 @@
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div id="view-settings" class="panel hidden">
+        <section id="view-settings" class="panel hidden">
           <div class="section-head">
             <div>
               <h2>Settings</h2>
@@ -123,7 +124,7 @@
 
             <div>
               <label for="scriptUrl">Apps Script web app URL</label>
-              <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…" />
+              <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
             </div>
 
             <div>
@@ -134,20 +135,21 @@
 
             <button class="save-btn" type="submit">Save shared settings</button>
           </form>
-        </div>
+        </section>
       </section>
     </main>
   </div>
 
   <div id="addBeanModal" class="modal hidden" aria-hidden="true">
     <div class="modal__backdrop" data-close-add-bean="true"></div>
+
     <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="addBeanTitle">
       <header class="modal-header">
         <div>
           <h2 id="addBeanTitle">Add / Edit Bean</h2>
           <p class="muted">Upload a photo, research the bean, then save.</p>
         </div>
-        <button id="closeAddBeanBtn" type="button" class="icon-btn" aria-label="Close">✕</button>
+        <button id="closeAddBeanBtn" class="icon-btn" type="button" aria-label="Close">✕</button>
       </header>
 
       <main class="modal-body">
@@ -163,6 +165,7 @@
                   <label for="beanPhotoFile" class="tiny">Bean photo</label>
                   <input id="beanPhotoFile" type="file" accept="image/*" />
                 </div>
+
                 <div>
                   <label class="tiny">&nbsp;</label>
                   <button id="uploadPhotoBtn" type="button">Upload photo</button>
