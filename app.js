@@ -63,6 +63,27 @@ function bindEvents() {
   bindHelperInputs();
   bindAddBeanModal();
   bindLibrarySearch();
+  bindGlobalFormProtection();
+}
+
+function bindGlobalFormProtection() {
+  document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    if (form.id === 'settings-form' || form.id === 'addBeanForm') return;
+
+    event.preventDefault();
+  });
+
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button) return;
+
+    if (!button.hasAttribute('type')) {
+      button.setAttribute('type', 'button');
+    }
+  });
 }
 
 function bindNavigation() {
@@ -70,7 +91,8 @@ function bindNavigation() {
   const viewTitle = document.getElementById('viewTitle');
 
   navButtons.forEach((button) => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
       const nextView = button.getAttribute('data-view') || 'library';
       appState.currentView = nextView;
 
@@ -204,7 +226,8 @@ function bindAddBeanModal() {
   const tagInput = document.getElementById('beanTagInput');
 
   if (openBtn) {
-    openBtn.addEventListener('click', () => {
+    openBtn.addEventListener('click', (event) => {
+      event.preventDefault();
       modal?.classList.remove('hidden');
       renderDraftTags();
       renderPhotoMeta();
@@ -213,12 +236,16 @@ function bindAddBeanModal() {
   }
 
   if (closeBtn) {
-    closeBtn.addEventListener('click', () => modal?.classList.add('hidden'));
+    closeBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      modal?.classList.add('hidden');
+    });
   }
 
   if (modal) {
     modal.addEventListener('click', (event) => {
       if (event.target.matches('[data-close-add-bean="true"]')) {
+        event.preventDefault();
         modal.classList.add('hidden');
       }
     });
@@ -229,11 +256,17 @@ function bindAddBeanModal() {
   }
 
   if (researchBtn) {
-    researchBtn.addEventListener('click', onResearchBean);
+    researchBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      onResearchBean();
+    });
   }
 
   if (uploadPhotoBtn) {
-    uploadPhotoBtn.addEventListener('click', onUploadPhoto);
+    uploadPhotoBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      onUploadPhoto();
+    });
   }
 
   if (tagInput) {
@@ -291,17 +324,10 @@ async function fetchJson(url) {
   const response = await fetch(url, { method: 'GET' });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
 
-  let result;
-  try {
-    result = await response.json();
-  } catch (error) {
-    throw new Error('Invalid JSON response from backend.');
-  }
-
+  const result = await response.json();
   if (result && result.success === false) {
     throw new Error(result.error || 'Backend request failed.');
   }
-
   return result;
 }
 
@@ -316,17 +342,10 @@ async function postJson(payload) {
 
   if (!response.ok) throw new Error(`POST failed: ${response.status}`);
 
-  let result;
-  try {
-    result = await response.json();
-  } catch (error) {
-    throw new Error('Invalid JSON response from backend.');
-  }
-
+  const result = await response.json();
   if (result && result.success === false) {
     throw new Error(result.error || 'Backend request failed.');
   }
-
   return result;
 }
 
@@ -499,21 +518,13 @@ function renderTagFilterBar() {
   const tags = Array.from(tagCounts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
   const allButton = `
-    <button
-      type="button"
-      class="tag-filter-chip ${appState.selectedLibraryTag === '' ? 'active' : ''}"
-      data-tag-filter=""
-    >
+    <button type="button" class="tag-filter-chip ${appState.selectedLibraryTag === '' ? 'active' : ''}" data-tag-filter="">
       All tags
     </button>
   `;
 
   const tagButtons = tags.map(([tag, count]) => `
-    <button
-      type="button"
-      class="tag-filter-chip ${appState.selectedLibraryTag === tag ? 'active' : ''}"
-      data-tag-filter="${escapeHtml(tag)}"
-    >
+    <button type="button" class="tag-filter-chip ${appState.selectedLibraryTag === tag ? 'active' : ''}" data-tag-filter="${escapeHtml(tag)}">
       ${escapeHtml(tag)} <span class="tag-filter-count">${count}</span>
     </button>
   `).join('');
@@ -521,7 +532,8 @@ function renderTagFilterBar() {
   container.innerHTML = allButton + tagButtons;
 
   container.querySelectorAll('[data-tag-filter]').forEach((button) => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
       appState.selectedLibraryTag = button.getAttribute('data-tag-filter') || '';
       renderTagFilterBar();
       renderBeanList();
@@ -609,17 +621,12 @@ function renderRecipeHelper() {
   if (!output) return;
 
   if (!dose || (!ratio && !target)) {
-    output.innerHTML = `
-      <div class="helper-placeholder">
-        Enter dose plus either brew ratio or target beverage weight.
-      </div>
-    `;
+    output.innerHTML = `<div class="helper-placeholder">Enter dose plus either brew ratio or target beverage weight.</div>`;
     return;
   }
 
   const computedTarget = target || (dose * ratio);
   const computedRatio = ratio || (computedTarget / dose);
-
   const bloomWater = round1(dose * 3);
   const remainingWater = Math.max(0, computedTarget - bloomWater);
   const pour2 = round1(remainingWater * 0.5);
@@ -698,16 +705,12 @@ async function onResearchBean() {
 
   if (!name && !beanData.photo_file_id && !beanData.photo_text) {
     setStatus('Enter a bean name or upload a photo before research.', 'error');
-    if (researchStatus) {
-      researchStatus.textContent = 'Enter a bean name or upload a photo first.';
-    }
+    if (researchStatus) researchStatus.textContent = 'Enter a bean name or upload a photo first.';
     return;
   }
 
   setStatus('Researching bean...', 'info');
-  if (researchStatus) {
-    researchStatus.textContent = 'Research in progress...';
-  }
+  if (researchStatus) researchStatus.textContent = 'Research in progress...';
 
   try {
     const result = await postJson({
@@ -716,10 +719,7 @@ async function onResearchBean() {
     });
 
     const researchedBean = result?.data?.bean || null;
-
-    if (!researchedBean) {
-      throw new Error('Backend returned no bean data.');
-    }
+    if (!researchedBean) throw new Error('Backend returned no bean data.');
 
     fillBeanForm(researchedBean);
 
@@ -732,9 +732,7 @@ async function onResearchBean() {
     setStatus('Bean research complete.', 'success');
   } catch (error) {
     console.error('Research bean failed:', error);
-    if (researchStatus) {
-      researchStatus.textContent = `Research failed: ${error.message}`;
-    }
+    if (researchStatus) researchStatus.textContent = `Research failed: ${error.message}`;
     setStatus(`Failed to research bean: ${error.message}`, 'error');
   }
 }
@@ -912,7 +910,8 @@ function renderDraftTags() {
   `).join('');
 
   preview.querySelectorAll('[data-remove-tag]').forEach((button) => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
       removeDraftTag(button.getAttribute('data-remove-tag') || '');
     });
   });
@@ -920,10 +919,7 @@ function renderDraftTags() {
 
 function renderTagChips(tags) {
   if (!tags || !tags.length) return '';
-
-  return tags.map((tag) => `
-    <span class="tag-chip">${escapeHtml(tag)}</span>
-  `).join('');
+  return tags.map((tag) => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('');
 }
 
 function renderPhotoMeta() {
@@ -972,10 +968,7 @@ function formatOriginWithFlag(origin) {
   const code = inferCountryCode(origin);
   const flag = code ? countryCodeToFlag(code) : '';
   const text = escapeHtml(origin);
-
-  return flag
-    ? `<span class="origin-flag" aria-hidden="true">${flag}</span> <span>${text}</span>`
-    : `<span>${text}</span>`;
+  return flag ? `<span class="origin-flag" aria-hidden="true">${flag}</span> <span>${text}</span>` : `<span>${text}</span>`;
 }
 
 function plainOriginWithFlag(origin) {
@@ -1126,7 +1119,6 @@ async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
   const outputMime = 'image/jpeg';
   const compressedDataUrl = canvas.toDataURL(outputMime, quality);
   const previewDataUrl = canvas.toDataURL(outputMime, 0.72);
-
   const safeBaseName = (file.name || 'bean-photo').replace(/\.[^.]+$/, '');
   const fileName = `${safeBaseName}.jpg`;
 
@@ -1141,7 +1133,6 @@ async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
 async function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-
     reader.onload = () => resolve(String(reader.result || ''));
     reader.onerror = () => reject(new Error('Failed to read file.'));
     reader.readAsDataURL(file);
