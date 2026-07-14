@@ -14,7 +14,6 @@
   --info-bg: #eff6ff;
   --info-text: #1d4ed8;
   --shadow: 0 10px 30px rgba(40, 28, 20, 0.08);
-  --radius: 16px;
 }
 
 * {
@@ -48,6 +47,11 @@ p {
 }
 
 small {
+  display: block;
+}
+
+img {
+  max-width: 100%;
   display: block;
 }
 
@@ -122,9 +126,6 @@ button {
   font: inherit;
   cursor: pointer;
   transition: 160ms ease;
-  position: relative;
-  z-index: 30;
-  pointer-events: auto;
 }
 
 .nav-btn:hover,
@@ -141,8 +142,6 @@ button:hover {
 
 .main {
   min-width: 0;
-  position: relative;
-  z-index: 1;
 }
 
 .topbar {
@@ -157,14 +156,6 @@ button:hover {
   font-family: "Cabinet Grotesk", "Satoshi", sans-serif;
 }
 
-.theme-toggle {
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-}
-
 .content {
   padding: 24px 28px 40px;
 }
@@ -175,12 +166,12 @@ button:hover {
   border-radius: 20px;
   padding: 24px;
   box-shadow: var(--shadow);
-  position: relative;
-  z-index: 1;
 }
 
-.panel + .panel {
+.panel--inner {
+  padding: 18px;
   margin-top: 18px;
+  background: #fff;
 }
 
 .muted {
@@ -216,12 +207,11 @@ button:hover {
   color: var(--info-text);
 }
 
-.library-stack,
-.settings-grid {
+.settings-grid,
+.helper-form,
+.bean-list {
   display: grid;
   gap: 12px;
-  max-width: 760px;
-  margin-top: 16px;
 }
 
 .helper-layout {
@@ -232,20 +222,19 @@ button:hover {
   align-items: start;
 }
 
-.helper-form {
-  display: grid;
-  gap: 12px;
-}
-
 .helper-output {
   min-width: 0;
 }
 
-.recipe-card {
+.recipe-card,
+.recipe-preview {
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 18px;
+}
+
+.recipe-card {
   min-height: 240px;
 }
 
@@ -281,8 +270,9 @@ button:hover {
 }
 
 .helper-step,
-.helper-placeholder {
-  padding: 12px;
+.helper-placeholder,
+.helper-bean-summary {
+  padding: 12px 14px;
   border-radius: 12px;
   background: #f9fafb;
   border: 1px solid var(--line);
@@ -290,13 +280,12 @@ button:hover {
   color: #374151;
 }
 
-.helper-bean-summary {
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: #f9fafb;
-  border: 1px solid var(--line);
-  color: #374151;
-  font-size: 14px;
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .bean-card {
@@ -314,7 +303,6 @@ button:hover {
 }
 
 .bean-card__title {
-  margin: 0;
   font-size: 16px;
   font-weight: 700;
 }
@@ -331,6 +319,13 @@ button:hover {
   margin-top: 6px;
   font-size: 14px;
   color: #374151;
+}
+
+.bean-card__image {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  margin-top: 12px;
 }
 
 .origin-flag {
@@ -374,6 +369,59 @@ label {
   margin-top: 4px;
 }
 
+.save-btn--secondary {
+  background: #fff8f3;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.icon-btn {
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+.photo-preview {
+  max-width: 280px;
+}
+
+.photo-preview img {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+.modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(30, 27, 24, 0.42);
+}
+
+.modal__dialog {
+  position: relative;
+  max-width: 860px;
+  margin: 32px auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 24px;
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+}
+
 #beanList {
   display: grid;
   gap: 12px;
@@ -402,7 +450,19 @@ label {
   }
 
   .helper-layout,
-  .helper-grid {
+  .helper-grid,
+  .section-head,
+  .action-row {
     grid-template-columns: 1fr;
+  }
+
+  .section-head,
+  .action-row {
+    display: grid;
+  }
+
+  .modal__dialog {
+    margin: 12px;
+    max-height: calc(100vh - 24px);
   }
 }
