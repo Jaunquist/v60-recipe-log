@@ -1,11 +1,31 @@
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMNB7D2p_qCWhvTulP9GY274aSkJPxr-7l8YGkVFj3hPYlISysdNfAw0ndFYNNII4-gw/exec';
 
 const COUNTRY_OPTIONS = [
-  'Philippines', 'Japan', 'Taiwan', 'Hong Kong', 'Singapore', 'Thailand', 'South Korea',
-  'Indonesia', 'Malaysia', 'Vietnam', 'Australia', 'New Zealand', 'United States',
-  'Canada', 'United Kingdom', 'France', 'Italy', 'Spain', 'Germany', 'Netherlands',
-  'Denmark', 'Norway', 'Sweden', 'Finland', 'Switzerland', 'Ethiopia', 'Kenya',
-  'Colombia', 'Brazil', 'Panama', 'Costa Rica', 'Guatemala', 'Mexico'
+  "Afghanistan","Åland Islands","Albania","Algeria","American Samoa","Andorra","Angola","Anguilla","Antarctica","Antigua and Barbuda","Argentina","Armenia","Aruba","Australia","Austria","Azerbaijan",
+  "Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bermuda","Bhutan","Bolivia","Bonaire, Sint Eustatius and Saba","Bosnia and Herzegovina","Botswana","Bouvet Island","Brazil","British Indian Ocean Territory","Brunei Darussalam","Bulgaria","Burkina Faso","Burundi",
+  "Cabo Verde","Cambodia","Cameroon","Canada","Cayman Islands","Central African Republic","Chad","Chile","China","Christmas Island","Cocos (Keeling) Islands","Colombia","Comoros","Congo","Congo, Democratic Republic of the","Cook Islands","Costa Rica","Côte d'Ivoire","Croatia","Cuba","Curaçao","Cyprus","Czechia",
+  "Denmark","Djibouti","Dominica","Dominican Republic",
+  "Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia",
+  "Falkland Islands (Malvinas)","Faroe Islands","Fiji","Finland","France","French Guiana","French Polynesia","French Southern Territories",
+  "Gabon","Gambia","Georgia","Germany","Ghana","Gibraltar","Greece","Greenland","Grenada","Guadeloupe","Guam","Guatemala","Guernsey","Guinea","Guinea-Bissau","Guyana",
+  "Haiti","Heard Island and McDonald Islands","Holy See","Honduras","Hong Kong","Hungary",
+  "Iceland","India","Indonesia","Iran","Iraq","Ireland","Isle of Man","Israel","Italy",
+  "Jamaica","Japan","Jersey","Jordan",
+  "Kazakhstan","Kenya","Kiribati","Korea, Democratic People's Republic of","Korea, Republic of","Kuwait","Kyrgyzstan",
+  "Lao People's Democratic Republic","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg",
+  "Macao","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Martinique","Mauritania","Mauritius","Mayotte","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Montserrat","Morocco","Mozambique","Myanmar",
+  "Namibia","Nauru","Nepal","Netherlands","New Caledonia","New Zealand","Nicaragua","Niger","Nigeria","Niue","Norfolk Island","North Macedonia","Northern Mariana Islands","Norway",
+  "Oman",
+  "Pakistan","Palau","Palestine, State of","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Pitcairn","Poland","Portugal","Puerto Rico",
+  "Qatar",
+  "Réunion","Romania","Russian Federation","Rwanda",
+  "Saint Barthélemy","Saint Helena, Ascension and Tristan da Cunha","Saint Kitts and Nevis","Saint Lucia","Saint Martin (French part)","Saint Pierre and Miquelon","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Sint Maarten (Dutch part)","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Georgia and the South Sandwich Islands","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Svalbard and Jan Mayen","Sweden","Switzerland","Syrian Arab Republic",
+  "Taiwan, Province of China","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tokelau","Tonga","Trinidad and Tobago","Tunisia","Türkiye","Turkmenistan","Turks and Caicos Islands","Tuvalu",
+  "Uganda","Ukraine","United Arab Emirates","United Kingdom","United States Minor Outlying Islands","United States of America","Uruguay","Uzbekistan",
+  "Vanuatu","Venezuela","Viet Nam","Virgin Islands (British)","Virgin Islands (U.S.)",
+  "Wallis and Futuna","Western Sahara",
+  "Yemen",
+  "Zambia","Zimbabwe"
 ];
 
 const appState = {
@@ -19,11 +39,18 @@ const appState = {
   currentHelperBeanId: '',
   draftTags: [],
   selectedLibraryTag: '',
-  librarySearchTerm: ''
+  librarySearchTerm: '',
+  uploadedPhoto: {
+    fileId: '',
+    fileName: '',
+    driveLink: '',
+    photoText: ''
+  }
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
   bindEvents();
+  hydrateCountryDatalist();
   switchView('library');
   await bootstrapApp();
 });
@@ -92,6 +119,15 @@ function switchView(view) {
     };
     viewTitle.textContent = titles[nextView] || 'Bean Library';
   }
+}
+
+function hydrateCountryDatalist() {
+  const datalist = document.getElementById('countryOptions');
+  if (!datalist) return;
+
+  datalist.innerHTML = COUNTRY_OPTIONS
+    .map((country) => `<option value="${escapeHtml(country)}"></option>`)
+    .join('');
 }
 
 function bindSettingsForm() {
@@ -163,12 +199,14 @@ function bindAddBeanModal() {
   const modal = document.getElementById('addBeanModal');
   const addBeanForm = document.getElementById('addBeanForm');
   const researchBtn = document.getElementById('researchBeanBtn');
+  const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
   const tagInput = document.getElementById('beanTagInput');
 
   if (openBtn) {
     openBtn.addEventListener('click', () => {
       modal?.classList.remove('hidden');
       renderDraftTags();
+      renderPhotoMeta();
     });
   }
 
@@ -190,6 +228,10 @@ function bindAddBeanModal() {
 
   if (researchBtn) {
     researchBtn.addEventListener('click', onResearchBean);
+  }
+
+  if (uploadPhotoBtn) {
+    uploadPhotoBtn.addEventListener('click', onUploadPhoto);
   }
 
   if (tagInput) {
@@ -233,6 +275,7 @@ async function bootstrapApp() {
     renderBeanSelect();
     renderRecipeHelper();
     renderDraftTags();
+    renderPhotoMeta();
 
     setStatus('Ready.', 'success');
   } catch (error) {
@@ -367,8 +410,13 @@ function getFilteredBeans() {
       bean.origin_country || '',
       bean.origin_region || '',
       bean.purchase_country || '',
+      bean.variety || '',
+      bean.producer || '',
+      bean.farm || '',
+      bean.altitude || '',
       bean.process || '',
       bean.notes || '',
+      bean.photo_text || '',
       ...(bean.tags || [])
     ].join(' ').toLowerCase();
 
@@ -395,8 +443,13 @@ function renderBeanList() {
     const origin = bean.origin ? `<div class="bean-card__origin">${formatOriginWithFlag(bean.origin)}</div>` : '';
     const roaster = bean.roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(bean.roaster)}</div>` : '';
     const purchaseCountry = bean.purchase_country ? `<div class="bean-card__meta"><strong>Purchased in:</strong> ${escapeHtml(bean.purchase_country)}</div>` : '';
+    const variety = bean.variety ? `<div class="bean-card__meta"><strong>Variety:</strong> ${escapeHtml(bean.variety)}</div>` : '';
+    const producer = bean.producer ? `<div class="bean-card__meta"><strong>Producer:</strong> ${escapeHtml(bean.producer)}</div>` : '';
+    const farm = bean.farm ? `<div class="bean-card__meta"><strong>Farm:</strong> ${escapeHtml(bean.farm)}</div>` : '';
+    const altitude = bean.altitude ? `<div class="bean-card__meta"><strong>Altitude:</strong> ${escapeHtml(bean.altitude)}</div>` : '';
     const process = bean.process ? `<div class="bean-card__meta"><strong>Process:</strong> ${escapeHtml(bean.process)}</div>` : '';
     const notes = bean.notes ? `<div class="bean-card__meta"><strong>Notes:</strong> ${escapeHtml(bean.notes)}</div>` : '';
+    const photo = bean.photo_drive_link ? `<div class="bean-card__meta"><a href="${escapeHtml(bean.photo_drive_link)}" target="_blank" rel="noopener noreferrer">Open photo in Drive</a></div>` : '';
     const tags = renderTagChips(bean.tags || [], false);
 
     return `
@@ -407,8 +460,13 @@ function renderBeanList() {
         </div>
         ${roaster}
         ${purchaseCountry}
+        ${variety}
+        ${producer}
+        ${farm}
+        ${altitude}
         ${process}
         ${notes}
+        ${photo}
         ${tags ? `<div class="bean-card__tags">${tags}</div>` : ''}
       </div>
     `;
@@ -429,8 +487,7 @@ function renderTagFilterBar() {
     });
   });
 
-  const tags = Array.from(tagCounts.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]));
+  const tags = Array.from(tagCounts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
   const allButton = `
     <button
@@ -471,8 +528,13 @@ function beanMatchesSearch(bean, searchTerm) {
     bean.origin_country || '',
     bean.origin_region || '',
     bean.purchase_country || '',
+    bean.variety || '',
+    bean.producer || '',
+    bean.farm || '',
+    bean.altitude || '',
     bean.process || '',
     bean.notes || '',
+    bean.photo_text || '',
     ...(bean.tags || [])
   ].join(' ').toLowerCase();
 
@@ -515,7 +577,9 @@ function renderRecipeHelper() {
       if (bean.roaster) parts.push(escapeHtml(bean.roaster));
       if (bean.origin) parts.push(formatOriginWithFlag(bean.origin));
       if (bean.purchase_country) parts.push(`Purchased in: ${escapeHtml(bean.purchase_country)}`);
+      if (bean.variety) parts.push(`Variety: ${escapeHtml(bean.variety)}`);
       if (bean.process) parts.push(escapeHtml(bean.process));
+      if (bean.producer) parts.push(`Producer: ${escapeHtml(bean.producer)}`);
       summary.innerHTML = parts.join(' · ');
 
       if (bean.tags && bean.tags.length) {
@@ -616,10 +680,10 @@ async function onResearchBean() {
   const name = beanData.bean || beanData.name || '';
   const researchStatus = document.getElementById('researchStatus');
 
-  if (!name) {
-    setStatus('Enter at least a bean name before research.', 'error');
+  if (!name && !beanData.photo_text) {
+    setStatus('Enter a bean name or upload a photo before research.', 'error');
     if (researchStatus) {
-      researchStatus.textContent = 'Enter a bean name first.';
+      researchStatus.textContent = 'Enter a bean name or upload a photo first.';
     }
     return;
   }
@@ -659,6 +723,52 @@ async function onResearchBean() {
   }
 }
 
+async function onUploadPhoto() {
+  const fileInput = document.getElementById('beanPhotoFile');
+  const researchStatus = document.getElementById('researchStatus');
+  const file = fileInput?.files?.[0];
+
+  if (!file) {
+    setStatus('Choose a photo first.', 'error');
+    if (researchStatus) researchStatus.textContent = 'Choose a photo before uploading.';
+    return;
+  }
+
+  setStatus('Uploading bean photo...', 'info');
+  if (researchStatus) researchStatus.textContent = 'Uploading photo...';
+
+  try {
+    const base64 = await fileToBase64(file);
+
+    const result = await postJson({
+      action: 'uploadbeanphoto',
+      fileName: file.name,
+      mimeType: file.type || 'image/jpeg',
+      base64
+    });
+
+    appState.uploadedPhoto = {
+      fileId: result?.data?.fileId || '',
+      fileName: result?.data?.fileName || file.name,
+      driveLink: result?.data?.driveLink || '',
+      photoText: result?.data?.photoText || ''
+    };
+
+    renderPhotoMeta();
+
+    if (researchStatus) {
+      const ocrStatus = result?.data?.ocrStatus || 'uploaded';
+      researchStatus.textContent = `Photo uploaded. OCR status: ${ocrStatus}.`;
+    }
+
+    setStatus('Photo uploaded successfully.', 'success');
+  } catch (error) {
+    console.error(error);
+    if (researchStatus) researchStatus.textContent = `Photo upload failed: ${error.message}`;
+    setStatus(`Failed to upload photo: ${error.message}`, 'error');
+  }
+}
+
 function collectBeanFormData() {
   return {
     bean: document.getElementById('beanName')?.value.trim() || '',
@@ -667,9 +777,17 @@ function collectBeanFormData() {
     origin_country: document.getElementById('beanOriginCountry')?.value.trim() || '',
     origin_region: document.getElementById('beanOriginRegion')?.value.trim() || '',
     purchase_country: normalizeCountryValue(document.getElementById('beanPurchaseCountry')?.value || ''),
+    variety: document.getElementById('beanVariety')?.value.trim() || '',
+    producer: document.getElementById('beanProducer')?.value.trim() || '',
+    farm: document.getElementById('beanFarm')?.value.trim() || '',
+    altitude: document.getElementById('beanAltitude')?.value.trim() || '',
     process: document.getElementById('beanProcess')?.value.trim() || '',
     notes: document.getElementById('beanNotes')?.value.trim() || '',
-    tags: [...appState.draftTags]
+    tags: [...appState.draftTags],
+    photo_file_id: appState.uploadedPhoto.fileId || '',
+    photo_file_name: appState.uploadedPhoto.fileName || '',
+    photo_drive_link: appState.uploadedPhoto.driveLink || '',
+    photo_text: appState.uploadedPhoto.photoText || ''
   };
 }
 
@@ -679,6 +797,10 @@ function fillBeanForm(bean) {
   const beanOriginCountry = document.getElementById('beanOriginCountry');
   const beanOriginRegion = document.getElementById('beanOriginRegion');
   const beanPurchaseCountry = document.getElementById('beanPurchaseCountry');
+  const beanVariety = document.getElementById('beanVariety');
+  const beanProducer = document.getElementById('beanProducer');
+  const beanFarm = document.getElementById('beanFarm');
+  const beanAltitude = document.getElementById('beanAltitude');
   const beanProcess = document.getElementById('beanProcess');
   const beanNotes = document.getElementById('beanNotes');
 
@@ -687,12 +809,26 @@ function fillBeanForm(bean) {
   if (beanOriginCountry && bean.origin_country) beanOriginCountry.value = bean.origin_country;
   if (beanOriginRegion && bean.origin_region) beanOriginRegion.value = bean.origin_region;
   if (beanPurchaseCountry && bean.purchase_country) beanPurchaseCountry.value = normalizeCountryValue(bean.purchase_country);
+  if (beanVariety && bean.variety) beanVariety.value = bean.variety;
+  if (beanProducer && bean.producer) beanProducer.value = bean.producer;
+  if (beanFarm && bean.farm) beanFarm.value = bean.farm;
+  if (beanAltitude && bean.altitude) beanAltitude.value = bean.altitude;
   if (beanProcess && bean.process) beanProcess.value = bean.process;
   if (beanNotes && bean.notes) beanNotes.value = bean.notes;
 
   if (bean.tags) {
     appState.draftTags = normalizeTagArray(bean.tags);
     renderDraftTags();
+  }
+
+  if (bean.photo_file_id || bean.photo_drive_link) {
+    appState.uploadedPhoto = {
+      fileId: bean.photo_file_id || '',
+      fileName: bean.photo_file_name || '',
+      driveLink: bean.photo_drive_link || '',
+      photoText: bean.photo_text || ''
+    };
+    renderPhotoMeta();
   }
 }
 
@@ -701,11 +837,19 @@ function resetAddBeanForm() {
   if (form) form.reset();
 
   appState.draftTags = [];
+  appState.uploadedPhoto = {
+    fileId: '',
+    fileName: '',
+    driveLink: '',
+    photoText: ''
+  };
+
   renderDraftTags();
+  renderPhotoMeta();
 
   const researchStatus = document.getElementById('researchStatus');
   if (researchStatus) {
-    researchStatus.textContent = 'Research Bean can suggest origin, process, notes, and starter tags. Purchase country stays manual.';
+    researchStatus.textContent = 'Research Bean can fill structured fields from typed data now. Photo OCR scaffolding is included for the next step.';
   }
 }
 
@@ -747,21 +891,28 @@ function renderDraftTags() {
   });
 }
 
-function renderTagChips(tags, editable) {
+function renderTagChips(tags) {
   if (!tags || !tags.length) return '';
-
-  if (editable) {
-    return tags.map((tag) => `
-      <button type="button" class="tag-chip tag-chip--editable" data-remove-tag="${escapeHtml(tag)}">
-        <span>${escapeHtml(tag)}</span>
-        <span aria-hidden="true">×</span>
-      </button>
-    `).join('');
-  }
 
   return tags.map((tag) => `
     <span class="tag-chip">${escapeHtml(tag)}</span>
   `).join('');
+}
+
+function renderPhotoMeta() {
+  const meta = document.getElementById('beanPhotoMeta');
+  if (!meta) return;
+
+  if (!appState.uploadedPhoto.fileId) {
+    meta.textContent = 'No photo uploaded yet.';
+    return;
+  }
+
+  const link = appState.uploadedPhoto.driveLink
+    ? `<a href="${escapeHtml(appState.uploadedPhoto.driveLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(appState.uploadedPhoto.fileName || 'Open uploaded photo')}</a>`
+    : escapeHtml(appState.uploadedPhoto.fileName || 'Uploaded photo');
+
+  meta.innerHTML = `Uploaded: ${link}`;
 }
 
 function getBeanById(id) {
@@ -828,6 +979,7 @@ function inferCountryCode(origin) {
     yemen: 'YE',
     india: 'IN',
     vietnam: 'VN',
+    'viet nam': 'VN',
     laos: 'LA',
     thailand: 'TH',
     myanmar: 'MM',
@@ -904,8 +1056,23 @@ function normalizeCountryValue(value) {
   );
 
   if (exactMatch) return exactMatch;
-
   return raw;
+}
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve(String(reader.result || ''));
+    };
+
+    reader.onerror = () => {
+      reject(new Error('Failed to read file.'));
+    };
+
+    reader.readAsDataURL(file);
+  });
 }
 
 function setStatus(message, type = 'info') {
