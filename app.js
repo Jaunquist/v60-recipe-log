@@ -70,16 +70,13 @@ function bindGlobalFormProtection() {
   document.addEventListener('submit', (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
-
     if (form.id === 'settings-form' || form.id === 'addBeanForm') return;
-
     event.preventDefault();
   });
 
   document.addEventListener('click', (event) => {
     const button = event.target.closest('button');
     if (!button) return;
-
     if (!button.hasAttribute('type')) {
       button.setAttribute('type', 'button');
     }
@@ -323,11 +320,8 @@ async function bootstrapApp() {
 async function fetchJson(url) {
   const response = await fetch(url, { method: 'GET' });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-
   const result = await response.json();
-  if (result && result.success === false) {
-    throw new Error(result.error || 'Backend request failed.');
-  }
+  if (result && result.success === false) throw new Error(result.error || 'Backend request failed.');
   return result;
 }
 
@@ -341,19 +335,25 @@ async function postJson(payload) {
   });
 
   if (!response.ok) throw new Error(`POST failed: ${response.status}`);
-
   const result = await response.json();
-  if (result && result.success === false) {
-    throw new Error(result.error || 'Backend request failed.');
-  }
+  if (result && result.success === false) throw new Error(result.error || 'Backend request failed.');
   return result;
 }
 
 function normalizeBeans(beans) {
-  return beans.map((bean) => ({
-    ...bean,
-    tags: normalizeTagArray(bean.tags || bean.tags_text || '')
-  }));
+  return beans.map((bean) => {
+    const normalizedPreview = sanitizeImageSource(
+      bean.photo_preview_data_url ||
+      bean.photoPreviewDataUrl ||
+      ''
+    );
+
+    return {
+      ...bean,
+      tags: normalizeTagArray(bean.tags || bean.tags_text || ''),
+      photo_preview_data_url: normalizedPreview
+    };
+  });
 }
 
 function normalizeSettings(settings) {
@@ -362,6 +362,35 @@ function normalizeSettings(settings) {
     scriptUrl: settings.scriptUrl || '',
     photoFolder: normalizeDriveFolderValue(settings.photoFolder || '')
   };
+}
+
+function sanitizeImageSource(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  if (isLikelyImageDataUrl(raw)) return raw;
+  if (isLikelyImageUrl(raw)) return raw;
+
+  return '';
+}
+
+function isLikelyImageDataUrl(value) {
+  return /^data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=\s]+$/i.test(value);
+}
+
+function isLikelyImageUrl(value) {
+  if (!/^https?:\/\//i.test(value)) return false;
+
+  try {
+    const url = new URL(value);
+    const pathname = (url.pathname || '').toLowerCase();
+    return /\.(png|jpg|jpeg|gif|webp|avif|svg)$/i.test(pathname) ||
+      pathname.includes('/uc') ||
+      pathname.includes('/thumbnail') ||
+      pathname.includes('/file/d/');
+  } catch (_) {
+    return false;
+  }
 }
 
 function hydrateSettingsForm() {
@@ -462,9 +491,12 @@ function renderBeanList() {
 
   beanList.innerHTML = filteredBeans.map((bean) => {
     const title = escapeHtml(bean.name || bean.bean || 'Untitled Bean');
-    const avatar = bean.photo_preview_data_url
-      ? `<img class="bean-card__avatar" src="${escapeHtml(bean.photo_preview_data_url)}" alt="${title}" />`
-      : `<div class="bean-card__avatar bean-card__avatar--placeholder">No photo</div>`;
+    const previewSrc = sanitizeImageSource(bean.photo_preview_data_url);
+
+    const avatar = previewSrc
+      ? `<img class="bean-card__avatar" src="${escapeHtml(previewSrc)}" alt="${title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" /><div class="bean-card__avatar bean-card__avatar--placeholder" style="display:none;">${getBeanSvgMarkup(inferRoastLevel(bean), 'bean-card__bean-svg')}</div>`
+      : `<div class="bean-card__avatar bean-card__avatar--placeholder">${getBeanSvgMarkup(inferRoastLevel(bean), 'bean-card__bean-svg')}</div>`;
+
     const origin = bean.origin ? `<div class="bean-card__origin">${formatOriginWithFlag(bean.origin)}</div>` : '';
     const roaster = bean.roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(bean.roaster)}</div>` : '';
     const purchaseCountry = bean.purchase_country ? `<div class="bean-card__meta"><strong>Purchased in:</strong> ${escapeHtml(bean.purchase_country)}</div>` : '';
@@ -594,9 +626,11 @@ function renderRecipeHelper() {
 
   if (summary) {
     if (bean) {
-      const avatar = bean.photo_preview_data_url
-        ? `<img class="helper-avatar" src="${escapeHtml(bean.photo_preview_data_url)}" alt="${escapeHtml(bean.name || bean.bean || 'Bean')}" />`
-        : `<div class="helper-avatar helper-avatar--placeholder">No photo</div>`;
+      const previewSrc = sanitizeImageSource(bean.photo_preview_data_url);
+
+      const avatar = previewSrc
+        ? `<img class="helper-avatar" src="${escapeHtml(previewSrc)}" alt="${escapeHtml(bean.name || bean.bean || 'Bean')}" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" /><div class="helper-avatar helper-avatar--placeholder" style="display:none;">${getBeanSvgMarkup(inferRoastLevel(bean), 'helper-bean-svg')}</div>`
+        : `<div class="helper-avatar helper-avatar--placeholder">${getBeanSvgMarkup(inferRoastLevel(bean), 'helper-bean-svg')}</div>`;
 
       const parts = [`<strong>${escapeHtml(bean.name || bean.bean || 'Untitled Bean')}</strong>`];
       if (bean.roaster) parts.push(escapeHtml(bean.roaster));
@@ -769,7 +803,7 @@ async function onUploadPhoto() {
       fileId: result?.data?.fileId || '',
       fileName: result?.data?.fileName || compressed.fileName,
       driveLink: result?.data?.driveLink || '',
-      previewDataUrl: result?.data?.previewDataUrl || compressed.previewDataUrl,
+      previewDataUrl: sanitizeImageSource(result?.data?.previewDataUrl || compressed.previewDataUrl),
       photoText: result?.data?.photoText || inferPhotoTextFromFileName(file.name)
     };
 
@@ -807,7 +841,7 @@ function collectBeanFormData() {
     photo_file_id: appState.uploadedPhoto.fileId || '',
     photo_file_name: appState.uploadedPhoto.fileName || '',
     photo_drive_link: appState.uploadedPhoto.driveLink || '',
-    photo_preview_data_url: appState.uploadedPhoto.previewDataUrl || '',
+    photo_preview_data_url: sanitizeImageSource(appState.uploadedPhoto.previewDataUrl || ''),
     photo_text: appState.uploadedPhoto.photoText || ''
   };
 }
@@ -847,7 +881,7 @@ function fillBeanForm(bean) {
       fileId: bean.photo_file_id || '',
       fileName: bean.photo_file_name || '',
       driveLink: bean.photo_drive_link || '',
-      previewDataUrl: bean.photo_preview_data_url || '',
+      previewDataUrl: sanitizeImageSource(bean.photo_preview_data_url || ''),
       photoText: bean.photo_text || ''
     };
     renderPhotoMeta();
@@ -942,12 +976,15 @@ function renderBeanAvatar() {
   const avatar = document.getElementById('beanAvatar');
   if (!avatar) return;
 
-  if (appState.uploadedPhoto.previewDataUrl) {
-    avatar.innerHTML = `<img src="${escapeHtml(appState.uploadedPhoto.previewDataUrl)}" alt="Bean avatar preview" />`;
+  const previewSrc = sanitizeImageSource(appState.uploadedPhoto.previewDataUrl);
+
+  if (previewSrc) {
+    avatar.innerHTML = `<img src="${escapeHtml(previewSrc)}" alt="Bean avatar preview" onerror="this.remove();">`;
     return;
   }
 
-  avatar.textContent = 'No photo';
+  avatar.setAttribute('data-roast', 'medium');
+  avatar.innerHTML = getBeanSvgMarkup('medium', 'bean-avatar__svg');
 }
 
 function getBeanById(id) {
@@ -1081,6 +1118,7 @@ function normalizeTagArray(value) {
 
 function normalizeCountryValue(value) {
   const raw = String(value || '').trim();
+
   if (!raw) return '';
 
   const exactMatch = COUNTRY_OPTIONS.find(
@@ -1094,6 +1132,39 @@ function normalizeCountryValue(value) {
 function inferPhotoTextFromFileName(fileName) {
   const raw = String(fileName || '').replace(/\.[^.]+$/, '');
   return raw.replace(/[_-]+/g, ' ').trim();
+}
+
+function inferRoastLevel(bean) {
+  const text = [
+    bean?.process || '',
+    bean?.notes || '',
+    bean?.name || '',
+    bean?.bean || '',
+    bean?.photo_text || ''
+  ].join(' ').toLowerCase();
+
+  if (text.includes('light roast') || text.includes('light')) return 'light';
+  if (text.includes('dark roast') || text.includes('dark')) return 'dark';
+  return 'medium';
+}
+
+function getBeanSvgMarkup(roast = 'medium', extraClass = '') {
+  const palette = {
+    light: { fill: '#b97a56', crease: '#efd2b5', shadow: '#8d5f43' },
+    medium: { fill: '#8b5e3c', crease: '#e7c3a3', shadow: '#69452b' },
+    dark: { fill: '#4b2e20', crease: '#b78f74', shadow: '#2f1c13' }
+  };
+
+  const chosen = palette[roast] || palette.medium;
+
+  return `
+    <svg class="${extraClass}" viewBox="0 0 64 64" aria-hidden="true">
+      <ellipse cx="32" cy="32" rx="22" ry="16" fill="${chosen.shadow}" opacity="0.14"></ellipse>
+      <ellipse cx="32" cy="30" rx="19" ry="25" fill="${chosen.fill}" transform="rotate(-18 32 30)"></ellipse>
+      <path d="M27 13c7 8 10 24 5 35" stroke="${chosen.crease}" stroke-width="3.3" stroke-linecap="round" fill="none"></path>
+      <ellipse cx="25" cy="22" rx="4" ry="7" fill="rgba(255,255,255,0.08)" transform="rotate(-18 25 22)"></ellipse>
+    </svg>
+  `;
 }
 
 async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
