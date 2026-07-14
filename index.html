@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=tags1" />
+  <link rel="stylesheet" href="./style.css?v=world1" />
 </head>
 <body>
   <div class="app">
@@ -21,7 +21,7 @@
         </div>
         <div>
           <h1>V60 Recipe Log</h1>
-          <div class="tiny">Bean tags + purchase country</div>
+          <div class="tiny">Global country list + richer bean schema + photo-ready research</div>
         </div>
       </div>
 
@@ -48,13 +48,13 @@
           <div class="section-head">
             <div>
               <h2>Bean Library</h2>
-              <p class="muted">Search beans by name, roaster, origin, country purchased, process, notes, or tags.</p>
+              <p class="muted">Search beans by bean, roaster, origin, purchase country, producer, farm, variety, altitude, notes, or tags.</p>
             </div>
             <button id="openAddBeanBtn" class="save-btn" type="button">Add Bean</button>
           </div>
 
           <div class="library-toolbar">
-            <input id="beanSearchInput" type="text" placeholder="Search beans, tags, origin, roaster..." />
+            <input id="beanSearchInput" type="text" placeholder="Search beans, tags, origin, producer, farm..." />
             <div id="tagFilterBar" class="tag-filter-bar"></div>
           </div>
 
@@ -63,7 +63,7 @@
 
         <section id="view-helper" class="panel hidden">
           <h2>Recipe Helper</h2>
-          <p class="muted">Select a bean and see its origin, flag, tags, and purchase country in the summary.</p>
+          <p class="muted">Select a bean and review origin, flag, purchase country, variety, producer, and tags while dialing in a brew.</p>
 
           <div class="helper-layout">
             <div class="helper-form">
@@ -103,7 +103,7 @@
 
         <section id="view-settings" class="panel hidden">
           <h2>Settings</h2>
-          <p class="muted">Settings are saved in the backend and shared across devices.</p>
+          <p class="muted">Settings are shared across devices via the backend sheet.</p>
 
           <form id="settings-form" class="settings-grid">
             <label for="sheetUrl">Google Sheet URL</label>
@@ -132,7 +132,7 @@
       <div class="section-head">
         <div>
           <h2>Add Bean</h2>
-          <p class="muted">Purchase country is manual. Tags are searchable later in the library.</p>
+          <p class="muted">Research Bean supports typed input now and is prepared for photo-based OCR next.</p>
         </div>
         <button id="closeAddBeanBtn" class="icon-btn" type="button" aria-label="Close">✕</button>
       </div>
@@ -151,42 +151,19 @@
         <input id="beanOriginRegion" type="text" placeholder="e.g. Yirgacheffe" />
 
         <label for="beanPurchaseCountry">Purchased at (country)</label>
-        <input id="beanPurchaseCountry" list="countryOptions" type="text" placeholder="Start typing a country" />
-        <datalist id="countryOptions">
-          <option value="Philippines"></option>
-          <option value="Japan"></option>
-          <option value="Taiwan"></option>
-          <option value="Hong Kong"></option>
-          <option value="Singapore"></option>
-          <option value="Thailand"></option>
-          <option value="South Korea"></option>
-          <option value="Indonesia"></option>
-          <option value="Malaysia"></option>
-          <option value="Vietnam"></option>
-          <option value="Australia"></option>
-          <option value="New Zealand"></option>
-          <option value="United States"></option>
-          <option value="Canada"></option>
-          <option value="United Kingdom"></option>
-          <option value="France"></option>
-          <option value="Italy"></option>
-          <option value="Spain"></option>
-          <option value="Germany"></option>
-          <option value="Netherlands"></option>
-          <option value="Denmark"></option>
-          <option value="Norway"></option>
-          <option value="Sweden"></option>
-          <option value="Finland"></option>
-          <option value="Switzerland"></option>
-          <option value="Ethiopia"></option>
-          <option value="Kenya"></option>
-          <option value="Colombia"></option>
-          <option value="Brazil"></option>
-          <option value="Panama"></option>
-          <option value="Costa Rica"></option>
-          <option value="Guatemala"></option>
-          <option value="Mexico"></option>
-        </datalist>
+        <input id="beanPurchaseCountry" list="countryOptions" type="text" placeholder="Start typing any country or territory" />
+
+        <label for="beanVariety">Variety</label>
+        <input id="beanVariety" type="text" placeholder="e.g. Heirloom, SL28, Caturra" />
+
+        <label for="beanProducer">Producer</label>
+        <input id="beanProducer" type="text" placeholder="e.g. Worka Cooperative" />
+
+        <label for="beanFarm">Farm</label>
+        <input id="beanFarm" type="text" placeholder="e.g. Finca El Paraiso" />
+
+        <label for="beanAltitude">Altitude</label>
+        <input id="beanAltitude" type="text" placeholder="e.g. 1900-2200 masl" />
 
         <label for="beanProcess">Process</label>
         <input id="beanProcess" type="text" placeholder="e.g. Washed" />
@@ -199,11 +176,16 @@
         <div id="beanTagsPreview" class="tags-wrap"></div>
         <small class="field-hint">Examples: floral, citrus, tea-like, clean, juicy</small>
 
+        <label for="beanPhotoFile">Bean photo</label>
+        <input id="beanPhotoFile" type="file" accept="image/*" capture="environment" />
+        <div id="beanPhotoMeta" class="photo-meta">No photo uploaded yet.</div>
+
         <small id="researchStatus" class="field-hint">
-          Research Bean can suggest origin, process, notes, and starter tags. Purchase country stays manual.
+          Research Bean can fill structured fields from typed data now. Photo OCR scaffolding is included for the next step.
         </small>
 
         <div class="action-row">
+          <button id="uploadPhotoBtn" class="save-btn" type="button">Upload Photo</button>
           <button id="researchBeanBtn" class="save-btn" type="button">Research Bean</button>
           <button id="saveBeanBtn" class="save-btn" type="submit">Save Bean</button>
         </div>
@@ -211,6 +193,8 @@
     </div>
   </div>
 
-  <script src="./app.js?v=tags1"></script>
+  <datalist id="countryOptions"></datalist>
+
+  <script src="./app.js?v=world1"></script>
 </body>
 </html>
