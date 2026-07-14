@@ -1,5 +1,13 @@
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMNB7D2p_qCWhvTulP9GY274aSkJPxr-7l8YGkVFj3hPYlISysdNfAw0ndFYNNII4-gw/exec';
 
+const COUNTRY_OPTIONS = [
+  'Philippines', 'Japan', 'Taiwan', 'Hong Kong', 'Singapore', 'Thailand', 'South Korea',
+  'Indonesia', 'Malaysia', 'Vietnam', 'Australia', 'New Zealand', 'United States',
+  'Canada', 'United Kingdom', 'France', 'Italy', 'Spain', 'Germany', 'Netherlands',
+  'Denmark', 'Norway', 'Sweden', 'Finland', 'Switzerland', 'Ethiopia', 'Kenya',
+  'Colombia', 'Brazil', 'Panama', 'Costa Rica', 'Guatemala', 'Mexico'
+];
+
 const appState = {
   beans: [],
   settings: {
@@ -8,7 +16,10 @@ const appState = {
     photoFolder: ''
   },
   currentView: 'library',
-  currentHelperBeanId: ''
+  currentHelperBeanId: '',
+  draftTags: [],
+  selectedLibraryTag: '',
+  librarySearchTerm: ''
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -23,6 +34,7 @@ function bindEvents() {
   bindPhotoFolderField();
   bindHelperInputs();
   bindAddBeanModal();
+  bindLibrarySearch();
 }
 
 function bindNavigation() {
@@ -134,15 +146,35 @@ function bindHelperInputs() {
   });
 }
 
+function bindLibrarySearch() {
+  const searchInput = document.getElementById('beanSearchInput');
+  if (!searchInput) return;
+
+  searchInput.addEventListener('input', () => {
+    appState.librarySearchTerm = searchInput.value.trim().toLowerCase();
+    renderBeanList();
+    renderTagFilterBar();
+  });
+}
+
 function bindAddBeanModal() {
   const openBtn = document.getElementById('openAddBeanBtn');
   const closeBtn = document.getElementById('closeAddBeanBtn');
   const modal = document.getElementById('addBeanModal');
   const addBeanForm = document.getElementById('addBeanForm');
   const researchBtn = document.getElementById('researchBeanBtn');
+  const tagInput = document.getElementById('beanTagInput');
 
-  if (openBtn) openBtn.addEventListener('click', () => modal?.classList.remove('hidden'));
-  if (closeBtn) closeBtn.addEventListener('click', () => modal?.classList.add('hidden'));
+  if (openBtn) {
+    openBtn.addEventListener('click', () => {
+      modal?.classList.remove('hidden');
+      renderDraftTags();
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => modal?.classList.add('hidden'));
+  }
 
   if (modal) {
     modal.addEventListener('click', (event) => {
@@ -159,6 +191,28 @@ function bindAddBeanModal() {
   if (researchBtn) {
     researchBtn.addEventListener('click', onResearchBean);
   }
+
+  if (tagInput) {
+    tagInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ',') {
+        event.preventDefault();
+        addDraftTag(tagInput.value);
+        tagInput.value = '';
+      }
+
+      if (event.key === 'Backspace' && !tagInput.value.trim() && appState.draftTags.length) {
+        appState.draftTags.pop();
+        renderDraftTags();
+      }
+    });
+
+    tagInput.addEventListener('blur', () => {
+      if (tagInput.value.trim()) {
+        addDraftTag(tagInput.value);
+        tagInput.value = '';
+      }
+    });
+  }
 }
 
 async function bootstrapApp() {
@@ -170,13 +224,15 @@ async function bootstrapApp() {
       fetchJson(`${APPS_SCRIPT_URL}?type=settings`)
     ]);
 
-    appState.beans = Array.isArray(beansResponse?.data) ? beansResponse.data : [];
+    appState.beans = Array.isArray(beansResponse?.data) ? normalizeBeans(beansResponse.data) : [];
     appState.settings = normalizeSettings(settingsResponse?.data || {});
 
     hydrateSettingsForm();
     renderBeanList();
+    renderTagFilterBar();
     renderBeanSelect();
     renderRecipeHelper();
+    renderDraftTags();
 
     setStatus('Ready.', 'success');
   } catch (error) {
@@ -226,6 +282,13 @@ async function postJson(payload) {
   }
 
   return result;
+}
+
+function normalizeBeans(beans) {
+  return beans.map((bean) => ({
+    ...bean,
+    tags: normalizeTagArray(bean.tags || bean.tags_text || '')
+  }));
 }
 
 function normalizeSettings(settings) {
@@ -292,21 +355,49 @@ async function onSaveSettings(event) {
   }
 }
 
+function getFilteredBeans() {
+  const searchTerm = appState.librarySearchTerm;
+  const selectedTag = appState.selectedLibraryTag;
+
+  return appState.beans.filter((bean) => {
+    const haystack = [
+      bean.name || bean.bean || '',
+      bean.roaster || '',
+      bean.origin || '',
+      bean.origin_country || '',
+      bean.origin_region || '',
+      bean.purchase_country || '',
+      bean.process || '',
+      bean.notes || '',
+      ...(bean.tags || [])
+    ].join(' ').toLowerCase();
+
+    const matchesSearch = !searchTerm || haystack.includes(searchTerm);
+    const matchesTag = !selectedTag || (bean.tags || []).includes(selectedTag);
+
+    return matchesSearch && matchesTag;
+  });
+}
+
 function renderBeanList() {
   const beanList = document.getElementById('beanList');
   if (!beanList) return;
 
-  if (!appState.beans.length) {
-    beanList.innerHTML = '<div class="bean-card">No beans found yet. Add your first bean.</div>';
+  const filteredBeans = getFilteredBeans();
+
+  if (!filteredBeans.length) {
+    beanList.innerHTML = '<div class="bean-card">No beans match your current search or tag filter.</div>';
     return;
   }
 
-  beanList.innerHTML = appState.beans.map((bean) => {
+  beanList.innerHTML = filteredBeans.map((bean) => {
     const title = escapeHtml(bean.name || bean.bean || 'Untitled Bean');
     const origin = bean.origin ? `<div class="bean-card__origin">${formatOriginWithFlag(bean.origin)}</div>` : '';
     const roaster = bean.roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(bean.roaster)}</div>` : '';
+    const purchaseCountry = bean.purchase_country ? `<div class="bean-card__meta"><strong>Purchased in:</strong> ${escapeHtml(bean.purchase_country)}</div>` : '';
     const process = bean.process ? `<div class="bean-card__meta"><strong>Process:</strong> ${escapeHtml(bean.process)}</div>` : '';
     const notes = bean.notes ? `<div class="bean-card__meta"><strong>Notes:</strong> ${escapeHtml(bean.notes)}</div>` : '';
+    const tags = renderTagChips(bean.tags || [], false);
 
     return `
       <div class="bean-card">
@@ -315,11 +406,77 @@ function renderBeanList() {
           ${origin}
         </div>
         ${roaster}
+        ${purchaseCountry}
         ${process}
         ${notes}
+        ${tags ? `<div class="bean-card__tags">${tags}</div>` : ''}
       </div>
     `;
   }).join('');
+}
+
+function renderTagFilterBar() {
+  const container = document.getElementById('tagFilterBar');
+  if (!container) return;
+
+  const tagCounts = new Map();
+
+  appState.beans.forEach((bean) => {
+    (bean.tags || []).forEach((tag) => {
+      if (!appState.librarySearchTerm || beanMatchesSearch(bean, appState.librarySearchTerm)) {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      }
+    });
+  });
+
+  const tags = Array.from(tagCounts.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]));
+
+  const allButton = `
+    <button
+      type="button"
+      class="tag-filter-chip ${appState.selectedLibraryTag === '' ? 'active' : ''}"
+      data-tag-filter=""
+    >
+      All tags
+    </button>
+  `;
+
+  const tagButtons = tags.map(([tag, count]) => `
+    <button
+      type="button"
+      class="tag-filter-chip ${appState.selectedLibraryTag === tag ? 'active' : ''}"
+      data-tag-filter="${escapeHtml(tag)}"
+    >
+      ${escapeHtml(tag)} <span class="tag-filter-count">${count}</span>
+    </button>
+  `).join('');
+
+  container.innerHTML = allButton + tagButtons;
+
+  container.querySelectorAll('[data-tag-filter]').forEach((button) => {
+    button.addEventListener('click', () => {
+      appState.selectedLibraryTag = button.getAttribute('data-tag-filter') || '';
+      renderTagFilterBar();
+      renderBeanList();
+    });
+  });
+}
+
+function beanMatchesSearch(bean, searchTerm) {
+  const haystack = [
+    bean.name || bean.bean || '',
+    bean.roaster || '',
+    bean.origin || '',
+    bean.origin_country || '',
+    bean.origin_region || '',
+    bean.purchase_country || '',
+    bean.process || '',
+    bean.notes || '',
+    ...(bean.tags || [])
+  ].join(' ').toLowerCase();
+
+  return haystack.includes(searchTerm);
 }
 
 function renderBeanSelect() {
@@ -357,8 +514,13 @@ function renderRecipeHelper() {
       const parts = [`<strong>${escapeHtml(bean.name || bean.bean || 'Untitled Bean')}</strong>`];
       if (bean.roaster) parts.push(escapeHtml(bean.roaster));
       if (bean.origin) parts.push(formatOriginWithFlag(bean.origin));
+      if (bean.purchase_country) parts.push(`Purchased in: ${escapeHtml(bean.purchase_country)}`);
       if (bean.process) parts.push(escapeHtml(bean.process));
       summary.innerHTML = parts.join(' · ');
+
+      if (bean.tags && bean.tags.length) {
+        summary.innerHTML += `<div class="helper-tags">${renderTagChips(bean.tags, false)}</div>`;
+      }
     } else {
       summary.textContent = 'Select a bean to see its summary.';
     }
@@ -423,7 +585,8 @@ async function onSaveBean(event) {
       beanData
     });
 
-    const savedBean = result?.data?.bean;
+    const savedBean = result?.data?.bean ? normalizeBeans([result.data.bean])[0] : null;
+
     if (savedBean) {
       const existingIndex = appState.beans.findIndex((item) => String(item.id) === String(savedBean.id));
       if (existingIndex > -1) {
@@ -434,6 +597,7 @@ async function onSaveBean(event) {
 
       appState.currentHelperBeanId = savedBean.id;
       renderBeanList();
+      renderTagFilterBar();
       renderBeanSelect();
       renderRecipeHelper();
     }
@@ -502,8 +666,10 @@ function collectBeanFormData() {
     roaster: document.getElementById('beanRoaster')?.value.trim() || '',
     origin_country: document.getElementById('beanOriginCountry')?.value.trim() || '',
     origin_region: document.getElementById('beanOriginRegion')?.value.trim() || '',
+    purchase_country: normalizeCountryValue(document.getElementById('beanPurchaseCountry')?.value || ''),
     process: document.getElementById('beanProcess')?.value.trim() || '',
-    notes: document.getElementById('beanNotes')?.value.trim() || ''
+    notes: document.getElementById('beanNotes')?.value.trim() || '',
+    tags: [...appState.draftTags]
   };
 }
 
@@ -512,6 +678,7 @@ function fillBeanForm(bean) {
   const beanRoaster = document.getElementById('beanRoaster');
   const beanOriginCountry = document.getElementById('beanOriginCountry');
   const beanOriginRegion = document.getElementById('beanOriginRegion');
+  const beanPurchaseCountry = document.getElementById('beanPurchaseCountry');
   const beanProcess = document.getElementById('beanProcess');
   const beanNotes = document.getElementById('beanNotes');
 
@@ -519,18 +686,82 @@ function fillBeanForm(bean) {
   if (beanRoaster && bean.roaster) beanRoaster.value = bean.roaster;
   if (beanOriginCountry && bean.origin_country) beanOriginCountry.value = bean.origin_country;
   if (beanOriginRegion && bean.origin_region) beanOriginRegion.value = bean.origin_region;
+  if (beanPurchaseCountry && bean.purchase_country) beanPurchaseCountry.value = normalizeCountryValue(bean.purchase_country);
   if (beanProcess && bean.process) beanProcess.value = bean.process;
   if (beanNotes && bean.notes) beanNotes.value = bean.notes;
+
+  if (bean.tags) {
+    appState.draftTags = normalizeTagArray(bean.tags);
+    renderDraftTags();
+  }
 }
 
 function resetAddBeanForm() {
   const form = document.getElementById('addBeanForm');
   if (form) form.reset();
 
+  appState.draftTags = [];
+  renderDraftTags();
+
   const researchStatus = document.getElementById('researchStatus');
   if (researchStatus) {
-    researchStatus.textContent = 'Optional: tap Research Bean to auto-fill origin and notes.';
+    researchStatus.textContent = 'Research Bean can suggest origin, process, notes, and starter tags. Purchase country stays manual.';
   }
+}
+
+function addDraftTag(rawValue) {
+  const tags = normalizeTagArray(rawValue);
+  tags.forEach((tag) => {
+    if (!appState.draftTags.includes(tag)) {
+      appState.draftTags.push(tag);
+    }
+  });
+  renderDraftTags();
+}
+
+function removeDraftTag(tagToRemove) {
+  appState.draftTags = appState.draftTags.filter((tag) => tag !== tagToRemove);
+  renderDraftTags();
+}
+
+function renderDraftTags() {
+  const preview = document.getElementById('beanTagsPreview');
+  if (!preview) return;
+
+  if (!appState.draftTags.length) {
+    preview.innerHTML = '<div class="tags-empty">No tags added yet.</div>';
+    return;
+  }
+
+  preview.innerHTML = appState.draftTags.map((tag) => `
+    <button type="button" class="tag-chip tag-chip--editable" data-remove-tag="${escapeHtml(tag)}">
+      <span>${escapeHtml(tag)}</span>
+      <span aria-hidden="true">×</span>
+    </button>
+  `).join('');
+
+  preview.querySelectorAll('[data-remove-tag]').forEach((button) => {
+    button.addEventListener('click', () => {
+      removeDraftTag(button.getAttribute('data-remove-tag') || '');
+    });
+  });
+}
+
+function renderTagChips(tags, editable) {
+  if (!tags || !tags.length) return '';
+
+  if (editable) {
+    return tags.map((tag) => `
+      <button type="button" class="tag-chip tag-chip--editable" data-remove-tag="${escapeHtml(tag)}">
+        <span>${escapeHtml(tag)}</span>
+        <span aria-hidden="true">×</span>
+      </button>
+    `).join('');
+  }
+
+  return tags.map((tag) => `
+    <span class="tag-chip">${escapeHtml(tag)}</span>
+  `).join('');
 }
 
 function getBeanById(id) {
@@ -647,6 +878,34 @@ function extractDriveFolderId(value) {
   if (genericMatch && genericMatch[1]) return genericMatch[1];
 
   return '';
+}
+
+function normalizeTagArray(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((tag) => String(tag || '').trim().toLowerCase())
+      .filter(Boolean)
+      .filter((tag, index, arr) => arr.indexOf(tag) === index);
+  }
+
+  return String(value || '')
+    .split(',')
+    .map((tag) => String(tag || '').trim().toLowerCase())
+    .filter(Boolean)
+    .filter((tag, index, arr) => arr.indexOf(tag) === index);
+}
+
+function normalizeCountryValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const exactMatch = COUNTRY_OPTIONS.find(
+    (country) => country.toLowerCase() === raw.toLowerCase()
+  );
+
+  if (exactMatch) return exactMatch;
+
+  return raw;
 }
 
 function setStatus(message, type = 'info') {
