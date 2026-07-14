@@ -7,11 +7,19 @@
   --muted: #6f675f;
   --accent: #8b5e3c;
   --accent-dark: #6f482d;
+  --success-bg: #ecfdf5;
+  --success-text: #065f46;
+  --error-bg: #fef2f2;
+  --error-text: #991b1b;
+  --info-bg: #eff6ff;
+  --info-text: #1d4ed8;
   --shadow: 0 10px 30px rgba(40, 28, 20, 0.08);
   --radius: 16px;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 html,
 body {
@@ -22,15 +30,26 @@ body {
   font-family: "Satoshi", system-ui, sans-serif;
 }
 
-body { min-height: 100vh; }
+body {
+  min-height: 100vh;
+}
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   margin: 0;
   font-family: "Cabinet Grotesk", "Satoshi", sans-serif;
   line-height: 1.1;
 }
 
-p { margin: 0; line-height: 1.6; }
+p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+small {
+  display: block;
+}
 
 .app {
   min-height: 100vh;
@@ -113,7 +132,9 @@ button:hover {
   border-color: var(--accent);
 }
 
-.main { min-width: 0; }
+.main {
+  min-width: 0;
+}
 
 .topbar {
   display: flex;
@@ -151,23 +172,58 @@ button:hover {
   margin-top: 18px;
 }
 
-.muted { color: var(--muted); }
+.muted {
+  color: var(--muted);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.app-status {
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-size: 0.92rem;
+}
+
+.app-status[data-status="success"] {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.app-status[data-status="error"] {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.app-status[data-status="info"] {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
 
 .library-stack,
-.settings-grid,
-.helper-form {
+.settings-grid {
   display: grid;
   gap: 12px;
   max-width: 760px;
   margin-top: 16px;
 }
 
-.helper-grid {
+.helper-layout {
   display: grid;
   grid-template-columns: minmax(320px, 420px) 1fr;
   gap: 20px;
   margin-top: 16px;
   align-items: start;
+}
+
+.helper-form {
+  display: grid;
+  gap: 12px;
 }
 
 .helper-output {
@@ -182,27 +238,54 @@ button:hover {
   min-height: 240px;
 }
 
-.recipe-meta {
+.helper-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.helper-metric {
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.helper-metric__label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.helper-metric__value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.helper-steps {
   display: grid;
   gap: 8px;
-  margin-top: 14px;
 }
 
-.recipe-steps {
-  margin-top: 16px;
-  padding-left: 18px;
+.helper-step,
+.helper-placeholder {
+  padding: 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid var(--line);
+  font-size: 14px;
+  color: #374151;
 }
 
-.recipe-steps li {
-  margin-bottom: 8px;
-  line-height: 1.5;
-}
-
-.recipe-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
+.helper-bean-summary {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid var(--line);
+  color: #374151;
+  font-size: 14px;
 }
 
 .bean-card {
@@ -212,14 +295,36 @@ button:hover {
   padding: 16px;
 }
 
-.bean-card-actions {
+.bean-card__header {
   display: flex;
-  gap: 10px;
-  margin-top: 14px;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
-.bean-action-btn {
-  width: auto;
+.bean-card__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.bean-card__origin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.bean-card__meta {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.origin-flag {
+  font-size: 16px;
+  line-height: 1;
 }
 
 input,
@@ -242,14 +347,25 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(139, 94, 60, 0.12);
 }
 
-label { font-weight: 600; }
-
-#beanList > .bean-card + .bean-card {
-  margin-top: 12px;
+label {
+  font-weight: 600;
 }
 
-.hidden {
-  display: none !important;
+.field-hint {
+  margin-top: -2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.save-btn {
+  width: fit-content;
+  min-width: 160px;
+  margin-top: 4px;
+}
+
+#beanList {
+  display: grid;
+  gap: 12px;
 }
 
 @media (max-width: 900px) {
@@ -274,13 +390,8 @@ label { font-weight: 600; }
     font-size: 1.7rem;
   }
 
+  .helper-layout,
   .helper-grid {
     grid-template-columns: 1fr;
-  }
-
-  .bean-card-actions,
-  .recipe-actions {
-    flex-direction: column;
-    align-items: stretch;
   }
 }
