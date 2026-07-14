@@ -44,6 +44,8 @@
       </header>
 
       <section class="content">
+        <div id="appStatus" class="app-status" data-status="info"></div>
+
         <section id="view-dashboard" class="panel">
           <h2>Welcome to your V60 notebook</h2>
           <p class="muted">This is your live V60 app running on GitHub Pages with Google Sheets as the bean database.</p>
@@ -51,59 +53,48 @@
 
         <section id="view-library" class="panel hidden">
           <h2>Bean Library</h2>
-          <p class="muted">Search and browse beans from Google Sheets.</p>
+          <p class="muted">Browse beans from your shared Google Sheets backend.</p>
 
           <div class="library-stack">
-            <input id="beanSearch" type="text" placeholder="Search by bean, roaster, origin..." />
             <div id="beanList"></div>
           </div>
         </section>
 
         <section id="view-helper" class="panel hidden">
           <h2>Recipe Helper</h2>
-          <p class="muted">Build a quick starter recipe for hot or iced V60.</p>
+          <p class="muted">Quick calculator for your V60 brews.</p>
 
-          <div class="helper-grid">
+          <div class="helper-layout">
             <div class="helper-form">
-              <label for="helperBeanName">Bean name</label>
-              <input id="helperBeanName" type="text" placeholder="e.g. Ethiopia Bombe" />
-
-              <label for="helperRoast">Roast level</label>
-              <select id="helperRoast">
-                <option value="light">Light</option>
-                <option value="medium">Medium</option>
-                <option value="dark">Dark</option>
+              <label for="helperBeanSelect">Bean</label>
+              <select id="helperBeanSelect">
+                <option value="">Select bean</option>
               </select>
 
-              <label for="helperProcess">Process</label>
-              <select id="helperProcess">
-                <option value="washed">Washed</option>
-                <option value="natural">Natural</option>
-                <option value="anaerobic">Anaerobic</option>
-                <option value="honey">Honey</option>
-                <option value="other">Other</option>
-              </select>
-
-              <label for="helperStyle">Brew style</label>
-              <select id="helperStyle">
-                <option value="hot">Hot V60</option>
-                <option value="iced">Iced V60</option>
-              </select>
+              <div id="helperBeanSummary" class="helper-bean-summary">
+                Select a bean to see its summary.
+              </div>
 
               <label for="helperDose">Dose (g)</label>
-              <input id="helperDose" type="number" min="12" max="40" step="1" value="18" />
+              <input id="helperDose" type="number" min="1" step="0.1" value="18" />
 
-              <button id="generateRecipeBtn" type="button">Generate recipe</button>
+              <label for="helperRatio">Ratio</label>
+              <input id="helperRatio" type="number" min="1" step="0.1" value="16" />
+
+              <label for="helperTarget">Target Yield (g)</label>
+              <input id="helperTarget" type="number" min="1" step="0.1" placeholder="Optional if using ratio" />
+
+              <label for="helperMethod">Method</label>
+              <select id="helperMethod">
+                <option value="v60">V60</option>
+              </select>
             </div>
 
             <div class="helper-output">
-              <div id="recipeOutput" class="recipe-card">
-                <h3>Starter recipe</h3>
-                <p class="muted">Choose your bean details, then generate a recipe.</p>
-              </div>
-              <div class="recipe-actions">
-                <button id="copyRecipeBtn" type="button">Copy recipe</button>
-                <span id="copyRecipeStatus" class="tiny"></span>
+              <div id="helperOutput" class="recipe-card">
+                <div class="helper-placeholder">
+                  Enter dose plus either brew ratio or target beverage weight.
+                </div>
               </div>
             </div>
           </div>
@@ -111,20 +102,38 @@
 
         <section id="view-settings" class="panel hidden">
           <h2>Settings</h2>
-          <p class="muted">Store your sheet URL, Apps Script URL, and photo folder ID here.</p>
+          <p class="muted">These settings are shared across devices from the backend.</p>
 
-          <div class="settings-grid">
-            <label for="sheetUrlInput">Google Sheet URL</label>
-            <input id="sheetUrlInput" type="text" placeholder="https://docs.google.com/spreadsheets/d/..." />
+          <form id="settings-form" class="settings-grid">
+            <label for="sheetUrl">Google Sheet URL</label>
+            <input
+              id="sheetUrl"
+              name="sheetUrl"
+              type="text"
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+            />
 
-            <label for="scriptUrlInput">Apps Script web app URL</label>
-            <input id="scriptUrlInput" type="text" placeholder="https://script.google.com/macros/s/.../exec" />
+            <label for="scriptUrl">Apps Script web app URL</label>
+            <input
+              id="scriptUrl"
+              name="scriptUrl"
+              type="text"
+              placeholder="https://script.google.com/macros/s/.../exec"
+            />
 
-            <label for="photoFolderInput">Google Drive photo folder ID</label>
-            <input id="photoFolderInput" type="text" placeholder="Your Drive folder ID" />
+            <label for="photoFolder">Google Drive photo folder</label>
+            <input
+              id="photoFolder"
+              name="photoFolder"
+              type="text"
+              placeholder="Paste folder link or folder ID"
+            />
+            <small id="photoFolderHint" class="field-hint">
+              Paste a full Google Drive folder URL and it will auto-convert to the folder ID.
+            </small>
 
-            <button id="saveSettingsBtn" type="button">Save settings</button>
-          </div>
+            <button class="save-btn" type="submit">Save settings</button>
+          </form>
         </section>
       </section>
     </main>
