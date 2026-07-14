@@ -4,39 +4,22 @@ const COUNTRY_OPTIONS = [
   "Afghanistan","Åland Islands","Albania","Algeria","American Samoa","Andorra","Angola","Anguilla","Antarctica","Antigua and Barbuda","Argentina","Armenia","Aruba","Australia","Austria","Azerbaijan",
   "Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bermuda","Bhutan","Bolivia","Bonaire, Sint Eustatius and Saba","Bosnia and Herzegovina","Botswana","Bouvet Island","Brazil","British Indian Ocean Territory","Brunei Darussalam","Bulgaria","Burkina Faso","Burundi",
   "Cabo Verde","Cambodia","Cameroon","Canada","Cayman Islands","Central African Republic","Chad","Chile","China","Christmas Island","Cocos (Keeling) Islands","Colombia","Comoros","Congo","Congo, Democratic Republic of the","Cook Islands","Costa Rica","Côte d'Ivoire","Croatia","Cuba","Curaçao","Cyprus","Czechia",
-  "Denmark","Djibouti","Dominica","Dominican Republic",
-  "Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia",
-  "Falkland Islands (Malvinas)","Faroe Islands","Fiji","Finland","France","French Guiana","French Polynesia","French Southern Territories",
+  "Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Falkland Islands (Malvinas)","Faroe Islands","Fiji","Finland","France","French Guiana","French Polynesia","French Southern Territories",
   "Gabon","Gambia","Georgia","Germany","Ghana","Gibraltar","Greece","Greenland","Grenada","Guadeloupe","Guam","Guatemala","Guernsey","Guinea","Guinea-Bissau","Guyana",
-  "Haiti","Heard Island and McDonald Islands","Holy See","Honduras","Hong Kong","Hungary",
-  "Iceland","India","Indonesia","Iran","Iraq","Ireland","Isle of Man","Israel","Italy",
-  "Jamaica","Japan","Jersey","Jordan",
-  "Kazakhstan","Kenya","Kiribati","Korea, Democratic People's Republic of","Korea, Republic of","Kuwait","Kyrgyzstan",
-  "Lao People's Democratic Republic","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg",
+  "Haiti","Heard Island and McDonald Islands","Holy See","Honduras","Hong Kong","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Isle of Man","Israel","Italy","Jamaica","Japan","Jersey","Jordan",
+  "Kazakhstan","Kenya","Kiribati","Korea, Democratic People's Republic of","Korea, Republic of","Kuwait","Kyrgyzstan","Lao People's Democratic Republic","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg",
   "Macao","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Martinique","Mauritania","Mauritius","Mayotte","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Montserrat","Morocco","Mozambique","Myanmar",
-  "Namibia","Nauru","Nepal","Netherlands","New Caledonia","New Zealand","Nicaragua","Niger","Nigeria","Niue","Norfolk Island","North Macedonia","Northern Mariana Islands","Norway",
-  "Oman",
-  "Pakistan","Palau","Palestine, State of","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Pitcairn","Poland","Portugal","Puerto Rico",
-  "Qatar",
-  "Réunion","Romania","Russian Federation","Rwanda",
+  "Namibia","Nauru","Nepal","Netherlands","New Caledonia","New Zealand","Nicaragua","Niger","Nigeria","Niue","Norfolk Island","North Macedonia","Northern Mariana Islands","Norway","Oman",
+  "Pakistan","Palau","Palestine, State of","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Pitcairn","Poland","Portugal","Puerto Rico","Qatar","Réunion","Romania","Russian Federation","Rwanda",
   "Saint Barthélemy","Saint Helena, Ascension and Tristan da Cunha","Saint Kitts and Nevis","Saint Lucia","Saint Martin (French part)","Saint Pierre and Miquelon","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Sint Maarten (Dutch part)","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Georgia and the South Sandwich Islands","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Svalbard and Jan Mayen","Sweden","Switzerland","Syrian Arab Republic",
   "Taiwan, Province of China","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tokelau","Tonga","Trinidad and Tobago","Tunisia","Türkiye","Turkmenistan","Turks and Caicos Islands","Tuvalu",
-  "Uganda","Ukraine","United Arab Emirates","United Kingdom","United States Minor Outlying Islands","United States of America","Uruguay","Uzbekistan",
-  "Vanuatu","Venezuela","Viet Nam","Virgin Islands (British)","Virgin Islands (U.S.)",
-  "Wallis and Futuna","Western Sahara",
-  "Yemen",
-  "Zambia","Zimbabwe"
+  "Uganda","Ukraine","United Arab Emirates","United Kingdom","United States Minor Outlying Islands","United States of America","Uruguay","Uzbekistan","Vanuatu","Venezuela","Viet Nam","Virgin Islands (British)","Virgin Islands (U.S.)","Wallis and Futuna","Western Sahara","Yemen","Zambia","Zimbabwe"
 ];
 
 const appState = {
   beans: [],
-  settings: {
-    sheetUrl: '',
-    scriptUrl: '',
-    photoFolder: ''
-  },
+  settings: { sheetUrl: '', scriptUrl: '', photoFolder: '' },
   currentView: 'library',
-  currentHelperBeanId: '',
   draftTags: [],
   selectedLibraryTag: '',
   librarySearchTerm: '',
@@ -47,7 +30,9 @@ const appState = {
     previewDataUrl: '',
     photoText: '',
     ocrStatus: 'not_run'
-  }
+  },
+  recipeResult: null,
+  recipeStyle: 'hot'
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -61,9 +46,9 @@ function bindEvents() {
   bindNavigation();
   bindSettingsForm();
   bindPhotoFolderField();
-  bindHelperInputs();
   bindAddBeanModal();
   bindLibrarySearch();
+  bindHelper();
   bindGlobalFormProtection();
 }
 
@@ -92,17 +77,7 @@ function bindNavigation() {
     button.addEventListener('click', (event) => {
       event.preventDefault();
       const nextView = button.getAttribute('data-view') || 'library';
-      appState.currentView = nextView;
-
-      navButtons.forEach((btn) => btn.classList.remove('active'));
-      button.classList.add('active');
-
-      document.querySelectorAll('.content > .panel').forEach((panel) => {
-        panel.classList.add('hidden');
-      });
-
-      const activePanel = document.getElementById(`view-${nextView}`);
-      if (activePanel) activePanel.classList.remove('hidden');
+      switchView(nextView);
 
       if (viewTitle) {
         const titles = {
@@ -117,38 +92,58 @@ function bindNavigation() {
 }
 
 function switchView(view) {
-  const navButtons = document.querySelectorAll('.nav-btn');
-  const viewTitle = document.getElementById('viewTitle');
-  const nextView = view || 'library';
+  appState.currentView = view || 'library';
 
-  navButtons.forEach((btn) => {
-    btn.classList.toggle('active', btn.getAttribute('data-view') === nextView);
+  document.querySelectorAll('.nav-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-view') === appState.currentView);
   });
 
   document.querySelectorAll('.content > .panel').forEach((panel) => {
     panel.classList.add('hidden');
   });
 
-  const activePanel = document.getElementById(`view-${nextView}`);
+  const activePanel = document.getElementById(`view-${appState.currentView}`);
   if (activePanel) activePanel.classList.remove('hidden');
 
+  const viewTitle = document.getElementById('viewTitle');
   if (viewTitle) {
-    const titles = {
-      library: 'Bean Library',
-      helper: 'Recipe Helper',
-      settings: 'Settings'
-    };
-    viewTitle.textContent = titles[nextView] || 'Bean Library';
+    const titles = { library: 'Bean Library', helper: 'Recipe Helper', settings: 'Settings' };
+    viewTitle.textContent = titles[appState.currentView] || 'Bean Library';
   }
 }
 
-function hydrateCountryDatalist() {
-  const datalist = document.getElementById('countryOptions');
-  if (!datalist) return;
+async function bootstrapApp() {
+  try {
+    setAppStatus('Loading settings and beans…', 'info');
+    await loadSettings();
+    await loadBeans();
+    setAppStatus('App ready.', 'success');
+  } catch (error) {
+    setAppStatus(error.message || 'Failed to load app.', 'error');
+  }
+}
 
-  datalist.innerHTML = COUNTRY_OPTIONS
-    .map((country) => `<option value="${escapeHtml(country)}"></option>`)
-    .join('');
+async function loadSettings() {
+  const response = await fetchJson(`${resolveScriptUrl()}?type=settings`);
+  const data = response.data || {};
+  appState.settings = {
+    sheetUrl: data.sheetUrl || '',
+    scriptUrl: data.scriptUrl || '',
+    photoFolder: data.photoFolder || ''
+  };
+
+  setValue('sheetUrl', appState.settings.sheetUrl);
+  setValue('scriptUrl', appState.settings.scriptUrl);
+  setValue('photoFolder', appState.settings.photoFolder);
+  updatePhotoFolderHint(appState.settings.photoFolder);
+}
+
+async function loadBeans() {
+  const response = await fetchJson(`${resolveScriptUrl()}?type=beans`);
+  appState.beans = Array.isArray(response.data) ? response.data : [];
+  renderBeanList();
+  renderTagFilters();
+  renderHelperBeanOptions();
 }
 
 function bindSettingsForm() {
@@ -156,6 +151,26 @@ function bindSettingsForm() {
   if (settingsForm) {
     settingsForm.addEventListener('submit', onSaveSettings);
   }
+}
+
+async function onSaveSettings(event) {
+  event.preventDefault();
+
+  const payload = {
+    action: 'saveSettings',
+    sheetUrl: getValue('sheetUrl'),
+    scriptUrl: getValue('scriptUrl'),
+    photoFolder: getValue('photoFolder')
+  };
+
+  const response = await fetchJson(resolveScriptUrl(), {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+  appState.settings = response.data || appState.settings;
+  updatePhotoFolderHint(appState.settings.photoFolder || '');
+  setAppStatus('Settings saved.', 'success');
 }
 
 function bindPhotoFolderField() {
@@ -170,37 +185,32 @@ function bindPhotoFolderField() {
     });
   });
 
-  photoFolderInput.addEventListener('blur', () => {
+  photoFolderInput.addEventListener('change', () => {
     const cleaned = normalizeDriveFolderValue(photoFolderInput.value);
     photoFolderInput.value = cleaned;
     updatePhotoFolderHint(cleaned);
   });
-
-  photoFolderInput.addEventListener('input', () => {
-    updatePhotoFolderHint(photoFolderInput.value.trim());
-  });
 }
 
-function bindHelperInputs() {
-  const helperBeanSelect = document.getElementById('helperBeanSelect');
-  if (helperBeanSelect) {
-    helperBeanSelect.addEventListener('change', (event) => {
-      appState.currentHelperBeanId = event.target.value;
-      renderRecipeHelper();
-    });
-  }
+function updatePhotoFolderHint(value) {
+  const hint = document.getElementById('photoFolderHint');
+  if (!hint) return;
+  hint.textContent = value
+    ? `Using folder ID: ${value}`
+    : 'Paste a full Google Drive folder URL and it will auto-convert to the folder ID.';
+}
 
-  const helperDose = document.getElementById('helperDose');
-  const helperRatio = document.getElementById('helperRatio');
-  const helperTarget = document.getElementById('helperTarget');
-  const helperMethod = document.getElementById('helperMethod');
+function normalizeDriveFolderValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
 
-  [helperDose, helperRatio, helperTarget, helperMethod].forEach((el) => {
-    if (el) {
-      el.addEventListener('input', renderRecipeHelper);
-      el.addEventListener('change', renderRecipeHelper);
-    }
-  });
+  const match = raw.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
+  if (match && match[1]) return match[1];
+
+  if (/^[a-zA-Z0-9_-]{15,}$/.test(raw)) return raw;
+
+  const generic = raw.match(/([a-zA-Z0-9_-]{15,})/);
+  return generic && generic[1] ? generic[1] : raw;
 }
 
 function bindLibrarySearch() {
@@ -208,9 +218,309 @@ function bindLibrarySearch() {
   if (!searchInput) return;
 
   searchInput.addEventListener('input', () => {
-    appState.librarySearchTerm = searchInput.value.trim().toLowerCase();
+    appState.librarySearchTerm = String(searchInput.value || '').trim().toLowerCase();
     renderBeanList();
-    renderTagFilterBar();
+    renderTagFilters();
+  });
+}
+
+function bindHelper() {
+  const helperBeanSelect = document.getElementById('helperBeanSelect');
+  const generateRecipeBtn = document.getElementById('generateRecipeBtn');
+
+  if (helperBeanSelect) {
+    helperBeanSelect.addEventListener('change', () => {
+      const id = helperBeanSelect.value;
+      const bean = appState.beans.find((item) => item.id === id) || null;
+      renderHelperBeanSummary(bean);
+      clearRecipeOutput();
+    });
+  }
+
+  if (generateRecipeBtn) {
+    generateRecipeBtn.addEventListener('click', onGenerateRecipe);
+  }
+}
+
+async function onGenerateRecipe() {
+  const beanId = getValue('helperBeanSelect');
+  if (!beanId) {
+    setRecipeStatus('Select a bean first.', true);
+    return;
+  }
+
+  const bean = appState.beans.find((item) => item.id === beanId);
+  if (!bean) {
+    setRecipeStatus('Selected bean not found.', true);
+    return;
+  }
+
+  setRecipeStatus('Generating recipe…');
+  const response = await fetchJson(resolveScriptUrl(), {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'generateRecipe',
+      beanData: bean
+    })
+  });
+
+  appState.recipeResult = response.data || null;
+  appState.recipeStyle = (appState.recipeResult && appState.recipeResult.defaultStyle) || 'hot';
+  renderRecipeRecommendation();
+  setRecipeStatus('Recipe generated.');
+}
+
+function renderRecipeRecommendation() {
+  const output = document.getElementById('helperOutput');
+  const toggle = document.getElementById('recipeStyleToggle');
+  if (!output || !toggle) return;
+
+  const result = appState.recipeResult;
+  if (!result || !result.recipes) {
+    clearRecipeOutput();
+    return;
+  }
+
+  const styles = Array.isArray(result.availableStyles) ? result.availableStyles : ['hot'];
+  const activeStyle = appState.recipeStyle && styles.includes(appState.recipeStyle)
+    ? appState.recipeStyle
+    : styles[0];
+
+  appState.recipeStyle = activeStyle;
+
+  if (styles.length > 1) {
+    toggle.classList.remove('hidden');
+    toggle.innerHTML = styles.map((style) => {
+      const label = style === 'iced_half_shaken' ? 'Iced (half shaken)' : 'Hot';
+      const active = style === activeStyle ? 'active' : '';
+      return `<button type="button" class="recipe-style-btn ${active}" data-style="${escapeHtml(style)}">${escapeHtml(label)}</button>`;
+    }).join('');
+
+    toggle.querySelectorAll('[data-style]').forEach((button) => {
+      button.addEventListener('click', () => {
+        appState.recipeStyle = button.getAttribute('data-style') || 'hot';
+        renderRecipeRecommendation();
+      });
+    });
+  } else {
+    toggle.classList.add('hidden');
+    toggle.innerHTML = '';
+  }
+
+  const recipe = result.recipes[activeStyle];
+  if (!recipe) {
+    output.innerHTML = `<div class="helper-placeholder">No recipe available for this style.</div>`;
+    return;
+  }
+
+  const metrics = [
+    { label: 'Grind', value: recipe.grind || '—' },
+    { label: 'Dose', value: recipe.dose_g ? `${recipe.dose_g} g` : '—' },
+    { label: 'Temp', value: recipe.water_temp_c ? `${recipe.water_temp_c}°C` : '—' },
+    { label: 'Time', value: recipe.target_time || '—' },
+    { label: 'Ratio', value: recipe.ratio || '—' },
+    { label: 'Water', value: recipe.water_total_g ? `${recipe.water_total_g} g total` : '—' }
+  ];
+
+  if (recipe.hot_water_g || recipe.brew_ice_g) {
+    metrics.push({
+      label: 'Split',
+      value: `${recipe.hot_water_g || 0} g hot / ${recipe.brew_ice_g || 0} g ice`
+    });
+  }
+
+  output.innerHTML = `
+    <div class="recipe-block">
+      <div class="recipe-why"><strong>${escapeHtml(recipe.label || 'Recipe')}:</strong> ${escapeHtml(recipe.why || '')}</div>
+
+      <div class="recipe-metrics">
+        ${metrics.map((metric) => `
+          <div class="recipe-metric">
+            <div class="recipe-metric__label">${escapeHtml(metric.label)}</div>
+            <div class="recipe-metric__value">${escapeHtml(metric.value)}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="recipe-section">
+        <h3>Pours</h3>
+        <div class="recipe-list">
+          ${(recipe.pours || []).map((step) => `<div class="recipe-step">${escapeHtml(step)}</div>`).join('')}
+        </div>
+      </div>
+
+      <div class="recipe-section">
+        <h3>Expected notes</h3>
+        <div class="recipe-step">${escapeHtml(recipe.expected_notes || '—')}</div>
+      </div>
+    </div>
+  `;
+}
+
+function clearRecipeOutput() {
+  appState.recipeResult = null;
+  appState.recipeStyle = 'hot';
+
+  const output = document.getElementById('helperOutput');
+  const toggle = document.getElementById('recipeStyleToggle');
+
+  if (toggle) {
+    toggle.classList.add('hidden');
+    toggle.innerHTML = '';
+  }
+
+  if (output) {
+    output.innerHTML = `
+      <div class="helper-placeholder">
+        Generate a recipe to see grind size, pours, time, and expected notes.
+      </div>
+    `;
+  }
+}
+
+function setRecipeStatus(message, isError = false) {
+  const el = document.getElementById('recipeStatus');
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = isError ? '#991b1b' : '';
+}
+
+function renderHelperBeanOptions() {
+  const select = document.getElementById('helperBeanSelect');
+  if (!select) return;
+
+  const currentValue = select.value;
+  select.innerHTML = `<option value="">Select bean</option>` + appState.beans.map((bean) => {
+    const label = [bean.bean || bean.name, bean.roaster].filter(Boolean).join(' — ');
+    return `<option value="${escapeHtml(bean.id)}">${escapeHtml(label || 'Untitled Bean')}</option>`;
+  }).join('');
+
+  if (appState.beans.some((bean) => bean.id === currentValue)) {
+    select.value = currentValue;
+  }
+}
+
+function renderHelperBeanSummary(bean) {
+  const el = document.getElementById('helperBeanSummary');
+  if (!el) return;
+
+  if (!bean) {
+    el.textContent = 'Select a bean to see its summary.';
+    return;
+  }
+
+  const origin = bean.origin || [bean.origin_country, bean.origin_region].filter(Boolean).join(' · ');
+  const tags = Array.isArray(bean.tags) ? bean.tags.join(', ') : '';
+
+  el.innerHTML = `
+    <div><strong>${escapeHtml(bean.bean || bean.name || 'Untitled Bean')}</strong></div>
+    <div>${escapeHtml(bean.roaster || 'Unknown roaster')}</div>
+    <div>${escapeHtml(origin || 'Origin not set')}</div>
+    <div>${escapeHtml(bean.process || 'Process unknown')}</div>
+    <div>${escapeHtml(tags || 'No tags')}</div>
+  `;
+}
+
+function renderBeanList() {
+  const list = document.getElementById('beanList');
+  if (!list) return;
+
+  const beans = getFilteredBeans();
+  if (!beans.length) {
+    list.innerHTML = `<div class="helper-placeholder">No beans found.</div>`;
+    return;
+  }
+
+  list.innerHTML = beans.map((bean) => {
+    const origin = bean.origin || [bean.origin_country, bean.origin_region].filter(Boolean).join(' · ');
+    const avatar = bean.photo_preview_data_url
+      ? `<img class="bean-card__avatar" src="${escapeAttribute(bean.photo_preview_data_url)}" alt="">`
+      : `<div class="bean-card__avatar bean-card__avatar--placeholder">No photo</div>`;
+
+    const tags = Array.isArray(bean.tags) ? bean.tags : [];
+
+    return `
+      <div class="bean-card" data-bean-id="${escapeHtml(bean.id)}">
+        <div class="bean-card__top">
+          ${avatar}
+          <div class="bean-card__header">
+            <div class="bean-card__title">${escapeHtml(bean.bean || bean.name || 'Untitled Bean')}</div>
+            <div class="bean-card__origin">${escapeHtml(bean.roaster || 'Unknown roaster')}</div>
+            <div class="bean-card__origin">${escapeHtml(origin || 'Origin not set')}</div>
+          </div>
+        </div>
+
+        <div class="bean-card__meta">
+          ${escapeHtml(bean.process || 'Process unknown')}
+          ${bean.altitude ? ` · ${escapeHtml(bean.altitude)}` : ''}
+        </div>
+
+        <div class="bean-card__tags">
+          ${tags.length ? tags.map((tag) => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('') : '<span class="tags-empty">No tags</span>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function getFilteredBeans() {
+  let beans = [...appState.beans];
+
+  if (appState.selectedLibraryTag) {
+    beans = beans.filter((bean) => Array.isArray(bean.tags) && bean.tags.includes(appState.selectedLibraryTag));
+  }
+
+  if (appState.librarySearchTerm) {
+    beans = beans.filter((bean) => {
+      const haystack = [
+        bean.bean, bean.name, bean.roaster, bean.origin_country, bean.origin_region,
+        bean.notes, bean.tags_text, bean.process, bean.variety
+      ].join(' ').toLowerCase();
+
+      return haystack.includes(appState.librarySearchTerm);
+    });
+  }
+
+  return beans;
+}
+
+function renderTagFilters() {
+  const bar = document.getElementById('tagFilterBar');
+  if (!bar) return;
+
+  const counts = new Map();
+  getFilteredBeansForCounts().forEach((bean) => {
+    (bean.tags || []).forEach((tag) => counts.set(tag, (counts.get(tag) || 0) + 1));
+  });
+
+  const tags = Array.from(counts.keys()).sort();
+  const chips = [
+    `<button type="button" class="tag-filter-chip ${appState.selectedLibraryTag ? '' : 'active'}" data-tag="">All</button>`
+  ].concat(tags.map((tag) => {
+    const active = appState.selectedLibraryTag === tag ? 'active' : '';
+    return `<button type="button" class="tag-filter-chip ${active}" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)} <span class="tag-filter-count">${counts.get(tag)}</span></button>`;
+  }));
+
+  bar.innerHTML = chips.join('');
+  bar.querySelectorAll('[data-tag]').forEach((button) => {
+    button.addEventListener('click', () => {
+      appState.selectedLibraryTag = button.getAttribute('data-tag') || '';
+      renderBeanList();
+      renderTagFilters();
+    });
+  });
+}
+
+function getFilteredBeansForCounts() {
+  if (!appState.librarySearchTerm) return appState.beans;
+
+  return appState.beans.filter((bean) => {
+    const haystack = [
+      bean.bean, bean.name, bean.roaster, bean.origin_country, bean.origin_region,
+      bean.notes, bean.tags_text, bean.process, bean.variety
+    ].join(' ').toLowerCase();
+
+    return haystack.includes(appState.librarySearchTerm);
   });
 }
 
@@ -218,69 +528,24 @@ function bindAddBeanModal() {
   const openBtn = document.getElementById('openAddBeanBtn');
   const closeBtn = document.getElementById('closeAddBeanBtn');
   const modal = document.getElementById('addBeanModal');
-  const addBeanForm = document.getElementById('addBeanForm');
+  const uploadBtn = document.getElementById('uploadPhotoBtn');
   const researchBtn = document.getElementById('researchBeanBtn');
-  const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
+  const addBeanForm = document.getElementById('addBeanForm');
   const tagInput = document.getElementById('beanTagInput');
-  const fileInput = document.getElementById('beanPhotoFile');
 
-  if (openBtn) {
-    openBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      modal?.classList.remove('hidden');
-      renderDraftTags();
-      renderPhotoMeta();
-      renderBeanAvatar();
-      renderOcrStatusLine(appState.uploadedPhoto.ocrStatus || 'not_run');
-    });
-  }
-
-  if (closeBtn) {
-    closeBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      modal?.classList.add('hidden');
-    });
-  }
-
+  if (openBtn) openBtn.addEventListener('click', openAddBeanModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeAddBeanModal);
   if (modal) {
     modal.addEventListener('click', (event) => {
-      if (event.target.matches('[data-close-add-bean="true"]')) {
-        event.preventDefault();
-        modal.classList.add('hidden');
+      if (event.target && event.target.getAttribute('data-close-add-bean') === 'true') {
+        closeAddBeanModal();
       }
     });
   }
 
-  if (addBeanForm) {
-    addBeanForm.addEventListener('submit', onSaveBean);
-  }
-
-  if (researchBtn) {
-    researchBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      onResearchBean();
-    });
-  }
-
-  if (uploadPhotoBtn) {
-    uploadPhotoBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      onUploadPhoto();
-    });
-  }
-
-  if (fileInput) {
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files?.[0];
-      if (!file) {
-        renderOcrStatusLine('not_run');
-        return;
-      }
-      appState.uploadedPhoto.fileName = file.name || '';
-      appState.uploadedPhoto.ocrStatus = 'ready_to_upload';
-      renderOcrStatusLine('ready_to_upload');
-    });
-  }
+  if (uploadBtn) uploadBtn.addEventListener('click', onUploadPhoto);
+  if (researchBtn) researchBtn.addEventListener('click', onResearchBean);
+  if (addBeanForm) addBeanForm.addEventListener('submit', onSaveBean);
 
   if (tagInput) {
     tagInput.addEventListener('keydown', (event) => {
@@ -288,11 +553,6 @@ function bindAddBeanModal() {
         event.preventDefault();
         addDraftTag(tagInput.value);
         tagInput.value = '';
-      }
-
-      if (event.key === 'Backspace' && !tagInput.value.trim() && appState.draftTags.length) {
-        appState.draftTags.pop();
-        renderDraftTags();
       }
     });
 
@@ -305,618 +565,26 @@ function bindAddBeanModal() {
   }
 }
 
-async function bootstrapApp() {
-  setStatus('Loading app...', 'info');
-
-  try {
-    const [beansResponse, settingsResponse] = await Promise.all([
-      fetchJson(`${APPS_SCRIPT_URL}?type=beans`),
-      fetchJson(`${APPS_SCRIPT_URL}?type=settings`)
-    ]);
-
-    appState.beans = Array.isArray(beansResponse?.data) ? normalizeBeans(beansResponse.data) : [];
-    appState.settings = normalizeSettings(settingsResponse?.data || {});
-
-    hydrateSettingsForm();
-    renderBeanList();
-    renderTagFilterBar();
-    renderBeanSelect();
-    renderRecipeHelper();
-    renderDraftTags();
-    renderPhotoMeta();
-    renderBeanAvatar();
-    renderOcrStatusLine(appState.uploadedPhoto.ocrStatus || 'not_run');
-
-    setStatus('Ready.', 'success');
-  } catch (error) {
-    console.error(error);
-    setStatus(`Failed to load data: ${error.message}`, 'error');
-  }
+function openAddBeanModal() {
+  const modal = document.getElementById('addBeanModal');
+  if (!modal) return;
+  resetBeanForm();
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, { method: 'GET' });
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-  const result = await response.json();
-  if (result && result.success === false) throw new Error(result.error || 'Backend request failed.');
-  return result;
+function closeAddBeanModal() {
+  const modal = document.getElementById('addBeanModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
 }
 
-async function postJson(payload) {
-  const response = await fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) throw new Error(`POST failed: ${response.status}`);
-  const result = await response.json();
-  if (result && result.success === false) throw new Error(result.error || 'Backend request failed.');
-  return result;
-}
-
-function normalizeBeans(beans) {
-  return beans.map((bean) => {
-    const normalizedPreview = sanitizeImageSource(
-      bean.photo_preview_data_url ||
-      bean.photoPreviewDataUrl ||
-      ''
-    );
-
-    return {
-      ...bean,
-      tags: normalizeTagArray(bean.tags || bean.tags_text || ''),
-      photo_preview_data_url: normalizedPreview
-    };
-  });
-}
-
-function normalizeSettings(settings) {
-  return {
-    sheetUrl: settings.sheetUrl || '',
-    scriptUrl: settings.scriptUrl || '',
-    photoFolder: normalizeDriveFolderValue(settings.photoFolder || '')
-  };
-}
-
-function sanitizeImageSource(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-
-  if (isLikelyImageDataUrl(raw)) return raw;
-  if (isLikelyImageUrl(raw)) return raw;
-
-  return '';
-}
-
-function isLikelyImageDataUrl(value) {
-  return /^data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=\s]+$/i.test(value);
-}
-
-function isLikelyImageUrl(value) {
-  if (!/^https?:\/\//i.test(value)) return false;
-
-  try {
-    const url = new URL(value);
-    const pathname = (url.pathname || '').toLowerCase();
-    return /\.(png|jpg|jpeg|gif|webp|avif|svg)$/i.test(pathname) ||
-      pathname.includes('/uc') ||
-      pathname.includes('/thumbnail') ||
-      pathname.includes('/file/d/');
-  } catch (_) {
-    return false;
-  }
-}
-
-function hydrateSettingsForm() {
-  const sheetUrlInput = document.getElementById('sheetUrl');
-  const scriptUrlInput = document.getElementById('scriptUrl');
-  const photoFolderInput = document.getElementById('photoFolder');
-
-  if (sheetUrlInput) sheetUrlInput.value = appState.settings.sheetUrl || '';
-  if (scriptUrlInput) scriptUrlInput.value = appState.settings.scriptUrl || '';
-  if (photoFolderInput) photoFolderInput.value = appState.settings.photoFolder || '';
-
-  updatePhotoFolderHint(appState.settings.photoFolder || '');
-}
-
-function updatePhotoFolderHint(value) {
-  const hint = document.getElementById('photoFolderHint');
-  if (!hint) return;
-
-  const trimmed = String(value || '').trim();
-  if (!trimmed) {
-    hint.textContent = 'Paste a full Google Drive folder URL and it will auto-convert to the folder ID.';
-    return;
-  }
-
-  const extracted = extractDriveFolderId(trimmed);
-  hint.textContent = extracted ? `Folder ID ready: ${extracted}` : 'Could not detect a valid Google Drive folder ID yet.';
-}
-
-async function onSaveSettings(event) {
-  event.preventDefault();
-
-  const sheetUrlInput = document.getElementById('sheetUrl');
-  const scriptUrlInput = document.getElementById('scriptUrl');
-  const photoFolderInput = document.getElementById('photoFolder');
-
-  const cleanedPhotoFolder = normalizeDriveFolderValue(photoFolderInput ? photoFolderInput.value : '');
-  if (photoFolderInput) photoFolderInput.value = cleanedPhotoFolder;
-
-  const payload = {
-    action: 'savesettings',
-    sheetUrl: sheetUrlInput ? sheetUrlInput.value.trim() : '',
-    scriptUrl: scriptUrlInput ? scriptUrlInput.value.trim() : '',
-    photoFolder: cleanedPhotoFolder
-  };
-
-  setStatus('Saving shared settings...', 'info');
-
-  try {
-    const result = await postJson(payload);
-    appState.settings = normalizeSettings(result?.data || payload);
-    hydrateSettingsForm();
-    setStatus('Shared settings saved for all devices.', 'success');
-  } catch (error) {
-    console.error(error);
-    setStatus(`Failed to save shared settings: ${error.message}`, 'error');
-  }
-}
-
-function getFilteredBeans() {
-  const searchTerm = appState.librarySearchTerm;
-  const selectedTag = appState.selectedLibraryTag;
-
-  return appState.beans.filter((bean) => {
-    const haystack = [
-      bean.name || bean.bean || '',
-      bean.roaster || '',
-      bean.origin || '',
-      bean.origin_country || '',
-      bean.origin_region || '',
-      bean.purchase_country || '',
-      bean.variety || '',
-      bean.producer || '',
-      bean.farm || '',
-      bean.altitude || '',
-      bean.process || '',
-      bean.notes || '',
-      bean.photo_text || '',
-      ...(bean.tags || [])
-    ].join(' ').toLowerCase();
-
-    const matchesSearch = !searchTerm || haystack.includes(searchTerm);
-    const matchesTag = !selectedTag || (bean.tags || []).includes(selectedTag);
-
-    return matchesSearch && matchesTag;
-  });
-}
-
-function renderBeanList() {
-  const beanList = document.getElementById('beanList');
-  if (!beanList) return;
-
-  const filteredBeans = getFilteredBeans();
-
-  if (!filteredBeans.length) {
-    beanList.innerHTML = '<div class="bean-card">No beans match your current search or tag filter.</div>';
-    return;
-  }
-
-  beanList.innerHTML = filteredBeans.map((bean) => {
-    const title = escapeHtml(bean.name || bean.bean || 'Untitled Bean');
-    const previewSrc = sanitizeImageSource(bean.photo_preview_data_url);
-
-    const avatar = previewSrc
-      ? `<img class="bean-card__avatar" src="${escapeHtml(previewSrc)}" alt="${title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" /><div class="bean-card__avatar bean-card__avatar--placeholder" style="display:none;">${getBeanSvgMarkup(inferRoastLevel(bean), 'bean-card__bean-svg')}</div>`
-      : `<div class="bean-card__avatar bean-card__avatar--placeholder">${getBeanSvgMarkup(inferRoastLevel(bean), 'bean-card__bean-svg')}</div>`;
-
-    const origin = bean.origin ? `<div class="bean-card__origin">${formatOriginWithFlag(bean.origin)}</div>` : '';
-    const roaster = bean.roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(bean.roaster)}</div>` : '';
-    const purchaseCountry = bean.purchase_country ? `<div class="bean-card__meta"><strong>Purchased in:</strong> ${escapeHtml(bean.purchase_country)}</div>` : '';
-    const variety = bean.variety ? `<div class="bean-card__meta"><strong>Variety:</strong> ${escapeHtml(bean.variety)}</div>` : '';
-    const producer = bean.producer ? `<div class="bean-card__meta"><strong>Producer:</strong> ${escapeHtml(bean.producer)}</div>` : '';
-    const farm = bean.farm ? `<div class="bean-card__meta"><strong>Farm:</strong> ${escapeHtml(bean.farm)}</div>` : '';
-    const altitude = bean.altitude ? `<div class="bean-card__meta"><strong>Altitude:</strong> ${escapeHtml(bean.altitude)}</div>` : '';
-    const process = bean.process ? `<div class="bean-card__meta"><strong>Process:</strong> ${escapeHtml(bean.process)}</div>` : '';
-    const notes = bean.notes ? `<div class="bean-card__meta"><strong>Notes:</strong> ${escapeHtml(bean.notes)}</div>` : '';
-    const photo = bean.photo_drive_link ? `<div class="bean-card__meta"><a href="${escapeHtml(bean.photo_drive_link)}" target="_blank" rel="noopener noreferrer">Open photo in Drive</a></div>` : '';
-    const tags = renderTagChips(bean.tags || []);
-
-    return `
-      <div class="bean-card">
-        <div class="bean-card__top">
-          ${avatar}
-          <div class="bean-card__header">
-            <div class="bean-card__title">${title}</div>
-            ${origin}
-          </div>
-        </div>
-        ${roaster}
-        ${purchaseCountry}
-        ${variety}
-        ${producer}
-        ${farm}
-        ${altitude}
-        ${process}
-        ${notes}
-        ${photo}
-        ${tags ? `<div class="bean-card__tags">${tags}</div>` : ''}
-      </div>
-    `;
-  }).join('');
-}
-
-function renderTagFilterBar() {
-  const container = document.getElementById('tagFilterBar');
-  if (!container) return;
-
-  const tagCounts = new Map();
-
-  appState.beans.forEach((bean) => {
-    (bean.tags || []).forEach((tag) => {
-      if (!appState.librarySearchTerm || beanMatchesSearch(bean, appState.librarySearchTerm)) {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-      }
-    });
-  });
-
-  const tags = Array.from(tagCounts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-
-  const allButton = `
-    <button type="button" class="tag-filter-chip ${appState.selectedLibraryTag === '' ? 'active' : ''}" data-tag-filter="">
-      All tags
-    </button>
-  `;
-
-  const tagButtons = tags.map(([tag, count]) => `
-    <button type="button" class="tag-filter-chip ${appState.selectedLibraryTag === tag ? 'active' : ''}" data-tag-filter="${escapeHtml(tag)}">
-      ${escapeHtml(tag)} <span class="tag-filter-count">${count}</span>
-    </button>
-  `).join('');
-
-  container.innerHTML = allButton + tagButtons;
-
-  container.querySelectorAll('[data-tag-filter]').forEach((button) => {
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      appState.selectedLibraryTag = button.getAttribute('data-tag-filter') || '';
-      renderTagFilterBar();
-      renderBeanList();
-    });
-  });
-}
-
-function beanMatchesSearch(bean, searchTerm) {
-  const haystack = [
-    bean.name || bean.bean || '',
-    bean.roaster || '',
-    bean.origin || '',
-    bean.origin_country || '',
-    bean.origin_region || '',
-    bean.purchase_country || '',
-    bean.variety || '',
-    bean.producer || '',
-    bean.farm || '',
-    bean.altitude || '',
-    bean.process || '',
-    bean.notes || '',
-    bean.photo_text || '',
-    ...(bean.tags || [])
-  ].join(' ').toLowerCase();
-
-  return haystack.includes(searchTerm);
-}
-
-function renderBeanSelect() {
-  const select = document.getElementById('helperBeanSelect');
-  if (!select) return;
-
-  const previousValue = appState.currentHelperBeanId || '';
-
-  select.innerHTML = [
-    '<option value="">Select bean</option>',
-    ...appState.beans.map((bean) => {
-      const id = bean.id || bean.name || bean.bean || '';
-      const label = formatBeanLabel(bean);
-      return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
-    })
-  ].join('');
-
-  const exists = appState.beans.some((bean) => String(bean.id || bean.name || bean.bean || '') === String(previousValue));
-  appState.currentHelperBeanId = exists ? previousValue : '';
-  select.value = appState.currentHelperBeanId;
-}
-
-function renderRecipeHelper() {
-  const summary = document.getElementById('helperBeanSummary');
-  const output = document.getElementById('helperOutput');
-  const bean = getBeanById(appState.currentHelperBeanId);
-
-  const dose = parseFloat(document.getElementById('helperDose')?.value || '');
-  const ratio = parseFloat(document.getElementById('helperRatio')?.value || '');
-  const target = parseFloat(document.getElementById('helperTarget')?.value || '');
-  const method = document.getElementById('helperMethod')?.value || 'v60';
-
-  if (summary) {
-    if (bean) {
-      const previewSrc = sanitizeImageSource(bean.photo_preview_data_url);
-
-      const avatar = previewSrc
-        ? `<img class="helper-avatar" src="${escapeHtml(previewSrc)}" alt="${escapeHtml(bean.name || bean.bean || 'Bean')}" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" /><div class="helper-avatar helper-avatar--placeholder" style="display:none;">${getBeanSvgMarkup(inferRoastLevel(bean), 'helper-bean-svg')}</div>`
-        : `<div class="helper-avatar helper-avatar--placeholder">${getBeanSvgMarkup(inferRoastLevel(bean), 'helper-bean-svg')}</div>`;
-
-      const parts = [`<strong>${escapeHtml(bean.name || bean.bean || 'Untitled Bean')}</strong>`];
-      if (bean.roaster) parts.push(escapeHtml(bean.roaster));
-      if (bean.origin) parts.push(formatOriginWithFlag(bean.origin));
-      if (bean.purchase_country) parts.push(`Purchased in: ${escapeHtml(bean.purchase_country)}`);
-      if (bean.variety) parts.push(`Variety: ${escapeHtml(bean.variety)}`);
-      if (bean.process) parts.push(escapeHtml(bean.process));
-      if (bean.producer) parts.push(`Producer: ${escapeHtml(bean.producer)}`);
-
-      summary.innerHTML = `
-        <div class="helper-summary-top">
-          ${avatar}
-          <div class="helper-summary-copy">${parts.join(' · ')}</div>
-        </div>
-        ${bean.tags && bean.tags.length ? `<div class="helper-tags">${renderTagChips(bean.tags)}</div>` : ''}
-      `;
-    } else {
-      summary.textContent = 'Select a bean to see its summary.';
-    }
-  }
-
-  if (!output) return;
-
-  if (!dose || (!ratio && !target)) {
-    output.innerHTML = `<div class="helper-placeholder">Enter dose plus either brew ratio or target beverage weight.</div>`;
-    return;
-  }
-
-  const computedTarget = target || (dose * ratio);
-  const computedRatio = ratio || (computedTarget / dose);
-  const bloomWater = round1(dose * 3);
-  const remainingWater = Math.max(0, computedTarget - bloomWater);
-  const pour2 = round1(remainingWater * 0.5);
-  const pour3 = round1(remainingWater - pour2);
-
-  output.innerHTML = `
-    <div class="helper-grid">
-      <div class="helper-metric">
-        <div class="helper-metric__label">Method</div>
-        <div class="helper-metric__value">${escapeHtml(method.toUpperCase())}</div>
-      </div>
-      <div class="helper-metric">
-        <div class="helper-metric__label">Dose</div>
-        <div class="helper-metric__value">${round1(dose)} g</div>
-      </div>
-      <div class="helper-metric">
-        <div class="helper-metric__label">Ratio</div>
-        <div class="helper-metric__value">1:${round2(computedRatio)}</div>
-      </div>
-      <div class="helper-metric">
-        <div class="helper-metric__label">Target Yield</div>
-        <div class="helper-metric__value">${round1(computedTarget)} g</div>
-      </div>
-    </div>
-
-    <div class="helper-steps">
-      <div class="helper-step"><strong>Bloom</strong> — ${bloomWater} g water</div>
-      <div class="helper-step"><strong>Pour 2</strong> — ${pour2} g water</div>
-      <div class="helper-step"><strong>Pour 3</strong> — ${pour3} g water</div>
-    </div>
-  `;
-}
-
-async function onSaveBean(event) {
-  event.preventDefault();
-
-  const beanData = collectBeanFormData();
-  setStatus('Saving bean...', 'info');
-
-  try {
-    const result = await postJson({
-      action: 'savebean',
-      beanData
-    });
-
-    const savedBean = result?.data?.bean ? normalizeBeans([result.data.bean])[0] : null;
-
-    if (savedBean) {
-      const existingIndex = appState.beans.findIndex((item) => String(item.id) === String(savedBean.id));
-      if (existingIndex > -1) {
-        appState.beans[existingIndex] = savedBean;
-      } else {
-        appState.beans.unshift(savedBean);
-      }
-
-      appState.currentHelperBeanId = savedBean.id;
-      renderBeanList();
-      renderTagFilterBar();
-      renderBeanSelect();
-      renderRecipeHelper();
-    }
-
-    resetAddBeanForm();
-    document.getElementById('addBeanModal')?.classList.add('hidden');
-    setStatus('Bean saved successfully.', 'success');
-  } catch (error) {
-    console.error(error);
-    setStatus(error.message || 'Failed to save bean.', 'error');
-  }
-}
-
-async function onResearchBean() {
-  const beanData = collectBeanFormData();
-  const name = beanData.bean || beanData.name || '';
-  const researchStatus = document.getElementById('researchStatus');
-
-  if (!name && !beanData.photo_file_id && !beanData.photo_text) {
-    setStatus('Enter a bean name or upload a photo before research.', 'error');
-    if (researchStatus) researchStatus.textContent = 'Enter a bean name or upload a photo first.';
-    return;
-  }
-
-  setStatus('Researching bean...', 'info');
-  if (researchStatus) researchStatus.textContent = 'Research in progress...';
-
-  try {
-    const result = await postJson({
-      action: 'researchbean',
-      beanData
-    });
-
-    const researchedBean = result?.data?.bean || null;
-    if (!researchedBean) throw new Error('Backend returned no bean data.');
-
-    fillBeanForm(researchedBean);
-
-    if (researchStatus) {
-      const provider = result?.data?.provider || 'debug';
-      const model = result?.data?.model || 'baseline';
-      researchStatus.textContent = `Research complete via ${provider} (${model}).`;
-    }
-
-    setStatus('Bean research complete.', 'success');
-  } catch (error) {
-    console.error('Research bean failed:', error);
-    if (researchStatus) researchStatus.textContent = `Research failed: ${error.message}`;
-    setStatus(`Failed to research bean: ${error.message}`, 'error');
-  }
-}
-
-async function onUploadPhoto() {
-  const fileInput = document.getElementById('beanPhotoFile');
-  const researchStatus = document.getElementById('researchStatus');
-  const file = fileInput?.files?.[0];
-
-  if (!file) {
-    setStatus('Choose a photo first.', 'error');
-    if (researchStatus) researchStatus.textContent = 'Choose a photo before uploading.';
-    renderOcrStatusLine('no_file_selected');
-    return;
-  }
-
-  setStatus('Compressing photo...', 'info');
-  if (researchStatus) researchStatus.textContent = 'Compressing photo before upload...';
-  renderOcrStatusLine('uploading');
-
-  try {
-    const compressed = await compressImageFile(file, 1600, 0.82);
-
-    setStatus('Uploading bean photo...', 'info');
-    if (researchStatus) researchStatus.textContent = 'Uploading compressed photo...';
-
-    const result = await postJson({
-      action: 'uploadbeanphoto',
-      fileName: compressed.fileName,
-      mimeType: compressed.mimeType,
-      base64: compressed.dataUrl,
-      previewDataUrl: compressed.previewDataUrl
-    });
-
-    appState.uploadedPhoto = {
-      fileId: result?.data?.fileId || '',
-      fileName: result?.data?.fileName || compressed.fileName,
-      driveLink: result?.data?.driveLink || '',
-      previewDataUrl: sanitizeImageSource(result?.data?.previewDataUrl || compressed.previewDataUrl),
-      photoText: result?.data?.photoText || inferPhotoTextFromFileName(file.name),
-      ocrStatus: result?.data?.ocrStatus || 'unknown'
-    };
-
-    renderPhotoMeta();
-    renderBeanAvatar();
-    renderOcrStatusLine(appState.uploadedPhoto.ocrStatus);
-
-    if (researchStatus) {
-      researchStatus.textContent = `Photo uploaded. OCR status: ${appState.uploadedPhoto.ocrStatus}. You can now run Research Bean.`;
-    }
-
-    setStatus('Photo uploaded successfully.', 'success');
-  } catch (error) {
-    console.error(error);
-    if (researchStatus) researchStatus.textContent = `Photo upload failed: ${error.message}`;
-    renderOcrStatusLine('upload_failed');
-    setStatus(`Failed to upload photo: ${error.message}`, 'error');
-  }
-}
-
-function collectBeanFormData() {
-  return {
-    bean: document.getElementById('beanName')?.value.trim() || '',
-    name: document.getElementById('beanName')?.value.trim() || '',
-    roaster: document.getElementById('beanRoaster')?.value.trim() || '',
-    origin_country: normalizeCountryValue(document.getElementById('beanOriginCountry')?.value || ''),
-    origin_region: document.getElementById('beanOriginRegion')?.value.trim() || '',
-    purchase_country: normalizeCountryValue(document.getElementById('beanPurchaseCountry')?.value || ''),
-    variety: document.getElementById('beanVariety')?.value.trim() || '',
-    producer: document.getElementById('beanProducer')?.value.trim() || '',
-    farm: document.getElementById('beanFarm')?.value.trim() || '',
-    altitude: document.getElementById('beanAltitude')?.value.trim() || '',
-    process: document.getElementById('beanProcess')?.value.trim() || '',
-    notes: document.getElementById('beanNotes')?.value.trim() || '',
-    tags: [...appState.draftTags],
-    photo_file_id: appState.uploadedPhoto.fileId || '',
-    photo_file_name: appState.uploadedPhoto.fileName || '',
-    photo_drive_link: appState.uploadedPhoto.driveLink || '',
-    photo_preview_data_url: sanitizeImageSource(appState.uploadedPhoto.previewDataUrl || ''),
-    photo_text: appState.uploadedPhoto.photoText || document.getElementById('beanPhotoText')?.value.trim() || ''
-  };
-}
-
-function fillBeanForm(bean) {
-  const beanName = document.getElementById('beanName');
-  const beanRoaster = document.getElementById('beanRoaster');
-  const beanOriginCountry = document.getElementById('beanOriginCountry');
-  const beanOriginRegion = document.getElementById('beanOriginRegion');
-  const beanPurchaseCountry = document.getElementById('beanPurchaseCountry');
-  const beanVariety = document.getElementById('beanVariety');
-  const beanProducer = document.getElementById('beanProducer');
-  const beanFarm = document.getElementById('beanFarm');
-  const beanAltitude = document.getElementById('beanAltitude');
-  const beanProcess = document.getElementById('beanProcess');
-  const beanNotes = document.getElementById('beanNotes');
-  const beanPhotoText = document.getElementById('beanPhotoText');
-
-  if (beanName && (bean.bean || bean.name)) beanName.value = bean.bean || bean.name;
-  if (beanRoaster && bean.roaster) beanRoaster.value = bean.roaster;
-  if (beanOriginCountry && bean.origin_country) beanOriginCountry.value = normalizeCountryValue(bean.origin_country);
-  if (beanOriginRegion && bean.origin_region) beanOriginRegion.value = bean.origin_region;
-  if (beanPurchaseCountry && bean.purchase_country) beanPurchaseCountry.value = normalizeCountryValue(bean.purchase_country);
-  if (beanVariety && bean.variety) beanVariety.value = bean.variety;
-  if (beanProducer && bean.producer) beanProducer.value = bean.producer;
-  if (beanFarm && bean.farm) beanFarm.value = bean.farm;
-  if (beanAltitude && bean.altitude) beanAltitude.value = bean.altitude;
-  if (beanProcess && bean.process) beanProcess.value = bean.process;
-  if (beanNotes && bean.notes) beanNotes.value = bean.notes;
-  if (beanPhotoText) beanPhotoText.value = bean.photo_text || '';
-
-  if (bean.tags) {
-    appState.draftTags = normalizeTagArray(bean.tags);
-    renderDraftTags();
-  }
-
-  if (bean.photo_file_id || bean.photo_drive_link || bean.photo_preview_data_url || bean.photo_text) {
-    appState.uploadedPhoto = {
-      fileId: bean.photo_file_id || '',
-      fileName: bean.photo_file_name || '',
-      driveLink: bean.photo_drive_link || '',
-      previewDataUrl: sanitizeImageSource(bean.photo_preview_data_url || ''),
-      photoText: bean.photo_text || '',
-      ocrStatus: bean.photo_text ? 'ok' : 'not_run'
-    };
-    renderPhotoMeta();
-    renderBeanAvatar();
-    renderOcrStatusLine(appState.uploadedPhoto.ocrStatus);
-  }
-}
-
-function resetAddBeanForm() {
-  const form = document.getElementById('addBeanForm');
-  if (form) form.reset();
+function resetBeanForm() {
+  [
+    'beanName','beanRoaster','beanOriginCountry','beanOriginRegion','beanPurchaseCountry',
+    'beanVariety','beanProducer','beanFarm','beanAltitude','beanProcess','beanNotes','beanPhotoText'
+  ].forEach((id) => setValue(id, ''));
 
   appState.draftTags = [];
   appState.uploadedPhoto = {
@@ -929,346 +597,261 @@ function resetAddBeanForm() {
   };
 
   renderDraftTags();
-  renderPhotoMeta();
-  renderBeanAvatar();
-  renderOcrStatusLine('not_run');
-
-  const researchStatus = document.getElementById('researchStatus');
-  if (researchStatus) {
-    researchStatus.textContent = 'Upload a bean photo first, then run Research Bean to use OCR text and metadata.';
-  }
+  renderPhotoPreview();
+  updatePhotoMeta();
+  setResearchStatus('Upload a bean photo first, then run Research Bean to use OCR text and metadata.');
+  setOcrStatus('OCR: not run yet', 'neutral');
 }
 
-function addDraftTag(rawValue) {
-  const tags = normalizeTagArray(rawValue);
-  tags.forEach((tag) => {
-    if (!appState.draftTags.includes(tag)) {
-      appState.draftTags.push(tag);
-    }
-  });
-  renderDraftTags();
-}
+async function onUploadPhoto() {
+  const fileInput = document.getElementById('beanPhotoFile');
+  const file = fileInput && fileInput.files ? fileInput.files[0] : null;
 
-function removeDraftTag(tagToRemove) {
-  appState.draftTags = appState.draftTags.filter((tag) => tag !== tagToRemove);
-  renderDraftTags();
-}
-
-function renderDraftTags() {
-  const preview = document.getElementById('beanTagsPreview');
-  if (!preview) return;
-
-  if (!appState.draftTags.length) {
-    preview.innerHTML = '<div class="tags-empty">No tags added yet.</div>';
+  if (!file) {
+    setOcrStatus('OCR: no file selected', 'warning');
     return;
   }
 
-  preview.innerHTML = appState.draftTags.map((tag) => `
-    <button type="button" class="tag-chip tag-chip--editable" data-remove-tag="${escapeHtml(tag)}">
-      <span>${escapeHtml(tag)}</span>
-      <span aria-hidden="true">×</span>
-    </button>
-  `).join('');
+  const base64 = await readFileAsDataUrl(file);
+  const response = await fetchJson(resolveScriptUrl(), {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'uploadBeanPhoto',
+      fileName: file.name,
+      mimeType: file.type || 'image/jpeg',
+      base64: base64,
+      previewDataUrl: base64
+    })
+  });
 
-  preview.querySelectorAll('[data-remove-tag]').forEach((button) => {
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      removeDraftTag(button.getAttribute('data-remove-tag') || '');
+  const data = response.data || {};
+  appState.uploadedPhoto = {
+    fileId: data.fileId || '',
+    fileName: data.fileName || file.name,
+    driveLink: data.driveLink || '',
+    previewDataUrl: data.previewDataUrl || base64,
+    photoText: data.photoText || '',
+    ocrStatus: data.ocrStatus || 'unknown'
+  };
+
+  setValue('beanPhotoText', appState.uploadedPhoto.photoText || '');
+  renderPhotoPreview();
+  updatePhotoMeta();
+  setOcrStatus(`OCR: ${formatOcrStatus(appState.uploadedPhoto.ocrStatus)}`, appState.uploadedPhoto.ocrStatus === 'ok' ? 'success' : 'warning');
+  setResearchStatus('Photo uploaded. OCR text is ready; run Research Bean to draft fields.');
+}
+
+async function onResearchBean() {
+  const beanData = collectBeanFormData();
+  const response = await fetchJson(resolveScriptUrl(), {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'researchBean',
+      beanData
+    })
+  });
+
+  const bean = response.data && response.data.bean ? response.data.bean : null;
+  if (!bean) {
+    setResearchStatus('Research returned no bean data.', true);
+    return;
+  }
+
+  applyBeanDataToForm(bean);
+  setResearchStatus('Research applied. Review the autofilled fields before saving.');
+}
+
+async function onSaveBean(event) {
+  event.preventDefault();
+  const beanData = collectBeanFormData();
+
+  const response = await fetchJson(resolveScriptUrl(), {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'saveBean',
+      beanData
+    })
+  });
+
+  const saved = response.data && response.data.bean ? response.data.bean : null;
+  if (saved) {
+    await loadBeans();
+    closeAddBeanModal();
+    setAppStatus('Bean saved.', 'success');
+  }
+}
+
+function collectBeanFormData() {
+  return {
+    bean: getValue('beanName'),
+    name: getValue('beanName'),
+    roaster: getValue('beanRoaster'),
+    origin_country: getValue('beanOriginCountry'),
+    origin_region: getValue('beanOriginRegion'),
+    purchase_country: getValue('beanPurchaseCountry'),
+    variety: getValue('beanVariety'),
+    producer: getValue('beanProducer'),
+    farm: getValue('beanFarm'),
+    altitude: getValue('beanAltitude'),
+    process: getValue('beanProcess'),
+    notes: getValue('beanNotes'),
+    tags: [...appState.draftTags],
+    photo_file_id: appState.uploadedPhoto.fileId || '',
+    photo_file_name: appState.uploadedPhoto.fileName || '',
+    photo_drive_link: appState.uploadedPhoto.driveLink || '',
+    photo_preview_data_url: appState.uploadedPhoto.previewDataUrl || '',
+    photo_text: getValue('beanPhotoText')
+  };
+}
+
+function applyBeanDataToForm(bean) {
+  setValue('beanName', bean.bean || bean.name || '');
+  setValue('beanRoaster', bean.roaster || '');
+  setValue('beanOriginCountry', bean.origin_country || '');
+  setValue('beanOriginRegion', bean.origin_region || '');
+  setValue('beanPurchaseCountry', bean.purchase_country || '');
+  setValue('beanVariety', bean.variety || '');
+  setValue('beanProducer', bean.producer || '');
+  setValue('beanFarm', bean.farm || '');
+  setValue('beanAltitude', bean.altitude || '');
+  setValue('beanProcess', bean.process || '');
+  setValue('beanNotes', bean.notes || '');
+  setValue('beanPhotoText', bean.photo_text || getValue('beanPhotoText'));
+
+  appState.draftTags = Array.isArray(bean.tags) ? bean.tags.slice() : [];
+  renderDraftTags();
+}
+
+function addDraftTag(value) {
+  const cleaned = String(value || '').trim().toLowerCase().replace(/^,+|,+$/g, '');
+  if (!cleaned) return;
+  if (!appState.draftTags.includes(cleaned)) {
+    appState.draftTags.push(cleaned);
+    renderDraftTags();
+  }
+}
+
+function renderDraftTags() {
+  const wrap = document.getElementById('beanTagsPreview');
+  if (!wrap) return;
+
+  if (!appState.draftTags.length) {
+    wrap.innerHTML = `<div class="tags-empty">No tags added yet.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = appState.draftTags.map((tag, index) => {
+    return `<button type="button" class="tag-chip tag-chip--editable" data-tag-index="${index}">${escapeHtml(tag)} ✕</button>`;
+  }).join('');
+
+  wrap.querySelectorAll('[data-tag-index]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.getAttribute('data-tag-index'));
+      appState.draftTags.splice(index, 1);
+      renderDraftTags();
     });
   });
 }
 
-function renderTagChips(tags) {
-  if (!tags || !tags.length) return '';
-  return tags.map((tag) => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('');
+function renderPhotoPreview() {
+  const preview = document.getElementById('beanAvatar');
+  if (!preview) return;
+
+  if (appState.uploadedPhoto.previewDataUrl) {
+    preview.innerHTML = `<img src="${escapeAttribute(appState.uploadedPhoto.previewDataUrl)}" alt="Bean photo preview">`;
+  } else {
+    preview.innerHTML = `<div class="bean-photo-preview--empty">No photo yet. Upload one to see a preview.</div>`;
+  }
 }
 
-function renderPhotoMeta() {
+function updatePhotoMeta() {
   const meta = document.getElementById('beanPhotoMeta');
   if (!meta) return;
 
-  if (!appState.uploadedPhoto.fileId && !appState.uploadedPhoto.previewDataUrl) {
+  if (!appState.uploadedPhoto.fileId) {
     meta.textContent = 'No photo uploaded yet.';
     return;
   }
 
-  const link = appState.uploadedPhoto.driveLink
-    ? `<a href="${escapeHtml(appState.uploadedPhoto.driveLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(appState.uploadedPhoto.fileName || 'Open uploaded photo')}</a>`
-    : escapeHtml(appState.uploadedPhoto.fileName || 'Uploaded photo');
-
-  meta.innerHTML = `Uploaded: ${link}`;
+  meta.innerHTML = `
+    <div><strong>${escapeHtml(appState.uploadedPhoto.fileName || 'Uploaded photo')}</strong></div>
+    <div>${escapeHtml(appState.uploadedPhoto.driveLink || '')}</div>
+  `;
 }
 
-function renderOcrStatusLine(status) {
-  const el = document.getElementById('ocrStatusLine');
+function setOcrStatus(message, tone = 'neutral') {
+  const line = document.getElementById('ocrStatusLine');
+  if (!line) return;
+  line.textContent = message;
+  line.className = `ocr-status ocr-status--${tone}`;
+}
+
+function formatOcrStatus(status) {
+  const map = {
+    ok: 'success',
+    empty: 'empty result',
+    missing_api_key: 'missing API key',
+    not_run: 'not run yet'
+  };
+  return map[status] || status || 'unknown';
+}
+
+function setResearchStatus(message, isError = false) {
+  const el = document.getElementById('researchStatus');
   if (!el) return;
+  el.textContent = message;
+  el.style.color = isError ? '#991b1b' : '';
+}
 
-  const map = {
-    not_run: { text: 'OCR: not run yet', cls: 'ocr-status ocr-status--neutral' },
-    ready_to_upload: { text: 'OCR: ready after upload', cls: 'ocr-status ocr-status--neutral' },
-    uploading: { text: 'OCR: uploading photo and running OCR...', cls: 'ocr-status ocr-status--neutral' },
-    ok: { text: 'OCR: success', cls: 'ocr-status ocr-status--success' },
-    empty: { text: 'OCR: no text detected', cls: 'ocr-status ocr-status--warning' },
-    empty_or_failed: { text: 'OCR: empty or failed', cls: 'ocr-status ocr-status--warning' },
-    missing_api_key: { text: 'OCR: missing Vision API key', cls: 'ocr-status ocr-status--error' },
-    no_file_selected: { text: 'OCR: choose a photo first', cls: 'ocr-status ocr-status--warning' },
-    upload_failed: { text: 'OCR: upload failed', cls: 'ocr-status ocr-status--error' },
-    unknown: { text: 'OCR: unknown result', cls: 'ocr-status ocr-status--warning' }
-  };
+function hydrateCountryDatalist() {
+  const datalist = document.getElementById('countryOptions');
+  if (!datalist) return;
 
-  const matchedVisionHttp = /^vision_http_/i.test(status || '');
-  const matchedVisionError = /^vision_error_/i.test(status || '');
+  datalist.innerHTML = COUNTRY_OPTIONS
+    .map((country) => `<option value="${escapeHtml(country)}"></option>`)
+    .join('');
+}
 
-  if (matchedVisionHttp) {
-    el.className = 'ocr-status ocr-status--error';
-    el.textContent = `OCR: Vision HTTP error (${status.replace('vision_http_', '')})`;
-    return;
+function setAppStatus(message, tone = 'info') {
+  const el = document.getElementById('appStatus');
+  if (!el) return;
+  el.textContent = message;
+  el.setAttribute('data-status', tone);
+}
+
+function resolveScriptUrl() {
+  const saved = getValue('scriptUrl');
+  return saved || appState.settings.scriptUrl || APPS_SCRIPT_URL;
+}
+
+function getValue(id) {
+  const el = document.getElementById(id);
+  return el ? String(el.value || '') : '';
+}
+
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || '';
+}
+
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, {
+    method: options.method || 'GET',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: options.body || undefined
+  });
+
+  const json = await response.json();
+  if (!json.success) {
+    throw new Error(json.error || 'Request failed.');
   }
 
-  if (matchedVisionError) {
-    el.className = 'ocr-status ocr-status--error';
-    el.textContent = `OCR: ${status.replace(/^vision_error_/i, '').trim() || 'Vision error'}`;
-    return;
-  }
-
-  const item = map[status] || map.unknown;
-  el.className = item.cls;
-  el.textContent = item.text;
+  return json;
 }
 
-function renderBeanAvatar() {
-  const avatar = document.getElementById('beanAvatar');
-  if (!avatar) return;
-
-  const previewSrc = sanitizeImageSource(appState.uploadedPhoto.previewDataUrl);
-
-  if (previewSrc) {
-    avatar.innerHTML = `<img src="${escapeHtml(previewSrc)}" alt="Bean avatar preview" onerror="this.remove();">`;
-    return;
-  }
-
-  avatar.innerHTML = `
-    <div class="bean-photo-preview--empty">
-      No photo yet. Upload one to see a preview.
-    </div>
-  `;
-}
-
-function getBeanById(id) {
-  return appState.beans.find(
-    (bean) => String(bean.id || bean.name || bean.bean || '') === String(id || '')
-  ) || null;
-}
-
-function formatBeanLabel(bean) {
-  const name = bean.name || bean.bean || 'Untitled Bean';
-  const roaster = bean.roaster ? ` — ${bean.roaster}` : '';
-  const origin = bean.origin ? ` (${plainOriginWithFlag(bean.origin)})` : '';
-  return `${name}${roaster}${origin}`;
-}
-
-function formatOriginWithFlag(origin) {
-  if (!origin) return '';
-  const code = inferCountryCode(origin);
-  const flag = code ? countryCodeToFlag(code) : '';
-  const text = escapeHtml(origin);
-  return flag ? `<span class="origin-flag" aria-hidden="true">${flag}</span> <span>${text}</span>` : `<span>${text}</span>`;
-}
-
-function plainOriginWithFlag(origin) {
-  if (!origin) return '';
-  const code = inferCountryCode(origin);
-  const flag = code ? countryCodeToFlag(code) : '';
-  return flag ? `${flag} ${origin}` : origin;
-}
-
-function inferCountryCode(origin) {
-  if (!origin) return '';
-
-  const normalized = origin.trim().toLowerCase();
-  const map = {
-    ethiopia: 'ET',
-    kenya: 'KE',
-    rwanda: 'RW',
-    burundi: 'BI',
-    uganda: 'UG',
-    tanzania: 'TZ',
-    colombia: 'CO',
-    brazil: 'BR',
-    peru: 'PE',
-    bolivia: 'BO',
-    ecuador: 'EC',
-    guatemala: 'GT',
-    honduras: 'HN',
-    'el salvador': 'SV',
-    elsalvador: 'SV',
-    nicaragua: 'NI',
-    'costa rica': 'CR',
-    costarica: 'CR',
-    panama: 'PA',
-    mexico: 'MX',
-    indonesia: 'ID',
-    sumatra: 'ID',
-    java: 'ID',
-    sulawesi: 'ID',
-    bali: 'ID',
-    yemen: 'YE',
-    india: 'IN',
-    vietnam: 'VN',
-    'viet nam': 'VN',
-    laos: 'LA',
-    thailand: 'TH',
-    myanmar: 'MM',
-    china: 'CN',
-    taiwan: 'TW',
-    japan: 'JP',
-    philippines: 'PH',
-    'papua new guinea': 'PG',
-    papuanewguinea: 'PG',
-    png: 'PG'
-  };
-
-  if (map[normalized]) return map[normalized];
-
-  const compact = normalized.replace(/[^a-z]/g, '');
-  if (map[compact]) return map[compact];
-
-  for (const key of Object.keys(map)) {
-    if (normalized.includes(key)) return map[key];
-  }
-
-  return '';
-}
-
-function countryCodeToFlag(code) {
-  const cc = String(code || '').trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(cc)) return '';
-  return String.fromCodePoint(...[...cc].map((char) => char.charCodeAt(0) + 127397));
-}
-
-function normalizeDriveFolderValue(value) {
-  const trimmed = String(value || '').trim();
-  if (!trimmed) return '';
-  const extracted = extractDriveFolderId(trimmed);
-  return extracted || trimmed;
-}
-
-function extractDriveFolderId(value) {
-  const input = String(value || '').trim();
-  if (!input) return '';
-
-  if (/^[a-zA-Z0-9_-]{15,}$/.test(input)) return input;
-
-  const folderMatch = input.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
-  if (folderMatch && folderMatch[1]) return folderMatch[1];
-
-  const genericMatch = input.match(/([a-zA-Z0-9_-]{15,})/);
-  if (genericMatch && genericMatch[1]) return genericMatch[1];
-
-  return '';
-}
-
-function normalizeTagArray(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map((tag) => String(tag || '').trim().toLowerCase())
-      .filter(Boolean)
-      .filter((tag, index, arr) => arr.indexOf(tag) === index);
-  }
-
-  return String(value || '')
-    .split(',')
-    .map((tag) => String(tag || '').trim().toLowerCase())
-    .filter(Boolean)
-    .filter((tag, index, arr) => arr.indexOf(tag) === index);
-}
-
-function normalizeCountryValue(value) {
-  const raw = String(value || '').trim();
-
-  if (!raw) return '';
-
-  const exactMatch = COUNTRY_OPTIONS.find(
-    (country) => country.toLowerCase() === raw.toLowerCase()
-  );
-
-  if (exactMatch) return exactMatch;
-  return raw;
-}
-
-function inferPhotoTextFromFileName(fileName) {
-  const raw = String(fileName || '').replace(/\.[^.]+$/, '');
-  return raw.replace(/[_-]+/g, ' ').trim();
-}
-
-function inferRoastLevel(bean) {
-  const text = [
-    bean?.process || '',
-    bean?.notes || '',
-    bean?.name || '',
-    bean?.bean || '',
-    bean?.photo_text || ''
-  ].join(' ').toLowerCase();
-
-  if (text.includes('light roast') || text.includes('light')) return 'light';
-  if (text.includes('dark roast') || text.includes('dark')) return 'dark';
-  return 'medium';
-}
-
-function getBeanSvgMarkup(roast = 'medium', extraClass = '') {
-  const palette = {
-    light: { fill: '#b97a56', crease: '#efd2b5', shadow: '#8d5f43' },
-    medium: { fill: '#8b5e3c', crease: '#e7c3a3', shadow: '#69452b' },
-    dark: { fill: '#4b2e20', crease: '#b78f74', shadow: '#2f1c13' }
-  };
-
-  const chosen = palette[roast] || palette.medium;
-
-  return `
-    <svg class="${extraClass}" viewBox="0 0 64 64" aria-hidden="true">
-      <ellipse cx="32" cy="32" rx="22" ry="16" fill="${chosen.shadow}" opacity="0.14"></ellipse>
-      <ellipse cx="32" cy="30" rx="19" ry="25" fill="${chosen.fill}" transform="rotate(-18 32 30)"></ellipse>
-      <path d="M27 13c7 8 10 24 5 35" stroke="${chosen.crease}" stroke-width="3.3" stroke-linecap="round" fill="none"></path>
-      <ellipse cx="25" cy="22" rx="4" ry="7" fill="rgba(255,255,255,0.08)" transform="rotate(-18 25 22)"></ellipse>
-    </svg>
-  `;
-}
-
-async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
-  const dataUrl = await fileToDataUrl(file);
-  const image = await loadImage(dataUrl);
-
-  let { width, height } = image;
-  if (width > height && width > maxDimension) {
-    height = Math.round((height * maxDimension) / width);
-    width = maxDimension;
-  } else if (height >= width && height > maxDimension) {
-    width = Math.round((width * maxDimension) / height);
-    height = maxDimension;
-  }
-
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(image, 0, 0, width, height);
-
-  const outputMime = 'image/jpeg';
-  const compressedDataUrl = canvas.toDataURL(outputMime, quality);
-  const previewDataUrl = canvas.toDataURL(outputMime, 0.72);
-  const safeBaseName = (file.name || 'bean-photo').replace(/\.[^.]+$/, '');
-  const fileName = `${safeBaseName}.jpg`;
-
-  return {
-    dataUrl: compressedDataUrl,
-    previewDataUrl,
-    fileName,
-    mimeType: outputMime
-  };
-}
-
-async function fileToDataUrl(file) {
+function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
@@ -1277,35 +860,15 @@ async function fileToDataUrl(file) {
   });
 }
 
-async function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Failed to load image for compression.'));
-    img.src = src;
-  });
-}
-
-function setStatus(message, type = 'info') {
-  const el = document.getElementById('appStatus');
-  if (!el) return;
-  el.textContent = message;
-  el.dataset.status = type;
-}
-
-function round1(value) {
-  return Math.round(Number(value) * 10) / 10;
-}
-
-function round2(value) {
-  return Math.round(Number(value) * 100) / 100;
-}
-
 function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value);
 }
