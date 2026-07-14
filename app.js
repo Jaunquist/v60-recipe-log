@@ -17,6 +17,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const helperDose = document.getElementById('helperDose');
   const generateRecipeBtn = document.getElementById('generateRecipeBtn');
   const recipeOutput = document.getElementById('recipeOutput');
+  const copyRecipeBtn = document.getElementById('copyRecipeBtn');
+  const copyRecipeStatus = document.getElementById('copyRecipeStatus');
+
+  let latestRecipeText = '';
 
   const savedTheme = localStorage.getItem('theme');
   if (savedTheme) {
@@ -86,6 +90,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let beans = [];
 
+  function normalizeRoast(value) {
+    const v = String(value || '').toLowerCase();
+    if (v.includes('dark')) return 'dark';
+    if (v.includes('medium')) return 'medium';
+    return 'light';
+  }
+
+  function normalizeProcess(value) {
+    const v = String(value || '').toLowerCase();
+    if (v.includes('anaerobic')) return 'anaerobic';
+    if (v.includes('natural')) return 'natural';
+    if (v.includes('honey')) return 'honey';
+    if (v.includes('washed')) return 'washed';
+    return 'other';
+  }
+
   function normalizeBean(row) {
     return {
       id: row.id || '',
@@ -142,6 +162,18 @@ document.addEventListener('DOMContentLoaded', () => {
         <div><strong>Roast:</strong> ${b.roast || '-'}</div>
         <div><strong>Notes:</strong> ${(b.notes || []).join(', ') || '-'}</div>
         <div><strong>Recipe:</strong> ${b.recipe?.dose_g || '-'}g / ${b.recipe?.water_g || '-'}g / ${b.recipe?.temp_c || '-'}°C</div>
+        <div class="bean-card-actions">
+          <button
+            class="bean-action-btn use-bean-btn"
+            type="button"
+            data-bean="${escapeHtml(b.bean || '')}"
+            data-roast="${escapeHtml(normalizeRoast(b.roast || 'light'))}"
+            data-process="${escapeHtml(normalizeProcess(b.process || 'washed'))}"
+            data-dose="${escapeHtml(String(b.recipe?.dose_g || 18))}"
+          >
+            Use this bean
+          </button>
+        </div>
       </div>
     `).join('');
   }
@@ -275,8 +307,22 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  function recipeToText(recipe) {
+    return [
+      recipe.title,
+      '',
+      ...recipe.meta,
+      '',
+      ...recipe.steps.map((step, index) => `${index + 1}. ${step}`),
+      '',
+      ...recipe.notes.map((note) => `Tip: ${note}`)
+    ].join('\n');
+  }
+
   function renderRecipeCard(recipe) {
     if (!recipeOutput) return;
+
+    latestRecipeText = recipeToText(recipe);
 
     recipeOutput.innerHTML = `
       <h3>${recipe.title}</h3>
@@ -292,11 +338,72 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 
+  async function copyLatestRecipe() {
+    if (!latestRecipeText) {
+      if (copyRecipeStatus) copyRecipeStatus.textContent = 'Generate a recipe first.';
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(latestRecipeText);
+      if (copyRecipeStatus) {
+        copyRecipeStatus.textContent = 'Copied.';
+        setTimeout(() => {
+          copyRecipeStatus.textContent = '';
+        }, 1200);
+      }
+    } catch (err) {
+      console.error('Copy failed', err);
+      if (copyRecipeStatus) copyRecipeStatus.textContent = 'Copy failed.';
+    }
+  }
+
+  function fillHelperFromBean(data) {
+    if (helperBeanName) helperBeanName.value = data.bean || '';
+    if (helperRoast) helperRoast.value = normalizeRoast(data.roast || 'light');
+    if (helperProcess) helperProcess.value = normalizeProcess(data.process || 'washed');
+    if (helperDose) helperDose.value = data.dose || 18;
+
+    showView('helper');
+    const recipe = buildRecipe();
+    renderRecipeCard(recipe);
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('"', '&quot;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+  }
+
+  async function postBrewLog(payload) {
+    const currentSettings = JSON.parse(localStorage.getItem('v60-settings') || '{}');
+    if (!currentSettings.scriptUrl) return { ok: false, error: 'Missing Apps Script URL' };
+
+    try {
+      const res = await fetch(currentSettings.scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      return { ok: true, data: json };
+    } catch (error) {
+      console.error('postBrewLog failed', error);
+      return { ok: false, error: error.message };
+    }
+  }
+
   if (generateRecipeBtn) {
     generateRecipeBtn.addEventListener('click', () => {
       const recipe = buildRecipe();
       renderRecipeCard(recipe);
     });
+  }
+
+  if (copyRecipeBtn) {
+    copyRecipeBtn.addEventListener('click', copyLatestRecipe);
   }
 
   if (beanSearch) {
@@ -305,6 +412,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (beanList) {
+    beanList.addEventListener('click', (event) => {
+      const btn = event.target.closest('.use-bean-btn');
+      if (!btn) return;
+
+      fillHelperFromBean({
+        bean: btn.dataset.bean || '',
+        roast: btn.dataset.roast || 'light',
+        process: btn.dataset.process || 'washed',
+        dose: btn.dataset.dose || 18
+      });
+    });
+  }
+
   showView('dashboard');
   loadBeansFromApi();
+
+  window.v60PostBrewLog = postBrewLog;
 });
