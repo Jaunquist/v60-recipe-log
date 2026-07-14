@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYBxl1qUzFWUiPppkUFbTa_o56fhKx6PFZ-Xz3yoec4woUdalKYnd159LhoaLwq8t8Cw/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyPwtzUbZLx_TygX4Ntcvn4phAVPAh5Eiv_Vm_2yI8xtqG6fR7ju4VntNV_bgu04SepRg/exec';
 
 const appState = {
   beans: [],
