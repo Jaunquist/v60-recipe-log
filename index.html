@@ -127,7 +127,7 @@
       <div class="section-head">
         <div>
           <h2>Add Bean</h2>
-          <p class="muted">Baseline add bean: name, roaster, origin, process, notes.</p>
+          <p class="muted">Baseline add bean with Research Bean helper.</p>
         </div>
         <button id="closeAddBeanBtn" class="icon-btn" type="button" aria-label="Close">✕</button>
       </div>
@@ -151,13 +151,17 @@
         <label for="beanNotes">Notes</label>
         <textarea id="beanNotes" rows="3" placeholder="Bag notes or your notes"></textarea>
 
+        <small id="researchStatus" class="field-hint">
+          Optional: tap Research Bean to auto-fill origin and notes.
+        </small>
+
         <div class="action-row">
+          <button id="researchBeanBtn" class="save-btn" type="button">Research Bean</button>
           <button id="saveBeanBtn" class="save-btn" type="submit">Save Bean</button>
         </div>
       </form>
     </div>
   </div>
-
   <script src="./app.js?v=baseline"></script>
 </body>
 </html>
