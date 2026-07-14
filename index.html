@@ -46,9 +46,7 @@
       <section class="content">
         <section id="view-dashboard" class="panel">
           <h2>Welcome to your V60 notebook</h2>
-          <p class="muted">
-            This is your live V60 app running on GitHub Pages with Google Sheets as the bean database.
-          </p>
+          <p class="muted">This is your live V60 app running on GitHub Pages with Google Sheets as the bean database.</p>
         </section>
 
         <section id="view-library" class="panel hidden">
@@ -102,6 +100,10 @@
               <div id="recipeOutput" class="recipe-card">
                 <h3>Starter recipe</h3>
                 <p class="muted">Choose your bean details, then generate a recipe.</p>
+              </div>
+              <div class="recipe-actions">
+                <button id="copyRecipeBtn" type="button">Copy recipe</button>
+                <span id="copyRecipeStatus" class="tiny"></span>
               </div>
             </div>
           </div>
