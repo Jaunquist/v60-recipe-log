@@ -91,7 +91,7 @@ img {
 }
 
 .brand h1 {
-  font-size: 2rem;
+  font-size: 1.8rem;
   margin-bottom: 6px;
 }
 
@@ -103,8 +103,6 @@ img {
 .nav {
   display: grid;
   gap: 10px;
-  position: relative;
-  z-index: 20;
 }
 
 .nav-title {
@@ -168,12 +166,6 @@ button:hover {
   box-shadow: var(--shadow);
 }
 
-.panel--inner {
-  padding: 18px;
-  margin-top: 18px;
-  background: #fff;
-}
-
 .muted {
   color: var(--muted);
 }
@@ -226,16 +218,12 @@ button:hover {
   min-width: 0;
 }
 
-.recipe-card,
-.recipe-preview {
+.recipe-card {
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 18px;
-}
-
-.recipe-card {
-  min-height: 240px;
+  min-height: 200px;
 }
 
 .helper-grid {
@@ -321,13 +309,6 @@ button:hover {
   color: #374151;
 }
 
-.bean-card__image {
-  width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  margin-top: 12px;
-}
-
 .origin-flag {
   font-size: 16px;
   line-height: 1;
@@ -365,12 +346,8 @@ label {
 
 .save-btn {
   width: fit-content;
-  min-width: 160px;
+  min-width: 140px;
   margin-top: 4px;
-}
-
-.save-btn--secondary {
-  background: #fff8f3;
 }
 
 .action-row {
@@ -387,50 +364,6 @@ label {
   padding: 0;
 }
 
-.photo-preview {
-  max-width: 280px;
-}
-
-.photo-preview img {
-  width: 100%;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-}
-
-.mode-toggle-wrap {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.mode-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.mode-pill {
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--text);
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.mode-pill.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.recipe-note {
-  margin-bottom: 12px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
 .modal {
   position: fixed;
   inset: 0;
@@ -445,7 +378,7 @@ label {
 
 .modal__dialog {
   position: relative;
-  max-width: 860px;
+  max-width: 600px;
   margin: 32px auto;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -454,11 +387,6 @@ label {
   padding: 24px;
   max-height: calc(100vh - 64px);
   overflow: auto;
-}
-
-#beanList {
-  display: grid;
-  gap: 12px;
 }
 
 @media (max-width: 900px) {
