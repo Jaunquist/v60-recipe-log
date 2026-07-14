@@ -1,576 +1,475 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const root = document.documentElement;
-  const themeToggle = document.getElementById('themeToggle');
-  const viewTitle = document.getElementById('viewTitle');
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYBxl1qUzFWUiPppkUFbTa_o56fhKx6PFZ-Xz3yoec4woUdalKYnd159LhoaLwq8t8Cw/exec';
 
-  const sheetUrlInput = document.getElementById('sheetUrlInput');
-  const scriptUrlInput = document.getElementById('scriptUrlInput');
-  const photoFolderInput = document.getElementById('photoFolderInput');
-  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-  const beanSearch = document.getElementById('beanSearch');
-  const beanList = document.getElementById('beanList');
+const appState = {
+  beans: [],
+  settings: {
+    sheetUrl: '',
+    scriptUrl: '',
+    photoFolder: ''
+  },
+  recipes: [],
+  activeBeanId: '',
+  currentHelperBeanId: '',
+  helperLocked: false
+};
 
-  const helperBeanName = document.getElementById('helperBeanName');
-  const helperRoast = document.getElementById('helperRoast');
-  const helperProcess = document.getElementById('helperProcess');
-  const helperStyle = document.getElementById('helperStyle');
-  const helperDose = document.getElementById('helperDose');
-  const generateRecipeBtn = document.getElementById('generateRecipeBtn');
-  const recipeOutput = document.getElementById('recipeOutput');
-  const copyRecipeBtn = document.getElementById('copyRecipeBtn');
-  const copyRecipeStatus = document.getElementById('copyRecipeStatus');
+document.addEventListener('DOMContentLoaded', async () => {
+  bindEvents();
+  await bootstrapApp();
+});
 
-  let latestRecipeText = '';
-  let helperSelectedOrigin = {
-    country: '',
-    region: ''
-  };
-
-  const TOP_COFFEE_FLAGS = {
-    "Brazil": "🇧🇷",
-    "Vietnam": "🇻🇳",
-    "Indonesia": "🇮🇩",
-    "Colombia": "🇨🇴",
-    "Ethiopia": "🇪🇹",
-    "Honduras": "🇭🇳",
-    "Uganda": "🇺🇬",
-    "Peru": "🇵🇪",
-    "India": "🇮🇳",
-    "Central African Republic": "🇨🇫",
-    "Guatemala": "🇬🇹",
-    "Guinea": "🇬🇳",
-    "Mexico": "🇲🇽",
-    "Laos": "🇱🇦",
-    "Nicaragua": "🇳🇮",
-    "China": "🇨🇳",
-    "Ivory Coast": "🇨🇮",
-    "Côte d'Ivoire": "🇨🇮",
-    "Costa Rica": "🇨🇷",
-    "Tanzania": "🇹🇿",
-    "Democratic Republic of the Congo": "🇨🇩",
-    "DR Congo": "🇨🇩",
-    "Congo (DRC)": "🇨🇩",
-    "Venezuela": "🇻🇪",
-    "Madagascar": "🇲🇬",
-    "Kenya": "🇰🇪",
-    "Papua New Guinea": "🇵🇬",
-    "El Salvador": "🇸🇻",
-    "Yemen": "🇾🇪",
-    "Philippines": "🇵🇭",
-    "Rwanda": "🇷🇼",
-    "Cambodia": "🇰🇭",
-    "Bolivia": "🇧🇴",
-    "Dominican Republic": "🇩🇴",
-    "Togo": "🇹🇬",
-    "Angola": "🇦🇴",
-    "Thailand": "🇹🇭",
-    "Panama": "🇵🇦",
-    "Malawi": "🇲🇼",
-    "Burundi": "🇧🇮",
-    "Ecuador": "🇪🇨",
-    "Cameroon": "🇨🇲",
-    "Haiti": "🇭🇹",
-    "Cuba": "🇨🇺",
-    "Sierra Leone": "🇸🇱",
-    "Jamaica": "🇯🇲",
-    "Paraguay": "🇵🇾",
-    "Zimbabwe": "🇿🇼",
-    "Timor-Leste": "🇹🇱",
-    "East Timor": "🇹🇱",
-    "Nepal": "🇳🇵",
-    "Nigeria": "🇳🇬",
-    "Ghana": "🇬🇭",
-    "Liberia": "🇱🇷",
-    "Puerto Rico": "🇵🇷"
-  };
-
-  function getCountryFlag(country) {
-    if (!country) return '';
-    return TOP_COFFEE_FLAGS[String(country).trim()] || '';
+function bindEvents() {
+  const settingsForm = document.getElementById('settings-form');
+  if (settingsForm) {
+    settingsForm.addEventListener('submit', onSaveSettings);
   }
 
-  function formatOrigin(country, region = '') {
-    const cleanCountry = country || '-';
-    const flag = getCountryFlag(cleanCountry);
-    const prefix = flag ? `${flag} ` : '';
-    return region ? `${prefix}${cleanCountry} — ${region}` : `${prefix}${cleanCountry}`;
-  }
+  const photoFolderInput = document.getElementById('photoFolder');
+  if (photoFolderInput) {
+    photoFolderInput.addEventListener('blur', () => {
+      photoFolderInput.value = normalizeDriveFolderValue(photoFolderInput.value);
+    });
 
-  function buildBeanSummary(country, region = '') {
-    const cleanCountry = country || '';
-    if (!cleanCountry) return '';
-    const flag = getCountryFlag(cleanCountry);
-    const prefix = flag ? `${flag} ` : '';
-    return region ? `${prefix}${cleanCountry} — ${region}` : `${prefix}${cleanCountry}`;
-  }
-
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme) {
-    root.setAttribute('data-theme', savedTheme);
-    if (themeToggle) themeToggle.textContent = savedTheme === 'dark' ? '🌙' : '☀';
-  } else {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-    if (themeToggle) themeToggle.textContent = prefersDark ? '🌙' : '☀';
-  }
-
-  if (themeToggle) {
-    themeToggle.addEventListener('click', () => {
-      const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-      const next = current === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', next);
-      localStorage.setItem('theme', next);
-      themeToggle.textContent = next === 'dark' ? '🌙' : '☀';
+    photoFolderInput.addEventListener('paste', () => {
+      requestAnimationFrame(() => {
+        photoFolderInput.value = normalizeDriveFolderValue(photoFolderInput.value);
+      });
     });
   }
 
-  async function loadUniversalSettings() {
-    const localFallback = JSON.parse(localStorage.getItem('v60-settings') || '{}');
-
-    if (sheetUrlInput) sheetUrlInput.value = localFallback.sheetUrl || '';
-    if (scriptUrlInput) scriptUrlInput.value = localFallback.scriptUrl || '';
-    if (photoFolderInput) photoFolderInput.value = localFallback.photoFolder || '';
-
-    if (!localFallback.scriptUrl) return;
-
-    try {
-      const res = await fetch(`${localFallback.scriptUrl}?type=settings`);
-      const json = await res.json();
-
-      if (!json.success || !json.data) return;
-
-      const settings = json.data;
-
-      if (sheetUrlInput) sheetUrlInput.value = settings.sheetUrl || '';
-      if (scriptUrlInput) scriptUrlInput.value = settings.scriptUrl || localFallback.scriptUrl || '';
-      if (photoFolderInput) photoFolderInput.value = settings.photoFolder || '';
-
-      localStorage.setItem('v60-settings', JSON.stringify({
-        sheetUrl: settings.sheetUrl || '',
-        scriptUrl: settings.scriptUrl || localFallback.scriptUrl || '',
-        photoFolder: settings.photoFolder || ''
-      }));
-    } catch (err) {
-      console.error('Could not load universal settings', err);
-    }
+  const beanSelect = document.getElementById('beanSelect');
+  if (beanSelect) {
+    beanSelect.addEventListener('change', onBeanChange);
   }
 
-  if (saveSettingsBtn) {
-    saveSettingsBtn.addEventListener('click', async () => {
-      const nextSettings = {
-        sheetUrl: sheetUrlInput?.value.trim() || '',
-        scriptUrl: scriptUrlInput?.value.trim() || '',
-        photoFolder: photoFolderInput?.value.trim() || ''
-      };
+  const helperBeanSelect = document.getElementById('helperBeanSelect');
+  if (helperBeanSelect) {
+    helperBeanSelect.addEventListener('change', onHelperBeanChange);
+  }
 
-      localStorage.setItem('v60-settings', JSON.stringify(nextSettings));
+  const helperDose = document.getElementById('helperDose');
+  const helperRatio = document.getElementById('helperRatio');
+  const helperTarget = document.getElementById('helperTarget');
+  const helperMethod = document.getElementById('helperMethod');
 
-      try {
-        const res = await fetch(nextSettings.scriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'saveSettings',
-            ...nextSettings
-          })
-        });
+  [helperDose, helperRatio, helperTarget, helperMethod].forEach((el) => {
+    if (el) el.addEventListener('input', renderRecipeHelper);
+    if (el) el.addEventListener('change', renderRecipeHelper);
+  });
+}
 
-        const json = await res.json();
+async function bootstrapApp() {
+  setStatus('Loading app...', 'info');
 
-        if (!json.success) throw new Error(json.error || 'Save failed');
+  try {
+    const [beans, settings] = await Promise.all([
+      fetchJson(`${APPS_SCRIPT_URL}?type=beans`),
+      fetchJson(`${APPS_SCRIPT_URL}?type=settings`)
+    ]);
 
-        alert('Universal settings saved.');
-      } catch (err) {
-        console.error('Could not save universal settings', err);
-        alert('Saved on this device, but universal save failed.');
+    appState.beans = Array.isArray(beans) ? beans : [];
+    appState.settings = normalizeSettings(settings || {});
+
+    hydrateSettingsForm();
+    renderBeansEverywhere();
+    renderRecipeHelper();
+
+    setStatus('Ready.', 'success');
+  } catch (error) {
+    console.error(error);
+    setStatus('Failed to load data from Apps Script.', 'error');
+  }
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url, { method: 'GET' });
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+function normalizeSettings(settings) {
+  return {
+    sheetUrl: settings.sheetUrl || '',
+    scriptUrl: settings.scriptUrl || '',
+    photoFolder: normalizeDriveFolderValue(settings.photoFolder || '')
+  };
+}
+
+function hydrateSettingsForm() {
+  const sheetUrlInput = document.getElementById('sheetUrl');
+  const scriptUrlInput = document.getElementById('scriptUrl');
+  const photoFolderInput = document.getElementById('photoFolder');
+
+  if (sheetUrlInput) sheetUrlInput.value = appState.settings.sheetUrl || '';
+  if (scriptUrlInput) scriptUrlInput.value = appState.settings.scriptUrl || '';
+  if (photoFolderInput) photoFolderInput.value = appState.settings.photoFolder || '';
+
+  updateSettingsHints();
+}
+
+function updateSettingsHints() {
+  const photoFolderHint = document.getElementById('photoFolderHint');
+  if (!photoFolderHint) return;
+
+  if (appState.settings.photoFolder) {
+    photoFolderHint.textContent = `Stored folder ID: ${appState.settings.photoFolder}`;
+  } else {
+    photoFolderHint.textContent = 'Paste a Google Drive folder link or folder ID.';
+  }
+}
+
+async function onSaveSettings(event) {
+  event.preventDefault();
+
+  const sheetUrlInput = document.getElementById('sheetUrl');
+  const scriptUrlInput = document.getElementById('scriptUrl');
+  const photoFolderInput = document.getElementById('photoFolder');
+
+  const payload = {
+    action: 'saveSettings',
+    sheetUrl: sheetUrlInput ? sheetUrlInput.value.trim() : '',
+    scriptUrl: scriptUrlInput ? scriptUrlInput.value.trim() : '',
+    photoFolder: normalizeDriveFolderValue(photoFolderInput ? photoFolderInput.value : '')
+  };
+
+  if (photoFolderInput) {
+    photoFolderInput.value = payload.photoFolder;
+  }
+
+  setStatus('Saving shared settings...', 'info');
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
       }
     });
+
+    if (!response.ok) {
+      throw new Error(`Save failed: ${response.status}`);
+    }
+
+    let result = {};
+    try {
+      result = await response.json();
+    } catch (_) {}
+
+    appState.settings = normalizeSettings({
+      sheetUrl: payload.sheetUrl,
+      scriptUrl: payload.scriptUrl,
+      photoFolder: payload.photoFolder,
+      ...(result || {})
+    });
+
+    hydrateSettingsForm();
+    setStatus('Shared settings saved for all devices.', 'success');
+  } catch (error) {
+    console.error(error);
+    setStatus('Failed to save shared settings.', 'error');
   }
+}
 
-  const views = ['dashboard', 'library', 'helper', 'settings'];
-
-  function showView(name) {
-    views.forEach((view) => {
-      const el = document.getElementById(`view-${view}`);
-      if (!el) return;
-      el.classList.toggle('hidden', view !== name);
-    });
-
-    document.querySelectorAll('.nav-btn').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.view === name);
-    });
-
-    const titleMap = {
-      dashboard: 'Dashboard',
-      library: 'Bean Library',
-      helper: 'Recipe Helper',
-      settings: 'Settings'
-    };
-
-    if (viewTitle) viewTitle.textContent = titleMap[name] || 'Dashboard';
-  }
-
-  document.querySelectorAll('.nav-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      showView(btn.dataset.view);
-    });
+function renderBeansEverywhere() {
+  renderBeanSelect('beanSelect', appState.activeBeanId, (value) => {
+    appState.activeBeanId = value;
   });
 
-  let beans = [];
+  renderBeanSelect('helperBeanSelect', appState.currentHelperBeanId, (value) => {
+    appState.currentHelperBeanId = value;
+  });
 
-  function normalizeRoast(value) {
-    const v = String(value || '').toLowerCase();
-    if (v.includes('dark')) return 'dark';
-    if (v.includes('medium')) return 'medium';
-    return 'light';
-  }
+  renderBeanList();
+  renderRecipeHelper();
+}
 
-  function normalizeProcess(value) {
-    const v = String(value || '').toLowerCase();
-    if (v.includes('anaerobic')) return 'anaerobic';
-    if (v.includes('natural')) return 'natural';
-    if (v.includes('honey')) return 'honey';
-    if (v.includes('washed')) return 'washed';
-    return 'other';
-  }
+function renderBeanSelect(selectId, selectedId, onResolved) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
 
-  function normalizeBean(row) {
-    return {
-      id: row.id || '',
-      bean: row.bean || '',
-      roaster: row.roaster || '',
-      origin_country: row.origin_country || '',
-      origin_region: row.origin_region || '',
-      process: row.process || '',
-      roast: row.roast || '',
-      notes: row.notes
-        ? String(row.notes).split('|').map((s) => s.trim()).filter(Boolean)
-        : [],
-      recipe: {
-        dose_g: row.dose_g || '',
-        water_g: row.water_g || '',
-        temp_c: row.temp_c || ''
-      }
-    };
-  }
-
-  function renderBeans(filter = '') {
-    if (!beanList) return;
-
-    const q = filter.trim().toLowerCase();
-
-    const filtered = !q
-      ? beans
-      : beans.filter((b) =>
-          [
-            b.bean,
-            b.roaster,
-            b.origin_country,
-            b.origin_region,
-            b.process,
-            b.roast,
-            (b.notes || []).join(' ')
-          ]
-            .join(' ')
-            .toLowerCase()
-            .includes(q)
-        );
-
-    if (!filtered.length) {
-      beanList.innerHTML = '<p class="muted">No beans found.</p>';
-      return;
-    }
-
-    beanList.innerHTML = filtered.map((b) => `
-      <div class="bean-card">
-        <h3>${b.bean || 'Untitled bean'}</h3>
-        <div><strong>Roaster:</strong> ${b.roaster || '-'}</div>
-        <div><strong>Origin:</strong> ${formatOrigin(b.origin_country, b.origin_region)}</div>
-        <div><strong>Process:</strong> ${b.process || '-'}</div>
-        <div><strong>Roast:</strong> ${b.roast || '-'}</div>
-        <div><strong>Notes:</strong> ${(b.notes || []).join(', ') || '-'}</div>
-        <div><strong>Recipe:</strong> ${b.recipe?.dose_g || '-'}g / ${b.recipe?.water_g || '-'}g / ${b.recipe?.temp_c || '-'}°C</div>
-        <div class="bean-card-actions">
-          <button
-            class="bean-action-btn use-bean-btn"
-            type="button"
-            data-bean="${escapeHtml(b.bean || '')}"
-            data-roast="${escapeHtml(normalizeRoast(b.roast || 'light'))}"
-            data-process="${escapeHtml(normalizeProcess(b.process || 'washed'))}"
-            data-dose="${escapeHtml(String(b.recipe?.dose_g || 18))}"
-            data-origin-country="${escapeHtml(b.origin_country || '')}"
-            data-origin-region="${escapeHtml(b.origin_region || '')}"
-          >
-            Use this bean
-          </button>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  async function loadBeansFromApi() {
-    const currentSettings = JSON.parse(localStorage.getItem('v60-settings') || '{}');
-    if (!currentSettings.scriptUrl) return;
-
-    try {
-      const res = await fetch(`${currentSettings.scriptUrl}?type=beans`);
-      const json = await res.json();
-
-      if (!json.success) {
-        throw new Error(json.error || 'Failed to load beans');
-      }
-
-      beans = (json.data || []).map(normalizeBean);
-      renderBeans('');
-    } catch (err) {
-      console.error('Could not load beans', err);
-      if (beanList) {
-        beanList.innerHTML = '<p class="muted">Could not load beans.</p>';
-      }
-    }
-  }
-
-  function round5(value) {
-    return Math.round(value / 5) * 5;
-  }
-
-  function buildRecipe() {
-    const beanName = helperBeanName?.value.trim() || 'Custom bean';
-    const roast = helperRoast?.value || 'light';
-    const process = helperProcess?.value || 'washed';
-    const style = helperStyle?.value || 'hot';
-    const dose = Number(helperDose?.value || 18);
-
-    let ratio = 16;
-    let temp = 94;
-    let grind = 'medium-fine';
-    let bloomMulti = 3;
-    let targetTime = '2:45–3:15';
-    let notes = [];
-
-    if (roast === 'light') {
-      temp = 96;
-      ratio = 16;
-      grind = 'medium-fine';
-      notes.push('Use slightly hotter water for light roasts.');
-    } else if (roast === 'medium') {
-      temp = 93;
-      ratio = 15.5;
-      grind = 'medium-fine';
-      notes.push('Medium roasts usually like balanced extraction.');
-    } else {
-      temp = 88;
-      ratio = 15;
-      grind = 'medium';
-      notes.push('Darker roasts often taste sweeter with cooler water.');
-    }
-
-    if (process === 'washed') {
-      notes.push('Washed coffees usually reward clarity and clean pours.');
-    } else if (process === 'natural') {
-      ratio -= 0.3;
-      notes.push('Naturals can get intense quickly, so keep the brew a touch tighter.');
-    } else if (process === 'anaerobic') {
-      ratio -= 0.5;
-      temp -= 1;
-      notes.push('Anaerobic lots can get loud fast, so lower extraction slightly.');
-    } else if (process === 'honey') {
-      ratio -= 0.2;
-      notes.push('Honey coffees often like a rounded, sweet extraction.');
-    }
-
-    if (style === 'hot') {
-      const water = round5(dose * ratio);
-      const bloom = round5(dose * bloomMulti);
-
-      return {
-        title: `${beanName} — Hot V60`,
-        meta: [
-          `Dose: ${dose}g`,
-          `Water: ${water}g`,
-          `Bloom: ${bloom}g for 30–45 sec`,
-          `Temp: ${temp}°C`,
-          `Grind: ${grind}`,
-          `Target time: ${targetTime}`
-        ],
-        steps: [
-          'Rinse the filter and preheat the brewer.',
-          `Add ${dose}g coffee and level the bed.`,
-          `Pour ${bloom}g for the bloom and wait 30–45 seconds.`,
-          `Continue pouring until you reach ${water}g total water.`,
-          'Finish with a gentle swirl.',
-          'Adjust finer if sour, coarser if bitter or slow.'
-        ],
-        notes
-      };
-    }
-
-    const finalRatio = 16;
-    const totalWater = round5(dose * finalRatio);
-    const hotWater = round5(totalWater * 0.6);
-    const ice = totalWater - hotWater;
-    const bloom = round5(dose * 2.5);
-
-    return {
-      title: `${beanName} — Iced V60`,
-      meta: [
-        `Dose: ${dose}g`,
-        `Hot water: ${hotWater}g`,
-        `Ice in server: ${ice}g`,
-        `Final ratio: ~1:${finalRatio}`,
-        `Temp: ${Math.max(temp, 93)}°C`,
-        `Grind: slightly finer than hot V60`,
-        `Target time: 2:30–3:00`
-      ],
-      steps: [
-        `Place ${ice}g ice in the server.`,
-        'Rinse the filter and discard the rinse water.',
-        `Add ${dose}g coffee and bloom with ${bloom}g water for 30–45 seconds.`,
-        `Pour remaining water until you reach ${hotWater}g total hot water.`,
-        'Give the brewer a gentle swirl.',
-        'Swirl the brewed coffee over ice and serve.'
-      ],
-      notes: [
-        ...notes,
-        'Iced V60 works best as a stronger brew over ice.'
-      ]
-    };
-  }
-
-  function recipeToText(recipe) {
-    return [
-      recipe.title,
-      '',
-      ...recipe.meta,
-      '',
-      ...recipe.steps.map((step, index) => `${index + 1}. ${step}`),
-      '',
-      ...recipe.notes.map((note) => `Tip: ${note}`)
-    ].join('\n');
-  }
-
-  function renderRecipeCard(recipe) {
-    if (!recipeOutput) return;
-
-    latestRecipeText = recipeToText(recipe);
-
-    const beanSummary = buildBeanSummary(
-      helperSelectedOrigin.country,
-      helperSelectedOrigin.region
+  const previousValue = selectedId || select.value || '';
+  const options = ['<option value="">Select bean</option>']
+    .concat(
+      appState.beans.map((bean) => {
+        const label = formatBeanLabel(bean);
+        return `<option value="${escapeHtml(bean.id || bean.name || '')}">${escapeHtml(label)}</option>`;
+      })
     );
 
-    recipeOutput.innerHTML = `
-      <h3>${recipe.title}</h3>
-      ${beanSummary ? `<p class="muted" style="margin-top:8px;">Origin: ${beanSummary}</p>` : ''}
-      <div class="recipe-meta">
-        ${recipe.meta.map((item) => `<div>${item}</div>`).join('')}
-      </div>
-      <ol class="recipe-steps">
-        ${recipe.steps.map((step) => `<li>${step}</li>`).join('')}
-      </ol>
-      <div class="recipe-meta">
-        ${recipe.notes.map((note) => `<div><strong>Tip:</strong> ${note}</div>`).join('')}
+  select.innerHTML = options.join('');
+
+  const exists = appState.beans.some((bean) => String(bean.id || bean.name || '') === String(previousValue));
+  const nextValue = exists ? previousValue : '';
+
+  select.value = nextValue;
+  onResolved(nextValue);
+}
+
+function renderBeanList() {
+  const container = document.getElementById('beanList');
+  if (!container) return;
+
+  if (!appState.beans.length) {
+    container.innerHTML = '<div class="empty-state">No beans found.</div>';
+    return;
+  }
+
+  container.innerHTML = appState.beans.map((bean) => {
+    const originDisplay = formatOriginWithFlag(bean.origin);
+    const roaster = bean.roaster || '';
+    const process = bean.process || '';
+    const notes = bean.notes || '';
+
+    return `
+      <div class="bean-card">
+        <div class="bean-card__header">
+          <h3 class="bean-card__title">${escapeHtml(bean.name || 'Untitled Bean')}</h3>
+          ${originDisplay ? `<div class="bean-card__origin">${originDisplay}</div>` : ''}
+        </div>
+        ${roaster ? `<div class="bean-card__meta"><strong>Roaster:</strong> ${escapeHtml(roaster)}</div>` : ''}
+        ${process ? `<div class="bean-card__meta"><strong>Process:</strong> ${escapeHtml(process)}</div>` : ''}
+        ${notes ? `<div class="bean-card__meta"><strong>Notes:</strong> ${escapeHtml(notes)}</div>` : ''}
       </div>
     `;
-  }
+  }).join('');
+}
 
-  async function copyLatestRecipe() {
-    if (!latestRecipeText) {
-      if (copyRecipeStatus) copyRecipeStatus.textContent = 'Generate a recipe first.';
-      return;
-    }
+function onBeanChange(event) {
+  appState.activeBeanId = event.target.value;
+}
 
-    try {
-      await navigator.clipboard.writeText(latestRecipeText);
-      if (copyRecipeStatus) {
-        copyRecipeStatus.textContent = 'Copied.';
-        setTimeout(() => {
-          copyRecipeStatus.textContent = '';
-        }, 1200);
+function onHelperBeanChange(event) {
+  appState.currentHelperBeanId = event.target.value;
+  renderRecipeHelper();
+}
+
+function renderRecipeHelper() {
+  const summary = document.getElementById('helperBeanSummary');
+  const output = document.getElementById('helperOutput');
+
+  const bean = getBeanById(appState.currentHelperBeanId);
+  const dose = parseFloat(document.getElementById('helperDose')?.value || '');
+  const ratio = parseFloat(document.getElementById('helperRatio')?.value || '');
+  const target = parseFloat(document.getElementById('helperTarget')?.value || '');
+  const method = document.getElementById('helperMethod')?.value || 'v60';
+
+  if (summary) {
+    if (bean) {
+      const parts = [
+        `<strong>${escapeHtml(bean.name || 'Untitled Bean')}</strong>`
+      ];
+
+      if (bean.roaster) {
+        parts.push(escapeHtml(bean.roaster));
       }
-    } catch (err) {
-      console.error('Copy failed', err);
-      if (copyRecipeStatus) copyRecipeStatus.textContent = 'Copy failed.';
+
+      if (bean.origin) {
+        parts.push(formatOriginWithFlag(bean.origin));
+      }
+
+      if (bean.process) {
+        parts.push(escapeHtml(bean.process));
+      }
+
+      summary.innerHTML = parts.join(' · ');
+    } else {
+      summary.textContent = 'Select a bean to see its summary.';
     }
   }
 
-  function fillHelperFromBean(data) {
-    if (helperBeanName) helperBeanName.value = data.bean || '';
-    if (helperRoast) helperRoast.value = normalizeRoast(data.roast || 'light');
-    if (helperProcess) helperProcess.value = normalizeProcess(data.process || 'washed');
-    if (helperDose) helperDose.value = data.dose || 18;
+  if (!output) return;
 
-    helperSelectedOrigin = {
-      country: data.origin_country || '',
-      region: data.origin_region || ''
-    };
-
-    showView('helper');
-    const recipe = buildRecipe();
-    renderRecipeCard(recipe);
+  if (!dose || (!ratio && !target)) {
+    output.innerHTML = `
+      <div class="helper-placeholder">
+        Enter dose plus either brew ratio or target beverage weight.
+      </div>
+    `;
+    return;
   }
 
-  function escapeHtml(value) {
-    return String(value)
-      .replaceAll('&', '&amp;')
-      .replaceAll('"', '&quot;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;');
+  const computedTarget = target || (dose * ratio);
+  const computedRatio = ratio || (computedTarget / dose);
+
+  const bloomWater = round1(dose * 3);
+  const remainingWater = Math.max(0, computedTarget - bloomWater);
+  const pour2 = round1(remainingWater * 0.5);
+  const pour3 = round1(remainingWater - pour2);
+
+  output.innerHTML = `
+    <div class="helper-grid">
+      <div class="helper-metric">
+        <div class="helper-metric__label">Method</div>
+        <div class="helper-metric__value">${escapeHtml(method.toUpperCase())}</div>
+      </div>
+      <div class="helper-metric">
+        <div class="helper-metric__label">Dose</div>
+        <div class="helper-metric__value">${round1(dose)} g</div>
+      </div>
+      <div class="helper-metric">
+        <div class="helper-metric__label">Ratio</div>
+        <div class="helper-metric__value">1:${round2(computedRatio)}</div>
+      </div>
+      <div class="helper-metric">
+        <div class="helper-metric__label">Target Yield</div>
+        <div class="helper-metric__value">${round1(computedTarget)} g</div>
+      </div>
+    </div>
+
+    <div class="helper-steps">
+      <div class="helper-step"><strong>Bloom</strong> — ${bloomWater} g water</div>
+      <div class="helper-step"><strong>Pour 2</strong> — ${pour2} g water</div>
+      <div class="helper-step"><strong>Pour 3</strong> — ${pour3} g water</div>
+    </div>
+  `;
+}
+
+function getBeanById(id) {
+  return appState.beans.find(
+    (bean) => String(bean.id || bean.name || '') === String(id || '')
+  ) || null;
+}
+
+function formatBeanLabel(bean) {
+  const name = bean.name || 'Untitled Bean';
+  const roaster = bean.roaster ? ` — ${bean.roaster}` : '';
+  const origin = bean.origin ? ` (${plainOriginWithFlag(bean.origin)})` : '';
+  return `${name}${roaster}${origin}`;
+}
+
+function formatOriginWithFlag(origin) {
+  if (!origin) return '';
+  const code = inferCountryCode(origin);
+  const flag = code ? countryCodeToFlag(code) : '';
+  const text = escapeHtml(origin);
+  return flag ? `<span class="origin-flag" aria-hidden="true">${flag}</span> <span>${text}</span>` : `<span>${text}</span>`;
+}
+
+function plainOriginWithFlag(origin) {
+  if (!origin) return '';
+  const code = inferCountryCode(origin);
+  const flag = code ? countryCodeToFlag(code) : '';
+  return flag ? `${flag} ${origin}` : origin;
+}
+
+function inferCountryCode(origin) {
+  if (!origin) return '';
+
+  const normalized = origin.trim().toLowerCase();
+
+  const map = {
+    ethiopia: 'ET',
+    kenya: 'KE',
+    rwanda: 'RW',
+    burundi: 'BI',
+    uganda: 'UG',
+    tanzania: 'TZ',
+    colombia: 'CO',
+    brazil: 'BR',
+    peru: 'PE',
+    bolivia: 'BO',
+    ecuador: 'EC',
+    guatemala: 'GT',
+    honduras: 'HN',
+    elsalvador: 'SV',
+    'el salvador': 'SV',
+    nicaragua: 'NI',
+    costarica: 'CR',
+    'costa rica': 'CR',
+    panama: 'PA',
+    mexico: 'MX',
+    jamaica: 'JM',
+    indonesia: 'ID',
+    sumatra: 'ID',
+    java: 'ID',
+    sulawesi: 'ID',
+    bali: 'ID',
+    yemen: 'YE',
+    india: 'IN',
+    vietnam: 'VN',
+    laos: 'LA',
+    thailand: 'TH',
+    myanmar: 'MM',
+    china: 'CN',
+    taiwan: 'TW',
+    japan: 'JP',
+    philippines: 'PH',
+    papuanewguinea: 'PG',
+    'papua new guinea': 'PG',
+    png: 'PG'
+  };
+
+  if (map[normalized]) return map[normalized];
+
+  const compact = normalized.replace(/[^a-z]/g, '');
+  if (map[compact]) return map[compact];
+
+  for (const key of Object.keys(map)) {
+    if (normalized.includes(key)) return map[key];
   }
 
-  async function postBrewLog(payload) {
-    const currentSettings = JSON.parse(localStorage.getItem('v60-settings') || '{}');
-    if (!currentSettings.scriptUrl) return { ok: false, error: 'Missing Apps Script URL' };
+  return '';
+}
 
-    try {
-      const res = await fetch(currentSettings.scriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      });
-      const json = await res.json();
-      return { ok: true, data: json };
-    } catch (error) {
-      console.error('postBrewLog failed', error);
-      return { ok: false, error: error.message };
-    }
+function countryCodeToFlag(code) {
+  const cc = String(code || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return '';
+  return String.fromCodePoint(...[...cc].map((char) => char.charCodeAt(0) + 127397));
+}
+
+function normalizeDriveFolderValue(value) {
+  const input = String(value || '').trim();
+  if (!input) return '';
+
+  const extracted = extractDriveFolderId(input);
+  return extracted || input;
+}
+
+function extractDriveFolderId(value) {
+  const input = String(value || '').trim();
+  if (!input) return '';
+
+  if (/^[a-zA-Z0-9_-]{15,}$/.test(input)) {
+    return input;
   }
 
-  if (generateRecipeBtn) {
-    generateRecipeBtn.addEventListener('click', () => {
-      const recipe = buildRecipe();
-      renderRecipeCard(recipe);
-    });
+  const folderMatch = input.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
+  if (folderMatch && folderMatch[1]) {
+    return folderMatch[1];
   }
 
-  if (copyRecipeBtn) {
-    copyRecipeBtn.addEventListener('click', copyLatestRecipe);
+  const genericMatch = input.match(/([a-zA-Z0-9_-]{15,})/);
+  if (genericMatch && genericMatch[1]) {
+    return genericMatch[1];
   }
 
-  if (beanSearch) {
-    beanSearch.addEventListener('input', () => {
-      renderBeans(beanSearch.value);
-    });
-  }
+  return '';
+}
 
-  if (beanList) {
-    beanList.addEventListener('click', (event) => {
-      const btn = event.target.closest('.use-bean-btn');
-      if (!btn) return;
+function setStatus(message, type = 'info') {
+  const el = document.getElementById('appStatus');
+  if (!el) return;
 
-      fillHelperFromBean({
-        bean: btn.dataset.bean || '',
-        roast: btn.dataset.roast || 'light',
-        process: btn.dataset.process || 'washed',
-        dose: btn.dataset.dose || 18,
-        origin_country: btn.dataset.originCountry || '',
-        origin_region: btn.dataset.originRegion || ''
-      });
-    });
-  }
+  el.textContent = message;
+  el.dataset.status = type;
+}
 
-  showView('dashboard');
-  loadUniversalSettings().then(loadBeansFromApi);
+function round1(value) {
+  return Math.round(Number(value) * 10) / 10;
+}
 
-  window.v60PostBrewLog = postBrewLog;
-});
+function round2(value) {
+  return Math.round(Number(value) * 100) / 100;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
