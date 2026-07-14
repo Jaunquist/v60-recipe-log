@@ -139,6 +139,7 @@ function bindAddBeanModal() {
   const closeBtn = document.getElementById('closeAddBeanBtn');
   const modal = document.getElementById('addBeanModal');
   const addBeanForm = document.getElementById('addBeanForm');
+  const researchBtn = document.getElementById('researchBeanBtn');
 
   if (openBtn) openBtn.addEventListener('click', () => modal?.classList.remove('hidden'));
   if (closeBtn) closeBtn.addEventListener('click', () => modal?.classList.add('hidden'));
@@ -153,6 +154,10 @@ function bindAddBeanModal() {
 
   if (addBeanForm) {
     addBeanForm.addEventListener('submit', onSaveBean);
+  }
+
+  if (researchBtn) {
+    researchBtn.addEventListener('click', onResearchBean);
   }
 }
 
@@ -247,7 +252,7 @@ async function onSaveSettings(event) {
   if (photoFolderInput) photoFolderInput.value = cleanedPhotoFolder;
 
   const payload = {
-    action: 'saveSettings',
+    action: 'savesettings',
     sheetUrl: sheetUrlInput ? sheetUrlInput.value.trim() : '',
     scriptUrl: scriptUrlInput ? scriptUrlInput.value.trim() : '',
     photoFolder: cleanedPhotoFolder
@@ -394,7 +399,7 @@ async function onSaveBean(event) {
 
   try {
     const result = await postJson({
-      action: 'saveBean',
+      action: 'savebean',
       beanData
     });
 
@@ -422,6 +427,47 @@ async function onSaveBean(event) {
   }
 }
 
+async function onResearchBean() {
+  const beanData = collectBeanFormData();
+  const name = beanData.bean || beanData.name || '';
+
+  if (!name) {
+    setStatus('Enter at least a bean name before research.', 'error');
+    return;
+  }
+
+  setStatus('Researching bean (baseline debug)...', 'info');
+
+  const researchStatus = document.getElementById('researchStatus');
+  if (researchStatus) {
+    researchStatus.textContent = 'Research in progress…';
+  }
+
+  try {
+    const result = await postJson({
+      action: 'researchbean',
+      beanData
+    });
+
+    const researchedBean = result?.data?.bean;
+    if (researchedBean) {
+      fillBeanForm(researchedBean);
+
+      if (researchStatus) {
+        researchStatus.textContent = `Research complete via ${result.data.provider || 'debug'} (${result.data.model || 'baseline'}).`;
+      }
+    }
+
+    setStatus('Bean research complete.', 'success');
+  } catch (error) {
+    console.error(error);
+    if (researchStatus) {
+      researchStatus.textContent = 'Research failed. You can still fill fields manually.';
+    }
+    setStatus(error.message || 'Failed to research bean.', 'error');
+  }
+}
+
 function collectBeanFormData() {
   return {
     bean: document.getElementById('beanName')?.value.trim() || '',
@@ -432,6 +478,15 @@ function collectBeanFormData() {
     process: document.getElementById('beanProcess')?.value.trim() || '',
     notes: document.getElementById('beanNotes')?.value.trim() || ''
   };
+}
+
+function fillBeanForm(bean) {
+  if (bean.bean || bean.name) document.getElementById('beanName').value = bean.bean || bean.name;
+  if (bean.roaster) document.getElementById('beanRoaster').value = bean.roaster;
+  if (bean.origin_country) document.getElementById('beanOriginCountry').value = bean.origin_country;
+  if (bean.origin_region) document.getElementById('beanOriginRegion').value = bean.origin_region;
+  if (bean.process) document.getElementById('beanProcess').value = bean.process;
+  if (bean.notes) document.getElementById('beanNotes').value = bean.notes;
 }
 
 function resetAddBeanForm() {
