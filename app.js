@@ -8,6 +8,7 @@ const appState = {
     photoFolder: ''
   },
   currentHelperBeanId: '',
+  currentHelperMode: '',
   currentView: 'dashboard',
   addBeanPhoto: {
     file: null,
@@ -17,7 +18,7 @@ const appState = {
     photoUrl: '',
     photoDriveId: ''
   },
-  researchedRecipe: null
+  generatedRecipes: null
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -36,34 +37,12 @@ function bindEvents() {
 
 function bindNavigation() {
   const navButtons = document.querySelectorAll('.nav-btn');
-  const viewTitle = document.getElementById('viewTitle');
 
   navButtons.forEach((button) => {
     button.addEventListener('click', () => {
       const nextView = button.getAttribute('data-view') || 'dashboard';
       appState.currentView = nextView;
-
-      navButtons.forEach((btn) => btn.classList.remove('active'));
-      button.classList.add('active');
-
-      document.querySelectorAll('.panel').forEach((panel) => {
-        panel.classList.add('hidden');
-      });
-
-      const activePanel = document.getElementById(`view-${nextView}`);
-      if (activePanel) {
-        activePanel.classList.remove('hidden');
-      }
-
-      if (viewTitle) {
-        const titles = {
-          dashboard: 'Dashboard',
-          library: 'Bean Library',
-          helper: 'Recipe Helper',
-          settings: 'Settings'
-        };
-        viewTitle.textContent = titles[nextView] || 'Dashboard';
-      }
+      switchView(nextView);
     });
   });
 }
@@ -77,14 +56,12 @@ function switchView(view) {
     btn.classList.toggle('active', btn.getAttribute('data-view') === nextView);
   });
 
-  document.querySelectorAll('.panel').forEach((panel) => {
+  document.querySelectorAll('.content > .panel').forEach((panel) => {
     panel.classList.add('hidden');
   });
 
   const activePanel = document.getElementById(`view-${nextView}`);
-  if (activePanel) {
-    activePanel.classList.remove('hidden');
-  }
+  if (activePanel) activePanel.classList.remove('hidden');
 
   if (viewTitle) {
     const titles = {
@@ -99,9 +76,7 @@ function switchView(view) {
 
 function bindSettingsForm() {
   const settingsForm = document.getElementById('settings-form');
-  if (settingsForm) {
-    settingsForm.addEventListener('submit', onSaveSettings);
-  }
+  if (settingsForm) settingsForm.addEventListener('submit', onSaveSettings);
 }
 
 function bindPhotoFolderField() {
@@ -132,22 +107,11 @@ function bindHelperInputs() {
   if (helperBeanSelect) {
     helperBeanSelect.addEventListener('change', (event) => {
       appState.currentHelperBeanId = event.target.value;
-      applySelectedBeanRecipeDefaults();
+      const bean = getBeanById(appState.currentHelperBeanId);
+      appState.currentHelperMode = getDefaultModeForBean(bean);
       renderRecipeHelper();
     });
   }
-
-  const helperDose = document.getElementById('helperDose');
-  const helperRatio = document.getElementById('helperRatio');
-  const helperTarget = document.getElementById('helperTarget');
-  const helperMethod = document.getElementById('helperMethod');
-
-  [helperDose, helperRatio, helperTarget, helperMethod].forEach((el) => {
-    if (el) {
-      el.addEventListener('input', renderRecipeHelper);
-      el.addEventListener('change', renderRecipeHelper);
-    }
-  });
 }
 
 function bindAddBeanModal() {
@@ -156,15 +120,11 @@ function bindAddBeanModal() {
   const modal = document.getElementById('addBeanModal');
   const addBeanForm = document.getElementById('addBeanForm');
   const researchBtn = document.getElementById('researchBeanBtn');
+  const generateBtn = document.getElementById('generateRecipeBtn');
   const beanPhoto = document.getElementById('beanPhoto');
 
-  if (openBtn) {
-    openBtn.addEventListener('click', openAddBeanModal);
-  }
-
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeAddBeanModal);
-  }
+  if (openBtn) openBtn.addEventListener('click', openAddBeanModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeAddBeanModal);
 
   if (modal) {
     modal.addEventListener('click', (event) => {
@@ -174,17 +134,10 @@ function bindAddBeanModal() {
     });
   }
 
-  if (beanPhoto) {
-    beanPhoto.addEventListener('change', onBeanPhotoChange);
-  }
-
-  if (researchBtn) {
-    researchBtn.addEventListener('click', onResearchBean);
-  }
-
-  if (addBeanForm) {
-    addBeanForm.addEventListener('submit', onSaveBean);
-  }
+  if (beanPhoto) beanPhoto.addEventListener('change', onBeanPhotoChange);
+  if (researchBtn) researchBtn.addEventListener('click', onResearchBean);
+  if (generateBtn) generateBtn.addEventListener('click', onGenerateRecipe);
+  if (addBeanForm) addBeanForm.addEventListener('submit', onSaveBean);
 }
 
 async function bootstrapApp() {
@@ -213,10 +166,24 @@ async function bootstrapApp() {
 
 async function fetchJson(url) {
   const response = await fetch(url, { method: 'GET' });
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json();
+}
+
+async function postJson(payload) {
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) throw new Error(`POST failed: ${response.status}`);
+
+  const result = await response.json();
+  if (!result.success) throw new Error(result.error || 'Request failed.');
+  return result;
 }
 
 function normalizeSettings(settings) {
@@ -244,14 +211,12 @@ function updatePhotoFolderHint(value) {
   if (!hint) return;
 
   const trimmed = String(value || '').trim();
-
   if (!trimmed) {
     hint.textContent = 'Paste a full Google Drive folder URL and it will auto-convert to the folder ID.';
     return;
   }
 
   const extracted = extractDriveFolderId(trimmed);
-
   hint.textContent = extracted
     ? `Folder ID ready: ${extracted}`
     : 'Could not detect a valid Google Drive folder ID yet.';
@@ -265,10 +230,7 @@ async function onSaveSettings(event) {
   const photoFolderInput = document.getElementById('photoFolder');
 
   const cleanedPhotoFolder = normalizeDriveFolderValue(photoFolderInput ? photoFolderInput.value : '');
-
-  if (photoFolderInput) {
-    photoFolderInput.value = cleanedPhotoFolder;
-  }
+  if (photoFolderInput) photoFolderInput.value = cleanedPhotoFolder;
 
   const payload = {
     action: 'saveSettings',
@@ -306,6 +268,7 @@ function renderBeanList() {
     const process = bean.process ? `<div class="bean-card__meta"><strong>Process:</strong> ${escapeHtml(bean.process)}</div>` : '';
     const notes = bean.notes ? `<div class="bean-card__meta"><strong>Notes:</strong> ${escapeHtml(bean.notes)}</div>` : '';
     const image = bean.photo_url ? `<img class="bean-card__image" src="${escapeHtml(bean.photo_url)}" alt="${escapeHtml(title)} photo" loading="lazy" />` : '';
+    const modes = renderBeanModesLine(bean);
 
     return `
       <div class="bean-card">
@@ -316,10 +279,24 @@ function renderBeanList() {
         ${roaster}
         ${process}
         ${notes}
+        ${modes}
         ${image}
       </div>
     `;
   }).join('');
+}
+
+function renderBeanModesLine(bean) {
+  const modes = Array.isArray(bean.recommended_modes) ? bean.recommended_modes : [];
+  if (!modes.length) return '';
+
+  const labels = modes.map((mode) => {
+    if (mode === 'iced') return 'Iced / Summer';
+    if (mode === 'hot') return 'Hot';
+    return mode;
+  }).join(', ');
+
+  return `<div class="bean-card__meta"><strong>Recipes:</strong> ${escapeHtml(labels)}</div>`;
 }
 
 function renderBeanSelect() {
@@ -340,17 +317,15 @@ function renderBeanSelect() {
   const exists = appState.beans.some((bean) => String(bean.id || bean.name || bean.bean || '') === String(previousValue));
   appState.currentHelperBeanId = exists ? previousValue : '';
   select.value = appState.currentHelperBeanId;
+
+  const selectedBean = getBeanById(appState.currentHelperBeanId);
+  appState.currentHelperMode = getDefaultModeForBean(selectedBean);
 }
 
 function renderRecipeHelper() {
   const summary = document.getElementById('helperBeanSummary');
   const output = document.getElementById('helperOutput');
   const bean = getBeanById(appState.currentHelperBeanId);
-
-  const dose = parseFloat(document.getElementById('helperDose')?.value || '');
-  const ratio = parseFloat(document.getElementById('helperRatio')?.value || '');
-  const target = parseFloat(document.getElementById('helperTarget')?.value || '');
-  const method = document.getElementById('helperMethod')?.value || 'v60';
 
   if (summary) {
     if (bean) {
@@ -364,68 +339,402 @@ function renderRecipeHelper() {
     }
   }
 
+  renderHelperModeToggle(bean);
+
   if (!output) return;
 
-  if (!dose || (!ratio && !target)) {
-    output.innerHTML = `
-      <div class="helper-placeholder">
-        Enter dose plus either brew ratio or target beverage weight.
-      </div>
-    `;
+  if (!bean) {
+    output.innerHTML = '<div class="helper-placeholder">Select a bean to view its saved recipe.</div>';
     return;
   }
 
-  const computedTarget = target || (dose * ratio);
-  const computedRatio = ratio || (computedTarget / dose);
+  const recipe = getRecipeForMode(bean, appState.currentHelperMode);
 
-  const bloomWater = round1(dose * 3);
-  const remainingWater = Math.max(0, computedTarget - bloomWater);
-  const pour2 = round1(remainingWater * 0.5);
-  const pour3 = round1(remainingWater - pour2);
+  if (!recipe) {
+    output.innerHTML = '<div class="helper-placeholder">No saved recipe for the selected mode.</div>';
+    return;
+  }
 
-  output.innerHTML = `
+  output.innerHTML = renderRecipeCardHtml(recipe, bean.recipe_notes || '', appState.currentHelperMode);
+}
+
+function renderHelperModeToggle(bean) {
+  const wrap = document.getElementById('helperModeToggleWrap');
+  const container = document.getElementById('helperModeToggle');
+
+  if (!wrap || !container) return;
+
+  const modes = Array.isArray(bean?.recommended_modes) ? bean.recommended_modes : [];
+
+  if (!modes.length) {
+    wrap.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+
+  container.innerHTML = modes.map((mode) => {
+    const label = mode === 'iced' ? 'Iced / Summer' : 'Hot';
+    const active = appState.currentHelperMode === mode ? 'active' : '';
+    return `<button type="button" class="mode-pill ${active}" data-helper-mode="${escapeHtml(mode)}">${escapeHtml(label)}</button>`;
+  }).join('');
+
+  container.querySelectorAll('[data-helper-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      appState.currentHelperMode = button.getAttribute('data-helper-mode') || '';
+      renderRecipeHelper();
+    });
+  });
+}
+
+function getRecipeForMode(bean, mode) {
+  if (!bean || !mode) return null;
+  if (mode === 'hot') return bean.hot_recipe || null;
+  if (mode === 'iced') return bean.iced_recipe || null;
+  return null;
+}
+
+function getDefaultModeForBean(bean) {
+  if (!bean) return '';
+  const modes = Array.isArray(bean.recommended_modes) ? bean.recommended_modes : [];
+  if (bean.default_mode && modes.includes(bean.default_mode)) return bean.default_mode;
+  if (modes.includes('hot')) return 'hot';
+  return modes[0] || '';
+}
+
+function renderRecipeCardHtml(recipe, notes, mode) {
+  const noteLine = notes ? `<div class="recipe-note">${escapeHtml(notes)}</div>` : '';
+  const iceLine = recipe.ice_g ? `<div class="helper-step"><strong>Ice</strong> — ${escapeHtml(String(recipe.ice_g))} g</div>` : '';
+  const modeLabel = mode === 'iced' ? 'Iced / Summer' : 'Hot';
+
+  return `
+    ${noteLine}
     <div class="helper-grid">
       <div class="helper-metric">
-        <div class="helper-metric__label">Method</div>
-        <div class="helper-metric__value">${escapeHtml(method.toUpperCase())}</div>
+        <div class="helper-metric__label">Mode</div>
+        <div class="helper-metric__value">${escapeHtml(modeLabel)}</div>
+      </div>
+      <div class="helper-metric">
+        <div class="helper-metric__label">Device</div>
+        <div class="helper-metric__value">${escapeHtml(recipe.device || 'V60')}</div>
       </div>
       <div class="helper-metric">
         <div class="helper-metric__label">Dose</div>
-        <div class="helper-metric__value">${round1(dose)} g</div>
+        <div class="helper-metric__value">${escapeHtml(String(recipe.dose_g || ''))} g</div>
       </div>
       <div class="helper-metric">
-        <div class="helper-metric__label">Ratio</div>
-        <div class="helper-metric__value">1:${round2(computedRatio)}</div>
+        <div class="helper-metric__label">Water</div>
+        <div class="helper-metric__value">${escapeHtml(String(recipe.water_g || ''))} g</div>
       </div>
       <div class="helper-metric">
-        <div class="helper-metric__label">Target Yield</div>
-        <div class="helper-metric__value">${round1(computedTarget)} g</div>
+        <div class="helper-metric__label">Temperature</div>
+        <div class="helper-metric__value">${escapeHtml(String(recipe.temp_c || ''))} °C</div>
+      </div>
+      <div class="helper-metric">
+        <div class="helper-metric__label">Target Time</div>
+        <div class="helper-metric__value">${escapeHtml(String(recipe.target_time || ''))}</div>
       </div>
     </div>
 
     <div class="helper-steps">
-      <div class="helper-step"><strong>Bloom</strong> — ${bloomWater} g water</div>
-      <div class="helper-step"><strong>Pour 2</strong> — ${pour2} g water</div>
-      <div class="helper-step"><strong>Pour 3</strong> — ${pour3} g water</div>
+      ${iceLine}
+      ${recipe.grind ? `<div class="helper-step"><strong>Grind</strong> — ${escapeHtml(recipe.grind)}</div>` : ''}
+      ${recipe.pours ? `<div class="helper-step"><strong>Pours</strong> — ${escapeHtml(recipe.pours)}</div>` : ''}
+      ${recipe.recipe_style ? `<div class="helper-step"><strong>Style</strong> — ${escapeHtml(recipe.recipe_style)}</div>` : ''}
+      ${recipe.taste_summary ? `<div class="helper-step"><strong>Taste Goal</strong> — ${escapeHtml(recipe.taste_summary)}</div>` : ''}
     </div>
   `;
 }
 
-function applySelectedBeanRecipeDefaults() {
-  const bean = getBeanById(appState.currentHelperBeanId);
-  if (!bean || !bean.recipe) return;
+function openAddBeanModal() {
+  document.getElementById('addBeanModal')?.classList.remove('hidden');
+}
 
-  const recipe = bean.recipe;
-  if (recipe.dose_g) document.getElementById('helperDose').value = recipe.dose_g;
-  if (recipe.water_g) document.getElementById('helperTarget').value = recipe.water_g;
-  if (recipe.brew_method) document.getElementById('helperMethod').value = String(recipe.brew_method).toLowerCase();
+function closeAddBeanModal() {
+  document.getElementById('addBeanModal')?.classList.add('hidden');
+}
 
-  if (recipe.dose_g && recipe.water_g) {
-    const ratio = Number(recipe.water_g) / Number(recipe.dose_g);
-    if (Number.isFinite(ratio)) {
-      document.getElementById('helperRatio').value = round2(ratio);
-    }
+async function onBeanPhotoChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const previewWrap = document.getElementById('beanPhotoPreviewWrap');
+  const preview = document.getElementById('beanPhotoPreview');
+
+  const dataUrl = await fileToDataUrl(file);
+  const base64 = String(dataUrl).split(',')[1] || '';
+
+  appState.addBeanPhoto = {
+    file,
+    base64,
+    mimeType: file.type || 'image/jpeg',
+    fileName: file.name || `bean-photo-${Date.now()}.jpg`,
+    photoUrl: '',
+    photoDriveId: ''
+  };
+
+  if (preview && previewWrap) {
+    preview.src = dataUrl;
+    previewWrap.classList.remove('hidden');
   }
+}
+
+async function ensurePhotoUploadedForBeanForm(beanData) {
+  if (appState.addBeanPhoto.base64 && !appState.addBeanPhoto.photoUrl) {
+    setStatus('Uploading bean photo...', 'info');
+
+    const uploadResult = await postJson({
+      action: 'uploadBeanPhoto',
+      photoFolder: appState.settings.photoFolder,
+      imageBase64: appState.addBeanPhoto.base64,
+      mimeType: appState.addBeanPhoto.mimeType,
+      fileName: appState.addBeanPhoto.fileName
+    });
+
+    const uploaded = uploadResult.data || {};
+    appState.addBeanPhoto.photoUrl = uploaded.photoUrl || '';
+    appState.addBeanPhoto.photoDriveId = uploaded.fileId || '';
+  }
+
+  beanData.photo_url = appState.addBeanPhoto.photoUrl || beanData.photo_url || '';
+  beanData.photo_drive_id = appState.addBeanPhoto.photoDriveId || beanData.photo_drive_id || '';
+
+  return beanData;
+}
+
+async function onResearchBean() {
+  try {
+    setStatus('Preparing bean research...', 'info');
+
+    let beanData = collectBeanFormData();
+    beanData = await ensurePhotoUploadedForBeanForm(beanData);
+
+    setStatus('Researching bean details with AI...', 'info');
+
+    const result = await postJson({
+      action: 'researchBean',
+      beanData
+    });
+
+    const researched = result.data || {};
+    const bean = researched.bean || {};
+
+    fillBeanForm(bean);
+    appState.generatedRecipes = null;
+    resetRecipeResultArea();
+
+    const researchStatus = document.getElementById('researchStatus');
+    if (researchStatus) {
+      researchStatus.textContent = `Research complete via ${researched.provider || 'AI'} ${researched.model ? `(${researched.model})` : ''}. Review and edit the bean details before generating recipe.`;
+    }
+
+    setStatus('Bean research complete.', 'success');
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || 'Failed to research bean.', 'error');
+  }
+}
+
+async function onGenerateRecipe() {
+  try {
+    let beanData = collectBeanFormData();
+    beanData = await ensurePhotoUploadedForBeanForm(beanData);
+
+    setStatus('Generating recipe options...', 'info');
+
+    const result = await postJson({
+      action: 'generateRecipe',
+      beanData
+    });
+
+    appState.generatedRecipes = result.data || {};
+    renderGeneratedRecipeResult();
+
+    const notes = document.getElementById('recipeNotes');
+    if (notes) {
+      notes.textContent = appState.generatedRecipes.recommendation_notes || 'Recipe generation complete.';
+    }
+
+    setStatus('Recipe generation complete.', 'success');
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || 'Failed to generate recipe.', 'error');
+  }
+}
+
+function renderGeneratedRecipeResult() {
+  const wrap = document.getElementById('recipeModeToggleWrap');
+  const toggle = document.getElementById('recipeModeToggle');
+  const preview = document.getElementById('researchRecipePreview');
+
+  if (!wrap || !toggle || !preview) return;
+
+  const recipeData = appState.generatedRecipes;
+  const modes = Array.isArray(recipeData?.recommended_modes) ? recipeData.recommended_modes : [];
+
+  if (!modes.length) {
+    wrap.classList.add('hidden');
+    toggle.innerHTML = '';
+    preview.innerHTML = '<div class="helper-placeholder">No valid recipe recommendation returned.</div>';
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+  const defaultMode = recipeData.default_mode && modes.includes(recipeData.default_mode)
+    ? recipeData.default_mode
+    : (modes.includes('hot') ? 'hot' : modes[0]);
+
+  appState.generatedRecipes.default_mode = defaultMode;
+
+  toggle.innerHTML = modes.map((mode) => {
+    const label = mode === 'iced' ? 'Iced / Summer' : 'Hot';
+    const active = defaultMode === mode ? 'active' : '';
+    return `<button type="button" class="mode-pill ${active}" data-generated-mode="${escapeHtml(mode)}">${escapeHtml(label)}</button>`;
+  }).join('');
+
+  const renderSelected = (mode) => {
+    appState.generatedRecipes.default_mode = mode;
+    toggle.querySelectorAll('[data-generated-mode]').forEach((el) => {
+      el.classList.toggle('active', el.getAttribute('data-generated-mode') === mode);
+    });
+
+    const recipe = mode === 'iced'
+      ? appState.generatedRecipes.iced_recipe
+      : appState.generatedRecipes.hot_recipe;
+
+    preview.innerHTML = recipe
+      ? renderRecipeCardHtml(recipe, appState.generatedRecipes.recommendation_notes || '', mode)
+      : '<div class="helper-placeholder">No recipe available for this mode.</div>';
+  };
+
+  toggle.querySelectorAll('[data-generated-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      renderSelected(button.getAttribute('data-generated-mode') || '');
+    });
+  });
+
+  renderSelected(defaultMode);
+}
+
+async function onSaveBean(event) {
+  event.preventDefault();
+
+  try {
+    let beanData = collectBeanFormData();
+    beanData = await ensurePhotoUploadedForBeanForm(beanData);
+
+    if (!appState.generatedRecipes || !Array.isArray(appState.generatedRecipes.recommended_modes) || !appState.generatedRecipes.recommended_modes.length) {
+      throw new Error('Please generate recipe first before saving the bean.');
+    }
+
+    beanData.source = 'app';
+    beanData.research_status = 'researched';
+
+    setStatus('Saving bean...', 'info');
+
+    const result = await postJson({
+      action: 'saveBean',
+      beanData,
+      recipeData: appState.generatedRecipes
+    });
+
+    const savedBean = result?.data?.bean;
+    if (savedBean) {
+      const existingIndex = appState.beans.findIndex((item) => String(item.id) === String(savedBean.id));
+      if (existingIndex > -1) {
+        appState.beans[existingIndex] = savedBean;
+      } else {
+        appState.beans.unshift(savedBean);
+      }
+
+      appState.currentHelperBeanId = savedBean.id;
+      appState.currentHelperMode = getDefaultModeForBean(savedBean);
+
+      renderBeanList();
+      renderBeanSelect();
+      renderRecipeHelper();
+    }
+
+    resetAddBeanForm();
+    closeAddBeanModal();
+    switchView('library');
+    setStatus('Bean saved successfully.', 'success');
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || 'Failed to save bean.', 'error');
+  }
+}
+
+function collectBeanFormData() {
+  return {
+    bean: document.getElementById('beanName')?.value.trim() || '',
+    name: document.getElementById('beanName')?.value.trim() || '',
+    roaster: document.getElementById('beanRoaster')?.value.trim() || '',
+    origin_country: document.getElementById('beanOriginCountry')?.value.trim() || '',
+    origin_region: document.getElementById('beanOriginRegion')?.value.trim() || '',
+    purchase_country: document.getElementById('beanPurchaseCountry')?.value.trim() || '',
+    purchase_city: document.getElementById('beanPurchaseCity')?.value.trim() || '',
+    variety: document.getElementById('beanVariety')?.value.trim() || '',
+    process: document.getElementById('beanProcess')?.value.trim() || '',
+    roast: document.getElementById('beanRoast')?.value.trim() || '',
+    notes: document.getElementById('beanNotes')?.value.trim() || '',
+    initial_notes: document.getElementById('beanInitialNotes')?.value.trim() || '',
+    photo_url: appState.addBeanPhoto.photoUrl || '',
+    photo_drive_id: appState.addBeanPhoto.photoDriveId || ''
+  };
+}
+
+function fillBeanForm(bean) {
+  if (bean.bean) document.getElementById('beanName').value = bean.bean;
+  if (bean.roaster) document.getElementById('beanRoaster').value = bean.roaster;
+  if (bean.origin_country) document.getElementById('beanOriginCountry').value = bean.origin_country;
+  if (bean.origin_region) document.getElementById('beanOriginRegion').value = bean.origin_region;
+  if (bean.purchase_country) document.getElementById('beanPurchaseCountry').value = bean.purchase_country;
+  if (bean.purchase_city) document.getElementById('beanPurchaseCity').value = bean.purchase_city;
+  if (bean.variety) document.getElementById('beanVariety').value = bean.variety;
+  if (bean.process) document.getElementById('beanProcess').value = bean.process;
+  if (bean.roast) document.getElementById('beanRoast').value = bean.roast;
+  if (bean.notes) document.getElementById('beanNotes').value = bean.notes;
+  if (bean.initial_notes) document.getElementById('beanInitialNotes').value = bean.initial_notes;
+}
+
+function resetRecipeResultArea() {
+  const notes = document.getElementById('recipeNotes');
+  const wrap = document.getElementById('recipeModeToggleWrap');
+  const toggle = document.getElementById('recipeModeToggle');
+  const preview = document.getElementById('researchRecipePreview');
+
+  if (notes) notes.textContent = 'No recipe generated yet.';
+  if (wrap) wrap.classList.add('hidden');
+  if (toggle) toggle.innerHTML = '';
+  if (preview) preview.innerHTML = '<div class="helper-placeholder">Generate a recipe after confirming bean details.</div>';
+}
+
+function resetAddBeanForm() {
+  const form = document.getElementById('addBeanForm');
+  if (form) form.reset();
+
+  appState.addBeanPhoto = {
+    file: null,
+    base64: '',
+    mimeType: '',
+    fileName: '',
+    photoUrl: '',
+    photoDriveId: ''
+  };
+
+  appState.generatedRecipes = null;
+
+  const previewWrap = document.getElementById('beanPhotoPreviewWrap');
+  const preview = document.getElementById('beanPhotoPreview');
+  const researchStatus = document.getElementById('researchStatus');
+
+  if (preview) preview.src = '';
+  if (previewWrap) previewWrap.classList.add('hidden');
+  if (researchStatus) researchStatus.textContent = 'No AI research yet.';
+
+  resetRecipeResultArea();
 }
 
 function getBeanById(id) {
@@ -462,7 +771,6 @@ function inferCountryCode(origin) {
   if (!origin) return '';
 
   const normalized = origin.trim().toLowerCase();
-
   const map = {
     ethiopia: 'ET',
     kenya: 'KE',
@@ -533,19 +841,13 @@ function extractDriveFolderId(value) {
   const input = String(value || '').trim();
   if (!input) return '';
 
-  if (/^[a-zA-Z0-9_-]{15,}$/.test(input)) {
-    return input;
-  }
+  if (/^[a-zA-Z0-9_-]{15,}$/.test(input)) return input;
 
   const folderMatch = input.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
-  if (folderMatch && folderMatch[1]) {
-    return folderMatch[1];
-  }
+  if (folderMatch && folderMatch[1]) return folderMatch[1];
 
   const genericMatch = input.match(/([a-zA-Z0-9_-]{15,})/);
-  if (genericMatch && genericMatch[1]) {
-    return genericMatch[1];
-  }
+  if (genericMatch && genericMatch[1]) return genericMatch[1];
 
   return '';
 }
@@ -557,14 +859,6 @@ function setStatus(message, type = 'info') {
   el.dataset.status = type;
 }
 
-function round1(value) {
-  return Math.round(Number(value) * 10) / 10;
-}
-
-function round2(value) {
-  return Math.round(Number(value) * 100) / 100;
-}
-
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -572,285 +866,6 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-}
-
-async function postJson(payload) {
-  const response = await fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    throw new Error(`POST failed: ${response.status}`);
-  }
-
-  const result = await response.json();
-  if (!result.success) {
-    throw new Error(result.error || 'Request failed.');
-  }
-  return result;
-}
-
-function openAddBeanModal() {
-  document.getElementById('addBeanModal')?.classList.remove('hidden');
-}
-
-function closeAddBeanModal() {
-  document.getElementById('addBeanModal')?.classList.add('hidden');
-}
-
-async function onBeanPhotoChange(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  const previewWrap = document.getElementById('beanPhotoPreviewWrap');
-  const preview = document.getElementById('beanPhotoPreview');
-
-  const dataUrl = await fileToDataUrl(file);
-  const base64 = String(dataUrl).split(',')[1] || '';
-
-  appState.addBeanPhoto = {
-    file,
-    base64,
-    mimeType: file.type || 'image/jpeg',
-    fileName: file.name || `bean-photo-${Date.now()}.jpg`,
-    photoUrl: '',
-    photoDriveId: ''
-  };
-
-  if (preview && previewWrap) {
-    preview.src = dataUrl;
-    previewWrap.classList.remove('hidden');
-  }
-}
-
-async function onResearchBean() {
-  try {
-    setStatus('Preparing bean research...', 'info');
-
-    const beanData = collectBeanFormData();
-
-    if (appState.addBeanPhoto.base64) {
-      setStatus('Uploading bean photo...', 'info');
-
-      const uploadResult = await postJson({
-        action: 'uploadBeanPhoto',
-        photoFolder: appState.settings.photoFolder,
-        imageBase64: appState.addBeanPhoto.base64,
-        mimeType: appState.addBeanPhoto.mimeType,
-        fileName: appState.addBeanPhoto.fileName
-      });
-
-      const uploaded = uploadResult.data || {};
-      appState.addBeanPhoto.photoUrl = uploaded.photoUrl || '';
-      appState.addBeanPhoto.photoDriveId = uploaded.fileId || '';
-
-      beanData.photo_url = appState.addBeanPhoto.photoUrl;
-      beanData.photo_drive_id = appState.addBeanPhoto.photoDriveId;
-    }
-
-    setStatus('Researching bean with AI...', 'info');
-
-    const result = await postJson({
-      action: 'researchBean',
-      beanData,
-      recipeContext: {
-        brew_method: 'V60'
-      }
-    });
-
-    const researched = result.data || {};
-    const bean = researched.bean || {};
-    const recipe = researched.recipe || {};
-
-    fillBeanForm(bean);
-    appState.researchedRecipe = recipe;
-
-    const researchStatus = document.getElementById('researchStatus');
-    if (researchStatus) {
-      researchStatus.textContent = `Research complete via ${researched.provider || 'AI'} ${researched.model ? `(${researched.model})` : ''}. Review fields before saving.`;
-    }
-
-    renderResearchRecipePreview(recipe);
-    setStatus('Bean research complete.', 'success');
-  } catch (error) {
-    console.error(error);
-    setStatus(error.message || 'Failed to research bean.', 'error');
-  }
-}
-
-async function onSaveBean(event) {
-  event.preventDefault();
-
-  try {
-    let beanData = collectBeanFormData();
-
-    if (appState.addBeanPhoto.base64 && !appState.addBeanPhoto.photoUrl) {
-      setStatus('Uploading bean photo before save...', 'info');
-
-      const uploadResult = await postJson({
-        action: 'uploadBeanPhoto',
-        photoFolder: appState.settings.photoFolder,
-        imageBase64: appState.addBeanPhoto.base64,
-        mimeType: appState.addBeanPhoto.mimeType,
-        fileName: appState.addBeanPhoto.fileName
-      });
-
-      const uploaded = uploadResult.data || {};
-      appState.addBeanPhoto.photoUrl = uploaded.photoUrl || '';
-      appState.addBeanPhoto.photoDriveId = uploaded.fileId || '';
-    }
-
-    beanData.photo_url = appState.addBeanPhoto.photoUrl || beanData.photo_url || '';
-    beanData.photo_drive_id = appState.addBeanPhoto.photoDriveId || beanData.photo_drive_id || '';
-
-    const recipeData = appState.researchedRecipe || buildRecipeFromFormContext();
-
-    setStatus('Saving bean...', 'info');
-
-    const result = await postJson({
-      action: 'saveBean',
-      beanData,
-      recipeData
-    });
-
-    const savedBean = result?.data?.bean;
-    if (savedBean) {
-      const existingIndex = appState.beans.findIndex((item) => String(item.id) === String(savedBean.id));
-      if (existingIndex > -1) {
-        appState.beans[existingIndex] = savedBean;
-      } else {
-        appState.beans.unshift(savedBean);
-      }
-
-      appState.currentHelperBeanId = savedBean.id;
-      renderBeanList();
-      renderBeanSelect();
-      applySelectedBeanRecipeDefaults();
-      renderRecipeHelper();
-    }
-
-    resetAddBeanForm();
-    closeAddBeanModal();
-    switchView('library');
-    setStatus('Bean saved successfully.', 'success');
-  } catch (error) {
-    console.error(error);
-    setStatus(error.message || 'Failed to save bean.', 'error');
-  }
-}
-
-function collectBeanFormData() {
-  return {
-    bean: document.getElementById('beanName')?.value.trim() || '',
-    name: document.getElementById('beanName')?.value.trim() || '',
-    roaster: document.getElementById('beanRoaster')?.value.trim() || '',
-    origin_country: document.getElementById('beanOriginCountry')?.value.trim() || '',
-    origin_region: document.getElementById('beanOriginRegion')?.value.trim() || '',
-    variety: document.getElementById('beanVariety')?.value.trim() || '',
-    process: document.getElementById('beanProcess')?.value.trim() || '',
-    roast: document.getElementById('beanRoast')?.value.trim() || '',
-    notes: document.getElementById('beanNotes')?.value.trim() || '',
-    initial_notes: document.getElementById('beanInitialNotes')?.value.trim() || '',
-    brew_method: 'V60',
-    source: 'app'
-  };
-}
-
-function fillBeanForm(bean) {
-  if (bean.bean) document.getElementById('beanName').value = bean.bean;
-  if (bean.roaster) document.getElementById('beanRoaster').value = bean.roaster;
-  if (bean.origin_country) document.getElementById('beanOriginCountry').value = bean.origin_country;
-  if (bean.origin_region) document.getElementById('beanOriginRegion').value = bean.origin_region;
-  if (bean.variety) document.getElementById('beanVariety').value = bean.variety;
-  if (bean.process) document.getElementById('beanProcess').value = bean.process;
-  if (bean.roast) document.getElementById('beanRoast').value = bean.roast;
-  if (bean.notes) document.getElementById('beanNotes').value = bean.notes;
-  if (bean.initial_notes) document.getElementById('beanInitialNotes').value = bean.initial_notes;
-}
-
-function renderResearchRecipePreview(recipe) {
-  const preview = document.getElementById('researchRecipePreview');
-  if (!preview) return;
-
-  if (!recipe || !Object.keys(recipe).length) {
-    preview.innerHTML = '<div class="helper-placeholder">No recipe returned yet.</div>';
-    return;
-  }
-
-  preview.innerHTML = `
-    <div class="helper-grid">
-      <div class="helper-metric">
-        <div class="helper-metric__label">Dose</div>
-        <div class="helper-metric__value">${escapeHtml(recipe.dose_g || '')} g</div>
-      </div>
-      <div class="helper-metric">
-        <div class="helper-metric__label">Water</div>
-        <div class="helper-metric__value">${escapeHtml(recipe.water_g || '')} g</div>
-      </div>
-      <div class="helper-metric">
-        <div class="helper-metric__label">Temp</div>
-        <div class="helper-metric__value">${escapeHtml(recipe.temp_c || '')} °C</div>
-      </div>
-      <div class="helper-metric">
-        <div class="helper-metric__label">Target Time</div>
-        <div class="helper-metric__value">${escapeHtml(recipe.target_time || '')}</div>
-      </div>
-    </div>
-    <div class="helper-steps">
-      ${recipe.grind ? `<div class="helper-step"><strong>Grind</strong> — ${escapeHtml(recipe.grind)}</div>` : ''}
-      ${recipe.pours ? `<div class="helper-step"><strong>Pours</strong> — ${escapeHtml(recipe.pours)}</div>` : ''}
-      ${recipe.recipe_style ? `<div class="helper-step"><strong>Style</strong> — ${escapeHtml(recipe.recipe_style)}</div>` : ''}
-      ${recipe.taste_summary ? `<div class="helper-step"><strong>Taste Goal</strong> — ${escapeHtml(recipe.taste_summary)}</div>` : ''}
-    </div>
-  `;
-}
-
-function buildRecipeFromFormContext() {
-  const dose = parseFloat(document.getElementById('helperDose')?.value || '') || 18;
-  const ratio = parseFloat(document.getElementById('helperRatio')?.value || '') || 16;
-  const target = parseFloat(document.getElementById('helperTarget')?.value || '') || round1(dose * ratio);
-
-  return {
-    brew_method: 'V60',
-    dose_g: dose,
-    water_g: target,
-    temp_c: '',
-    grind: '',
-    target_time: '',
-    pours: '',
-    recipe_style: 'balanced',
-    taste_summary: ''
-  };
-}
-
-function resetAddBeanForm() {
-  const form = document.getElementById('addBeanForm');
-  if (form) form.reset();
-
-  appState.addBeanPhoto = {
-    file: null,
-    base64: '',
-    mimeType: '',
-    fileName: '',
-    photoUrl: '',
-    photoDriveId: ''
-  };
-
-  appState.researchedRecipe = null;
-
-  const previewWrap = document.getElementById('beanPhotoPreviewWrap');
-  const preview = document.getElementById('beanPhotoPreview');
-  const researchStatus = document.getElementById('researchStatus');
-  const recipePreview = document.getElementById('researchRecipePreview');
-
-  if (preview) preview.src = '';
-  if (previewWrap) previewWrap.classList.add('hidden');
-  if (researchStatus) researchStatus.textContent = 'No AI research yet.';
-  if (recipePreview) recipePreview.innerHTML = '';
 }
 
 function fileToDataUrl(file) {
