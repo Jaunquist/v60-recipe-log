@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       state.settings = {
         sheetUrl: '',
-        scriptUrl: DEFAULT_SCRIPT_URL,
+        const DEFAULT_SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE';
         photoFolder: '',
         settingsLocked: true
       };
