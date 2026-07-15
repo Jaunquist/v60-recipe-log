@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activeTag: '',
     settings: {
       sheetUrl: '',
-      scriptUrl: DEFAULT_SCRIPT_URL,
+      scriptUrl: APPS_SCRIPT_URL,
       photoFolder: '',
       settingsLocked: true
     },
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function resolveScriptUrl() {
-    return String((state.settings && state.settings.scriptUrl) || DEFAULT_SCRIPT_URL).trim();
+    return String((state.settings && state.settings.scriptUrl) || APPS_SCRIPT_URL).trim();
   }
 
   function extractFolderId(value) {
@@ -276,14 +276,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       state.settings = {
         sheetUrl: data.sheetUrl || '',
-        scriptUrl: data.scriptUrl || DEFAULT_SCRIPT_URL,
+        scriptUrl: data.scriptUrl || APPS_SCRIPT_URL,
         photoFolder: data.photoFolder || '',
         settingsLocked: !!data.settingsLocked
       };
     } catch (error) {
       state.settings = {
         sheetUrl: '',
-        scriptUrl: DEFAULT_SCRIPT_URL,
+        scriptUrl: APPS_SCRIPT_URL,
         photoFolder: '',
         settingsLocked: true
       };
@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (els.sheetUrl) els.sheetUrl.value = state.settings.sheetUrl || '';
-    if (els.scriptUrl) els.scriptUrl.value = state.settings.scriptUrl || DEFAULT_SCRIPT_URL;
+    if (els.scriptUrl) els.scriptUrl.value = state.settings.scriptUrl || APPS_SCRIPT_URL;
     if (els.photoFolder) els.photoFolder.value = state.settings.photoFolder || '';
     if (els.settingsLocked) els.settingsLocked.checked = !!state.settings.settingsLocked;
 
@@ -320,13 +320,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = response.data || {};
       state.settings = {
         sheetUrl: data.sheetUrl || '',
-        scriptUrl: data.scriptUrl || DEFAULT_SCRIPT_URL,
+        scriptUrl: data.scriptUrl || APPS_SCRIPT_URL,
         photoFolder: data.photoFolder || '',
         settingsLocked: !!data.settingsLocked
       };
 
       if (els.sheetUrl) els.sheetUrl.value = state.settings.sheetUrl || '';
-      if (els.scriptUrl) els.scriptUrl.value = state.settings.scriptUrl || DEFAULT_SCRIPT_URL;
+      if (els.scriptUrl) els.scriptUrl.value = state.settings.scriptUrl || APPS_SCRIPT_URL;
       if (els.photoFolder) els.photoFolder.value = state.settings.photoFolder || '';
       if (els.settingsLocked) els.settingsLocked.checked = !!state.settings.settingsLocked;
 
