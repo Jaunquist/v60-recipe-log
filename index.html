@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet" />
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <div class="app">
@@ -50,7 +50,7 @@
           <div class="section-head">
             <div>
               <h2>Bean Library</h2>
-              <p class="muted">Compact summaries first. Tap a bean to expand details and recipes.</p>
+              <p class="muted">Search, review, edit, and send a bean into Recipe Helper.</p>
             </div>
             <div class="section-head__search">
               <label for="beanSearchInput" class="tiny">Search</label>
@@ -146,8 +146,8 @@
     <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="addBeanTitle">
       <header class="modal-header">
         <div>
-          <h2 id="addBeanTitle">Add / Edit Bean</h2>
-          <p class="muted">Upload a photo, research the bean, then save.</p>
+          <h2 id="addBeanTitle">Add Bean</h2>
+          <p id="addBeanSubtitle" class="muted">Upload a photo, research the bean, then save.</p>
         </div>
         <button id="closeAddBeanBtn" class="icon-btn" type="button" aria-label="Close">✕</button>
       </header>
@@ -184,6 +184,12 @@
         </section>
 
         <form id="addBeanForm" class="settings-grid" autocomplete="off">
+          <input id="beanId" type="hidden" />
+          <input id="beanExistingPhotoFileId" type="hidden" />
+          <input id="beanExistingPhotoFileName" type="hidden" />
+          <input id="beanExistingPhotoDriveLink" type="hidden" />
+          <input id="beanExistingPhotoPreviewDataUrl" type="hidden" />
+
           <div>
             <label for="beanName">Bean name</label>
             <input id="beanName" type="text" placeholder="e.g. Worka Cheliche washed" />
@@ -262,90 +268,13 @@
           </div>
 
           <footer class="modal-footer">
-            <button type="submit" class="save-btn">Save bean</button>
+            <button id="saveBeanBtn" type="submit" class="save-btn">Save bean</button>
           </footer>
         </form>
       </main>
     </div>
   </div>
 
-  <template id="recipeEditorTemplate">
-    <div class="recipe-editor">
-      <div class="recipe-editor__head">
-        <div>
-          <h4 class="recipe-editor__title">Recipe</h4>
-          <p class="muted small-copy">Generate, tweak, and save versions.</p>
-        </div>
-        <div class="recipe-style-toggle"></div>
-      </div>
-
-      <div class="recipe-grid">
-        <div>
-          <label>Grind</label>
-          <input class="recipe-input" data-field="grind" type="text" />
-        </div>
-        <div>
-          <label>Dose (g)</label>
-          <input class="recipe-input" data-field="dose_g" type="number" step="0.1" />
-        </div>
-        <div>
-          <label>Total water (g)</label>
-          <input class="recipe-input" data-field="water_total_g" type="number" step="1" />
-        </div>
-        <div>
-          <label>Hot water (g)</label>
-          <input class="recipe-input" data-field="hot_water_g" type="number" step="1" />
-        </div>
-        <div>
-          <label>Brew ice (g)</label>
-          <input class="recipe-input" data-field="brew_ice_g" type="number" step="1" />
-        </div>
-        <div>
-          <label>Water temp (°C)</label>
-          <input class="recipe-input" data-field="water_temp_c" type="number" step="1" />
-        </div>
-        <div>
-          <label>Target time</label>
-          <input class="recipe-input" data-field="target_time" type="text" />
-        </div>
-        <div>
-          <label>Ratio</label>
-          <input class="recipe-input" data-field="ratio" type="text" />
-        </div>
-      </div>
-
-      <div>
-        <label>Why</label>
-        <textarea class="recipe-input" data-field="why" rows="2"></textarea>
-      </div>
-
-      <div>
-        <label>Pours (one step per line)</label>
-        <textarea class="recipe-input" data-field="pours" rows="5"></textarea>
-      </div>
-
-      <div>
-        <label>Expected notes</label>
-        <textarea class="recipe-input" data-field="expected_notes" rows="2"></textarea>
-      </div>
-
-      <div>
-        <label>Version note</label>
-        <input class="recipe-version-note" type="text" placeholder="e.g. sweeter tweak, finer grind test" />
-      </div>
-
-      <div class="action-row">
-        <button type="button" class="save-recipe-btn">Save this recipe version</button>
-        <small class="field-hint recipe-save-status">This saves a new version, not an overwrite.</small>
-      </div>
-
-      <div class="saved-recipe-list-wrap">
-        <h4 class="saved-recipe-title">Saved recipes</h4>
-        <div class="saved-recipe-list"></div>
-      </div>
-    </div>
-  </template>
-
-  <script src="app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
