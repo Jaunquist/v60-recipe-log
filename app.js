@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function resolveScriptUrl() {
-    return String(state.settings.scriptUrl || DEFAULT_SCRIPT_URL).trim();
+    return String((state.settings && state.settings.scriptUrl) || DEFAULT_SCRIPT_URL).trim();
   }
 
   function extractFolderId(value) {
@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       state.settings = {
         sheetUrl: '',
-        const DEFAULT_SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE';
+        scriptUrl: DEFAULT_SCRIPT_URL,
         photoFolder: '',
         settingsLocked: true
       };
@@ -1132,9 +1132,21 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBeanAvatar();
     renderPhotoMeta();
 
-    await loadSettings();
-    await loadBeans();
+    try {
+      await loadSettings();
+    } catch (error) {
+      setStatus(error.message || 'Could not load settings.', 'error');
+    }
+
+    try {
+      await loadBeans();
+    } catch (error) {
+      setStatus(error.message || 'Could not load beans.', 'error');
+    }
   }
 
-  init();
+  init().catch((error) => {
+    console.error(error);
+    setStatus(error.message || 'App initialization failed.', 'error');
+  });
 });
