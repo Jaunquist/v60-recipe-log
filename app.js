@@ -122,21 +122,31 @@ async function loadSettings() {
     appState.settings = {
       sheetUrl: data.sheetUrl || '',
       scriptUrl: data.scriptUrl || '',
-      photoFolder: data.photoFolder || ''
+      photoFolder: data.photoFolder || '',
+      settingsLocked: !!data.settingsLocked
     };
   } catch (error) {
     console.warn('Settings load failed, using defaults.', error);
     appState.settings = {
       sheetUrl: '',
       scriptUrl: APPS_SCRIPT_URL,
-      photoFolder: ''
+      photoFolder: '',
+      settingsLocked: true
     };
   }
 
   setValue('sheetUrl', appState.settings.sheetUrl);
   setValue('scriptUrl', appState.settings.scriptUrl || APPS_SCRIPT_URL);
   setValue('photoFolder', appState.settings.photoFolder);
-  updatePhotoFolderHint(appState.settings.photoFolder);
+
+  const lockBox = document.getElementById('settingsLocked');
+  if (lockBox) {
+    lockBox.checked = !!appState.settings.settingsLocked;
+  }
+
+  applySettingsLockState();
+
+  updatePhotoFolderHint(appState.settings.photoFolder || '');
 }
 
 async function loadBeans() {
@@ -240,6 +250,24 @@ function bindHelper() {
     });
   }
 
+function applySettingsLockState() {
+  const locked = !!(appState.settings && appState.settings.settingsLocked);
+  const sheetInput = document.getElementById('sheetUrl');
+  const scriptInput = document.getElementById('scriptUrl');
+  const folderInput = document.getElementById('photoFolder');
+
+  [sheetInput, scriptInput, folderInput].forEach((el) => {
+    if (!el) return;
+    if (locked) {
+      el.setAttribute('readonly', 'readonly');
+      el.classList.add('settings-readonly');
+    } else {
+      el.removeAttribute('readonly');
+      el.classList.remove('settings-readonly');
+    }
+  });
+}
+  
   if (generateRecipeBtn) {
     generateRecipeBtn.addEventListener('click', onGenerateRecipe);
   }
