@@ -18,7 +18,6 @@ const COUNTRY_OPTIONS = [
 
 const appState = {
   beans: [],
-  recipesByBeanId: {},
   settings: { sheetUrl: '', scriptUrl: '', photoFolder: '' },
   currentView: 'library',
   draftTags: [],
@@ -34,7 +33,9 @@ const appState = {
     ocrStatus: 'not_run'
   },
   recipeResult: null,
-  recipeStyle: 'hot'
+  recipeStyle: 'hot',
+  modalMode: 'create',
+  editingBeanId: ''
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -72,9 +73,10 @@ function bindGlobalFormProtection() {
 function bindNavigation() {
   document.querySelectorAll('.nav-btn').forEach((button) => {
     button.addEventListener('click', (event) => {
-      event.preventDefault();
       const targetView = button.getAttribute('data-view');
-      if (targetView) switchView(targetView);
+      if (!targetView) return;
+      event.preventDefault();
+      switchView(targetView);
     });
   });
 }
@@ -113,14 +115,23 @@ async function bootstrapApp() {
 }
 
 async function loadSettings() {
-  const response = await fetchJson(`${resolveScriptUrl()}?type=settings`);
-  const data = response.data || {};
+  try {
+    const response = await fetchJson(`${resolveScriptUrl()}?type=settings`);
+    const data = response.data || {};
 
-  appState.settings = {
-    sheetUrl: data.sheetUrl || '',
-    scriptUrl: data.scriptUrl || '',
-    photoFolder: data.photoFolder || ''
-  };
+    appState.settings = {
+      sheetUrl: data.sheetUrl || '',
+      scriptUrl: data.scriptUrl || '',
+      photoFolder: data.photoFolder || ''
+    };
+  } catch (error) {
+    console.warn('Settings load failed, using defaults.', error);
+    appState.settings = {
+      sheetUrl: '',
+      scriptUrl: APPS_SCRIPT_URL,
+      photoFolder: ''
+    };
+  }
 
   setValue('sheetUrl', appState.settings.sheetUrl);
   setValue('scriptUrl', appState.settings.scriptUrl || APPS_SCRIPT_URL);
@@ -129,19 +140,17 @@ async function loadSettings() {
 }
 
 async function loadBeans() {
-  const response = await fetchJson(`${resolveScriptUrl()}?type=beans`);
-  appState.beans = Array.isArray(response.data) ? response.data : [];
+  try {
+    const response = await fetchJson(`${resolveScriptUrl()}?type=beans`);
+    appState.beans = Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.warn('Bean load failed.', error);
+    appState.beans = [];
+  }
+
   renderBeanList();
   renderTagFilters();
   renderHelperBeanOptions();
-}
-
-async function loadSavedRecipes(beanId) {
-  if (!beanId) return [];
-  const response = await fetchJson(`${resolveScriptUrl()}?type=recipes&beanId=${encodeURIComponent(beanId)}`);
-  const recipes = Array.isArray(response.data) ? response.data : [];
-  appState.recipesByBeanId[beanId] = recipes;
-  return recipes;
 }
 
 function bindSettingsForm() {
@@ -165,6 +174,7 @@ async function onSaveSettings(event) {
   });
 
   appState.settings = response.data || appState.settings;
+  setValue('scriptUrl', appState.settings.scriptUrl || APPS_SCRIPT_URL);
   updatePhotoFolderHint(appState.settings.photoFolder || '');
   setAppStatus('Settings saved.', 'success');
 }
@@ -477,11 +487,10 @@ function renderBeanList() {
           </div>
 
           <div class="bean-details-actions">
-            <button type="button" class="generate-inline-recipe-btn" data-bean-id="${escapeHtml(bean.id)}">Generate recipe</button>
             <button type="button" class="open-helper-btn" data-bean-id="${escapeHtml(bean.id)}">Open in Recipe Helper</button>
+            <button type="button" class="edit-bean-btn" data-bean-id="${escapeHtml(bean.id)}">Edit bean</button>
+            <button type="button" class="delete-bean-btn btn-danger" data-bean-id="${escapeHtml(bean.id)}">Delete bean</button>
           </div>
-
-          <div class="inline-recipe-wrap" data-inline-recipe-for="${escapeHtml(bean.id)}"></div>
         </div>
       </details>
     `;
@@ -501,25 +510,9 @@ function renderDetailCell(label, value) {
 
 function bindBeanLibraryInteractions() {
   document.querySelectorAll('.bean-library-item').forEach((details) => {
-    details.addEventListener('toggle', async () => {
+    details.addEventListener('toggle', () => {
       const beanId = details.getAttribute('data-bean-id') || '';
       appState.expandedBeans[beanId] = details.open;
-      if (details.open && !appState.recipesByBeanId[beanId]) {
-        try {
-          await loadSavedRecipes(beanId);
-          renderSavedRecipeLists(beanId);
-        } catch (error) {
-          console.error(error);
-        }
-      }
-    });
-  });
-
-  document.querySelectorAll('.generate-inline-recipe-btn').forEach((button) => {
-    button.addEventListener('click', async (event) => {
-      event.preventDefault();
-      const beanId = button.getAttribute('data-bean-id') || '';
-      await generateInlineRecipe(beanId);
     });
   });
 
@@ -534,209 +527,50 @@ function bindBeanLibraryInteractions() {
       clearRecipeOutput();
     });
   });
-}
 
-async function generateInlineRecipe(beanId) {
-  const bean = appState.beans.find((item) => item.id === beanId);
-  const wrap = document.querySelector(`[data-inline-recipe-for="${cssEscape(beanId)}"]`);
-  if (!bean || !wrap) return;
-
-  wrap.innerHTML = `<div class="helper-placeholder">Generating recipe…</div>`;
-
-  try {
-    const response = await fetchJson(resolveScriptUrl(), {
-      method: 'POST',
-      body: {
-        action: 'generateRecipe',
-        beanData: bean
-      }
+  document.querySelectorAll('.edit-bean-btn').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      const beanId = button.getAttribute('data-bean-id') || '';
+      const bean = appState.beans.find((item) => item.id === beanId);
+      if (bean) openEditBeanModal(bean);
     });
-
-    const result = response.data || null;
-    const availableStyles = Array.isArray(result && result.availableStyles) ? result.availableStyles : ['hot'];
-    const activeStyle = (result && result.defaultStyle) || 'hot';
-
-    wrap.innerHTML = '';
-    const editor = buildInlineRecipeEditor(bean, result, availableStyles, activeStyle);
-    wrap.appendChild(editor);
-
-    await ensureSavedRecipesLoaded(beanId);
-    renderSavedRecipeListForEditor(beanId, editor);
-  } catch (error) {
-    console.error(error);
-    wrap.innerHTML = `<div class="helper-placeholder">${escapeHtml(error.message || 'Failed to generate recipe.')}</div>`;
-  }
-}
-
-function buildInlineRecipeEditor(bean, result, styles, activeStyle) {
-  const template = document.getElementById('recipeEditorTemplate');
-  const node = template.content.firstElementChild.cloneNode(true);
-  const recipe = result && result.recipes ? result.recipes[activeStyle] : null;
-
-  node.setAttribute('data-bean-id', bean.id);
-  node.setAttribute('data-active-style', activeStyle);
-
-  const toggle = node.querySelector('.recipe-style-toggle');
-  if (styles.length > 1) {
-    toggle.innerHTML = styles.map((style) => {
-      const label = style === 'iced_half_shaken' ? 'Iced (half shaken)' : 'Hot';
-      return `<button type="button" class="recipe-style-btn ${style === activeStyle ? 'active' : ''}" data-style="${escapeHtml(style)}">${escapeHtml(label)}</button>`;
-    }).join('');
-
-    toggle.querySelectorAll('[data-style]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const style = button.getAttribute('data-style') || 'hot';
-        const nextRecipe = result.recipes[style];
-        node.setAttribute('data-active-style', style);
-        fillRecipeEditor(node, nextRecipe);
-        toggle.querySelectorAll('.recipe-style-btn').forEach((btn) => {
-          btn.classList.toggle('active', btn === button);
-        });
-      });
-    });
-  } else {
-    toggle.innerHTML = '';
-  }
-
-  fillRecipeEditor(node, recipe);
-
-  const saveBtn = node.querySelector('.save-recipe-btn');
-  saveBtn.addEventListener('click', async () => {
-    await saveRecipeVersionFromEditor(bean, node);
   });
 
-  return node;
-}
+  document.querySelectorAll('.delete-bean-btn').forEach((button) => {
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const beanId = button.getAttribute('data-bean-id') || '';
+      const bean = appState.beans.find((item) => item.id === beanId);
+      if (!bean) return;
 
-function fillRecipeEditor(node, recipe) {
-  if (!recipe) return;
+      const confirmed = window.confirm(`Delete "${bean.bean || bean.name || 'this bean'}"? This cannot be undone.`);
+      if (!confirmed) return;
 
-  node.querySelector('.recipe-editor__title').textContent = recipe.label || 'Recipe';
+      try {
+        await fetchJson(resolveScriptUrl(), {
+          method: 'POST',
+          body: {
+            action: 'deleteBean',
+            beanId
+          }
+        });
 
-  setRecipeEditorField(node, 'grind', recipe.grind || '');
-  setRecipeEditorField(node, 'dose_g', recipe.dose_g || '');
-  setRecipeEditorField(node, 'water_total_g', recipe.water_total_g || '');
-  setRecipeEditorField(node, 'hot_water_g', recipe.hot_water_g || '');
-  setRecipeEditorField(node, 'brew_ice_g', recipe.brew_ice_g || '');
-  setRecipeEditorField(node, 'water_temp_c', recipe.water_temp_c || '');
-  setRecipeEditorField(node, 'target_time', recipe.target_time || '');
-  setRecipeEditorField(node, 'ratio', recipe.ratio || '');
-  setRecipeEditorField(node, 'why', recipe.why || '');
-  setRecipeEditorField(node, 'expected_notes', recipe.expected_notes || '');
-  setRecipeEditorField(node, 'pours', Array.isArray(recipe.pours) ? recipe.pours.join('\n') : '');
-}
+        delete appState.expandedBeans[beanId];
+        if (getValue('helperBeanSelect') === beanId) {
+          setValue('helperBeanSelect', '');
+          renderHelperBeanSummary(null);
+          clearRecipeOutput();
+        }
 
-function setRecipeEditorField(node, field, value) {
-  const input = node.querySelector(`[data-field="${field}"]`);
-  if (input) input.value = value;
-}
-
-function getRecipeEditorField(node, field) {
-  const input = node.querySelector(`[data-field="${field}"]`);
-  return input ? String(input.value || '') : '';
-}
-
-async function saveRecipeVersionFromEditor(bean, node) {
-  const style = node.getAttribute('data-active-style') || 'hot';
-  const label = style === 'iced_half_shaken' ? 'Iced (half shaken)' : 'Hot';
-  const versionNote = String((node.querySelector('.recipe-version-note') || {}).value || '').trim();
-
-  const recipe = {
-    style,
-    label,
-    grinder: 'Eureka Mignon Perfetto',
-    grind: getRecipeEditorField(node, 'grind'),
-    dose_g: getRecipeEditorField(node, 'dose_g'),
-    water_total_g: getRecipeEditorField(node, 'water_total_g'),
-    hot_water_g: getRecipeEditorField(node, 'hot_water_g'),
-    brew_ice_g: getRecipeEditorField(node, 'brew_ice_g'),
-    water_temp_c: getRecipeEditorField(node, 'water_temp_c'),
-    target_time: getRecipeEditorField(node, 'target_time'),
-    ratio: getRecipeEditorField(node, 'ratio'),
-    why: getRecipeEditorField(node, 'why'),
-    expected_notes: getRecipeEditorField(node, 'expected_notes'),
-    pours: getRecipeEditorField(node, 'pours').split('\n').map((line) => line.trim()).filter(Boolean)
-  };
-
-  try {
-    const response = await fetchJson(resolveScriptUrl(), {
-      method: 'POST',
-      body: {
-        action: 'saveRecipe',
-        beanData: bean,
-        recipe,
-        savedFrom: 'bean_library',
-        versionNote
+        await loadBeans();
+        setAppStatus('Bean deleted.', 'success');
+      } catch (error) {
+        console.error(error);
+        setAppStatus(error.message || 'Failed to delete bean.', 'error');
       }
     });
-
-    const saved = response.data && response.data.recipe ? response.data.recipe : null;
-    if (!saved) return;
-
-    if (!appState.recipesByBeanId[bean.id]) appState.recipesByBeanId[bean.id] = [];
-    appState.recipesByBeanId[bean.id].unshift(saved);
-
-    const status = node.querySelector('.recipe-save-status');
-    if (status) status.textContent = 'Saved as a new recipe version.';
-    const noteInput = node.querySelector('.recipe-version-note');
-    if (noteInput) noteInput.value = '';
-
-    renderSavedRecipeListForEditor(bean.id, node);
-  } catch (error) {
-    console.error(error);
-    const status = node.querySelector('.recipe-save-status');
-    if (status) {
-      status.textContent = error.message || 'Failed to save recipe version.';
-      status.style.color = '#991b1b';
-    }
-  }
-}
-
-async function ensureSavedRecipesLoaded(beanId) {
-  if (!appState.recipesByBeanId[beanId]) {
-    await loadSavedRecipes(beanId);
-  }
-}
-
-function renderSavedRecipeLists(beanId) {
-  const editor = document.querySelector(`.recipe-editor[data-bean-id="${cssEscape(beanId)}"]`);
-  if (editor) renderSavedRecipeListForEditor(beanId, editor);
-}
-
-function renderSavedRecipeListForEditor(beanId, editorNode) {
-  const wrap = editorNode.querySelector('.saved-recipe-list');
-  if (!wrap) return;
-
-  const recipes = appState.recipesByBeanId[beanId] || [];
-  if (!recipes.length) {
-    wrap.innerHTML = `<div class="helper-placeholder">No saved recipes yet.</div>`;
-    return;
-  }
-
-  wrap.innerHTML = recipes.map((recipe) => {
-    const created = formatDate(recipe.created_at);
-    const versionNote = recipe.version_note ? `<div>${escapeHtml(recipe.version_note)}</div>` : '';
-    return `
-      <div class="saved-recipe-item">
-        <div><strong>${escapeHtml(recipe.label || recipe.style || 'Recipe')}</strong></div>
-        <div class="saved-recipe-meta">
-          <span>${escapeHtml(created)}</span>
-          <span>${escapeHtml(recipe.grind || '—')}</span>
-          <span>${escapeHtml(recipe.target_time || '—')}</span>
-          <span>${escapeHtml(recipe.water_temp_c ? `${recipe.water_temp_c}°C` : '—')}</span>
-        </div>
-        ${versionNote}
-        <div>${escapeHtml(recipe.expected_notes || '')}</div>
-      </div>
-    `;
-  }).join('');
-}
-
-function formatDate(value) {
-  if (!value) return 'Unknown date';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString();
+  });
 }
 
 function getFilteredBeans() {
@@ -809,7 +643,7 @@ function bindAddBeanModal() {
   const addBeanForm = document.getElementById('addBeanForm');
   const tagInput = document.getElementById('beanTagInput');
 
-  if (openBtn) openBtn.addEventListener('click', openAddBeanModal);
+  if (openBtn) openBtn.addEventListener('click', () => openCreateBeanModal());
   if (closeBtn) closeBtn.addEventListener('click', closeAddBeanModal);
 
   if (modal) {
@@ -842,10 +676,69 @@ function bindAddBeanModal() {
   }
 }
 
-function openAddBeanModal() {
+function openCreateBeanModal() {
+  appState.modalMode = 'create';
+  appState.editingBeanId = '';
+  resetBeanForm();
+
+  setText('addBeanTitle', 'Add Bean');
+  setText('addBeanSubtitle', 'Upload a photo, research the bean, then save.');
+  setText('saveBeanBtn', 'Save bean');
+
   const modal = document.getElementById('addBeanModal');
   if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function openEditBeanModal(bean) {
+  appState.modalMode = 'edit';
+  appState.editingBeanId = bean.id || '';
   resetBeanForm();
+
+  setText('addBeanTitle', 'Edit Bean');
+  setText('addBeanSubtitle', 'Update the bean details, then save changes.');
+  setText('saveBeanBtn', 'Save changes');
+
+  setValue('beanId', bean.id || '');
+  setValue('beanName', bean.bean || bean.name || '');
+  setValue('beanRoaster', bean.roaster || '');
+  setValue('beanOriginCountry', bean.origin_country || '');
+  setValue('beanOriginRegion', bean.origin_region || '');
+  setValue('beanPurchaseCountry', bean.purchase_country || '');
+  setValue('beanVariety', bean.variety || '');
+  setValue('beanProducer', bean.producer || '');
+  setValue('beanFarm', bean.farm || '');
+  setValue('beanAltitude', bean.altitude || '');
+  setValue('beanProcess', bean.process || '');
+  setValue('beanRoast', bean.roast || '');
+  setValue('beanNotes', bean.notes || '');
+  setValue('beanPhotoText', bean.photo_text || '');
+
+  setValue('beanExistingPhotoFileId', bean.photo_file_id || '');
+  setValue('beanExistingPhotoFileName', bean.photo_file_name || '');
+  setValue('beanExistingPhotoDriveLink', bean.photo_drive_link || '');
+  setValue('beanExistingPhotoPreviewDataUrl', bean.photo_preview_data_url || '');
+
+  appState.draftTags = Array.isArray(bean.tags) ? bean.tags.slice() : [];
+  renderDraftTags();
+
+  appState.uploadedPhoto = {
+    fileId: bean.photo_file_id || '',
+    fileName: bean.photo_file_name || '',
+    driveLink: bean.photo_drive_link || '',
+    previewDataUrl: bean.photo_preview_data_url || '',
+    photoText: bean.photo_text || '',
+    ocrStatus: bean.photo_file_id ? 'ok' : 'not_run'
+  };
+
+  renderPhotoPreview();
+  updatePhotoMeta();
+  setOcrStatus(bean.photo_file_id ? 'OCR: existing photo loaded' : 'OCR: not run yet', bean.photo_file_id ? 'success' : 'neutral');
+  setResearchStatus('You can update the bean details or run Research Bean again.');
+
+  const modal = document.getElementById('addBeanModal');
+  if (!modal) return;
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
 }
@@ -859,9 +752,14 @@ function closeAddBeanModal() {
 
 function resetBeanForm() {
   [
-    'beanName','beanRoaster','beanOriginCountry','beanOriginRegion','beanPurchaseCountry',
-    'beanVariety','beanProducer','beanFarm','beanAltitude','beanProcess','beanRoast','beanNotes','beanPhotoText'
+    'beanId','beanName','beanRoaster','beanOriginCountry','beanOriginRegion','beanPurchaseCountry',
+    'beanVariety','beanProducer','beanFarm','beanAltitude','beanProcess','beanRoast','beanNotes',
+    'beanPhotoText','beanExistingPhotoFileId','beanExistingPhotoFileName','beanExistingPhotoDriveLink',
+    'beanExistingPhotoPreviewDataUrl'
   ].forEach((id) => setValue(id, ''));
+
+  const fileInput = document.getElementById('beanPhotoFile');
+  if (fileInput) fileInput.value = '';
 
   appState.draftTags = [];
   appState.uploadedPhoto = {
@@ -953,12 +851,13 @@ async function onResearchBean() {
 async function onSaveBean(event) {
   event.preventDefault();
   const beanData = collectBeanFormData();
+  const action = appState.modalMode === 'edit' ? 'updateBean' : 'saveBean';
 
   try {
     const response = await fetchJson(resolveScriptUrl(), {
       method: 'POST',
       body: {
-        action: 'saveBean',
+        action,
         beanData
       }
     });
@@ -967,7 +866,12 @@ async function onSaveBean(event) {
     if (saved) {
       await loadBeans();
       closeAddBeanModal();
-      setAppStatus('Bean saved.', 'success');
+      setAppStatus(appState.modalMode === 'edit' ? 'Bean updated.' : 'Bean saved.', 'success');
+
+      if (getValue('helperBeanSelect') === saved.id) {
+        const refreshed = appState.beans.find((item) => item.id === saved.id) || saved;
+        renderHelperBeanSummary(refreshed);
+      }
     }
   } catch (error) {
     console.error(error);
@@ -976,7 +880,26 @@ async function onSaveBean(event) {
 }
 
 function collectBeanFormData() {
+  const existingPhoto = {
+    fileId: getValue('beanExistingPhotoFileId'),
+    fileName: getValue('beanExistingPhotoFileName'),
+    driveLink: getValue('beanExistingPhotoDriveLink'),
+    previewDataUrl: getValue('beanExistingPhotoPreviewDataUrl')
+  };
+
+  const finalPhoto = appState.uploadedPhoto.fileId
+    ? appState.uploadedPhoto
+    : {
+        fileId: existingPhoto.fileId,
+        fileName: existingPhoto.fileName,
+        driveLink: existingPhoto.driveLink,
+        previewDataUrl: existingPhoto.previewDataUrl,
+        photoText: getValue('beanPhotoText'),
+        ocrStatus: existingPhoto.fileId ? 'ok' : 'not_run'
+      };
+
   return {
+    id: getValue('beanId') || appState.editingBeanId || '',
     bean: getValue('beanName'),
     name: getValue('beanName'),
     roaster: getValue('beanRoaster'),
@@ -991,10 +914,10 @@ function collectBeanFormData() {
     roast: getValue('beanRoast'),
     notes: getValue('beanNotes'),
     tags: [...appState.draftTags],
-    photo_file_id: appState.uploadedPhoto.fileId || '',
-    photo_file_name: appState.uploadedPhoto.fileName || '',
-    photo_drive_link: appState.uploadedPhoto.driveLink || '',
-    photo_preview_data_url: appState.uploadedPhoto.previewDataUrl || '',
+    photo_file_id: finalPhoto.fileId || '',
+    photo_file_name: finalPhoto.fileName || '',
+    photo_drive_link: finalPhoto.driveLink || '',
+    photo_preview_data_url: finalPhoto.previewDataUrl || '',
     photo_text: getValue('beanPhotoText')
   };
 }
@@ -1114,8 +1037,10 @@ function setAppStatus(message, tone = 'info') {
 }
 
 function resolveScriptUrl() {
-  const saved = getValue('scriptUrl');
-  return saved || appState.settings.scriptUrl || APPS_SCRIPT_URL;
+  const liveValue = getValue('scriptUrl');
+  if (liveValue) return liveValue;
+  if (appState.settings.scriptUrl) return appState.settings.scriptUrl;
+  return APPS_SCRIPT_URL;
 }
 
 function getValue(id) {
@@ -1126,6 +1051,11 @@ function getValue(id) {
 function setValue(id, value) {
   const el = document.getElementById(id);
   if (el) el.value = value || '';
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value || '';
 }
 
 async function fetchJson(url, options = {}) {
@@ -1175,11 +1105,4 @@ function escapeHtml(value) {
 
 function escapeAttribute(value) {
   return escapeHtml(value);
-}
-
-function cssEscape(value) {
-  if (window.CSS && typeof window.CSS.escape === 'function') {
-    return window.CSS.escape(value);
-  }
-  return String(value || '').replace(/"/g, '\\"');
 }
