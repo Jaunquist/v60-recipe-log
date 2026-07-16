@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filteredBeans: [],
     activeView: 'library',
     activeTag: '',
+    openBeanId: '',
     settings: {
       sheetUrl: '',
       scriptUrl: APPS_SCRIPT_URL,
@@ -432,86 +433,106 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBeanList();
   }
 
-  function renderBeanList() {
-    if (!els.beanList) return;
+function renderBeanList() {
+  if (!els.beanList) return;
 
-    if (!state.filteredBeans.length) {
-      els.beanList.innerHTML = `<div class="empty-state">No beans found.</div>`;
-      return;
-    }
+  if (!state.filteredBeans.length) {
+    els.beanList.innerHTML = `<div class="empty-state">No beans found.</div>`;
+    return;
+  }
 
-    els.beanList.innerHTML = state.filteredBeans.map((bean) => {
-      const flag = countryFlag(bean.origin_country);
-      const originLine = [flag, bean.origin_country, bean.origin_region].filter(Boolean).join(' ');
-      const tagHtml = bean.tags.length
-        ? `<div class="tags-wrap">${bean.tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</div>`
-        : '';
+  const openBeanId = state.openBeanId || '';
 
-      return `
-        <article class="bean-card">
-          <div class="bean-card__top">
+  els.beanList.innerHTML = state.filteredBeans.map((bean) => {
+    const flag = countryFlag(bean.origin_country);
+    const originLine = [flag, bean.origin_country, bean.origin_region].filter(Boolean).join(' ');
+    const isOpen = openBeanId === bean.id;
+    const tagHtml = bean.tags.length
+      ? `<div class="tags-wrap">${bean.tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</div>`
+      : '';
+
+    return `
+      <article class="bean-card ${isOpen ? 'bean-card--open' : ''}" data-bean-card="${escapeHtml(bean.id)}">
+        <button
+          type="button"
+          class="bean-card__summary"
+          data-bean-toggle="${escapeHtml(bean.id)}"
+          aria-expanded="${isOpen ? 'true' : 'false'}"
+        >
+          <div class="bean-card__summary-main">
             <div>
               <h3>${escapeHtml(bean.bean || 'Untitled bean')}</h3>
               <div class="muted">${escapeHtml(bean.roaster || 'Unknown roaster')}</div>
             </div>
+            <div class="bean-card__summary-meta">
+              ${originLine ? `<div>${escapeHtml(originLine)}</div>` : ''}
+              ${bean.process ? `<div>${escapeHtml(bean.process)}</div>` : ''}
+              ${bean.roast ? `<div>${escapeHtml(bean.roast)}</div>` : ''}
+            </div>
           </div>
+          <span class="bean-card__chevron" aria-hidden="true">${isOpen ? '−' : '+'}</span>
+        </button>
 
-          <div class="bean-card__meta">
-            ${originLine ? `<div>${escapeHtml(originLine)}</div>` : ''}
-            ${bean.process ? `<div>${escapeHtml(bean.process)}</div>` : ''}
-            ${bean.roast ? `<div>${escapeHtml(bean.roast)}</div>` : ''}
-          </div>
-
+        <div class="bean-card__details ${isOpen ? '' : 'hidden'}" data-bean-details="${escapeHtml(bean.id)}">
           ${tagHtml}
-
           ${bean.notes ? `<p class="bean-card__notes">${escapeHtml(bean.notes)}</p>` : ''}
-
           <div class="action-row">
             <button type="button" class="bean-use-btn" data-bean-id="${escapeHtml(bean.id)}">Use this bean</button>
             <button type="button" class="bean-edit-btn" data-bean-id="${escapeHtml(bean.id)}">Edit</button>
             <button type="button" class="bean-delete-btn bean-delete-btn--ghost" data-bean-id="${escapeHtml(bean.id)}">Delete</button>
           </div>
-        </article>
-      `;
-    }).join('');
+        </div>
+      </article>
+    `;
+  }).join('');
 
-    Array.from(document.querySelectorAll('.bean-use-btn')).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        state.selectedBeanId = btn.dataset.beanId || '';
-        if (els.helperBeanSelect) els.helperBeanSelect.value = state.selectedBeanId;
-        syncHelperBeanSummary();
-        setView('helper');
-      });
+  Array.from(document.querySelectorAll('[data-bean-toggle]')).forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const beanId = btn.dataset.beanToggle || '';
+      state.openBeanId = state.openBeanId === beanId ? '' : beanId;
+      renderBeanList();
     });
+  });
 
-    Array.from(document.querySelectorAll('.bean-edit-btn')).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const bean = state.beans.find((item) => item.id === btn.dataset.beanId);
-        if (bean) openBeanModal(bean);
-      });
+  Array.from(document.querySelectorAll('.bean-use-btn')).forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.selectedBeanId = btn.dataset.beanId || '';
+      if (els.helperBeanSelect) els.helperBeanSelect.value = state.selectedBeanId;
+      syncHelperBeanSummary();
+      setView('helper');
     });
+  });
 
-    Array.from(document.querySelectorAll('.bean-delete-btn')).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const beanId = btn.dataset.beanId;
-        if (!beanId) return;
-        if (!window.confirm('Delete this bean?')) return;
+  Array.from(document.querySelectorAll('.bean-edit-btn')).forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const bean = state.beans.find((item) => item.id === btn.dataset.beanId);
+      if (bean) openBeanModal(bean);
+    });
+  });
 
-        try {
-          setStatus('Deleting bean…', 'info');
-          await fetchJson(resolveScriptUrl(), {
-            method: 'POST',
-            body: { action: 'deleteBean', beanId }
-          });
-          await loadBeans();
-          setStatus('Bean deleted.', 'success');
-        } catch (error) {
-          setStatus(error.message || 'Could not delete bean.', 'error');
+  Array.from(document.querySelectorAll('.bean-delete-btn')).forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const beanId = btn.dataset.beanId;
+      if (!beanId) return;
+      if (!window.confirm('Delete this bean?')) return;
+
+      try {
+        setStatus('Deleting bean…', 'info');
+        await fetchJson(resolveScriptUrl(), {
+          method: 'POST',
+          body: { action: 'deleteBean', beanId }
+        });
+        if (state.openBeanId === beanId) {
+          state.openBeanId = '';
         }
-      });
+        await loadBeans();
+        setStatus('Bean deleted.', 'success');
+      } catch (error) {
+        setStatus(error.message || 'Could not delete bean.', 'error');
+      }
     });
-  }
-
+  });
+}
   function renderHelperBeanOptions() {
     if (!els.helperBeanSelect) return;
 
