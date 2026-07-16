@@ -71,7 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ocrSource: ''
     },
     currentRecipeData: null,
-    currentRecipeStyle: 'hot'
+    currentRecipeStyle: 'hot',
+    logs: [],
+    logsByBeanId: {},
+    brewCountByBeanId: {},
+    latestLogByBeanId: {}
   };
 
   const els = {
@@ -95,6 +99,18 @@ document.addEventListener('DOMContentLoaded', () => {
     recipeStatus: document.getElementById('recipeStatus'),
     recipeStyleToggle: document.getElementById('recipeStyleToggle'),
     helperOutput: document.getElementById('helperOutput'),
+
+    brewLogList: document.getElementById('brewLogList'),
+    brewLogForm: document.getElementById('brewLogForm'),
+    brewLogStatus: document.getElementById('brewLogStatus'),
+    saveBrewLogBtn: document.getElementById('saveBrewLogBtn'),
+    resetBrewLogBtn: document.getElementById('resetBrewLogBtn'),
+    brewDate: document.getElementById('brewDate'),
+    brewGrind: document.getElementById('brewGrind'),
+    brewDose: document.getElementById('brewDose'),
+    brewWater: document.getElementById('brewWater'),
+    brewTemp: document.getElementById('brewTemp'),
+    brewNotes: document.getElementById('brewNotes'),
 
     settingsForm: document.getElementById('settings-form'),
     sheetUrl: document.getElementById('sheetUrl'),
@@ -146,6 +162,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!els.appStatus) return;
     els.appStatus.textContent = message || '';
     els.appStatus.dataset.status = tone;
+  }
+
+  function setBrewLogStatus(message, tone = '') {
+    if (!els.brewLogStatus) return;
+    els.brewLogStatus.textContent = message || '';
+    if (tone) {
+      els.brewLogStatus.className = `field-hint brew-log-status`;
+      els.brewLogStatus.dataset.status = tone;
+    } else {
+      els.brewLogStatus.className = 'field-hint';
+      delete els.brewLogStatus.dataset.status;
+    }
   }
 
   function escapeHtml(value) {
@@ -207,8 +235,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const response = await fetch(url, init);
     const text = await response.text();
-    let json;
 
+    let json;
     try {
       json = JSON.parse(text);
     } catch (error) {
@@ -268,6 +296,37 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       els.photoFolderHint.textContent = 'Paste a full Google Drive folder URL and it will auto-convert to the folder ID.';
     }
+  }
+
+  function todayIsoDate() {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  }
+
+  function normalizeBeanFromApi(bean) {
+    const tags = Array.isArray(bean.tags) ? bean.tags : normalizeTags(bean.tags);
+    return {
+      ...bean,
+      id: String(bean.id || ''),
+      bean: bean.bean || bean.name || '',
+      tags
+    };
+  }
+
+  function normalizeLogFromApi(log) {
+    return {
+      ...log,
+      id: String(log.id || ''),
+      beanId: String(log.beanId || ''),
+      timestamp: String(log.timestamp || ''),
+      brew_date: String(log.brew_date || ''),
+      grind: String(log.grind || ''),
+      dose_g: log.dose_g == null ? '' : String(log.dose_g),
+      water_g: log.water_g == null ? '' : String(log.water_g),
+      water_temp_c: log.water_temp_c == null ? '' : String(log.water_temp_c),
+      notes: String(log.notes || '')
+    };
   }
 
   async function loadSettings() {
@@ -339,16 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function normalizeBeanFromApi(bean) {
-    const tags = Array.isArray(bean.tags) ? bean.tags : normalizeTags(bean.tags);
-    return {
-      ...bean,
-      id: String(bean.id || ''),
-      bean: bean.bean || bean.name || '',
-      tags
-    };
-  }
-
   async function loadBeans() {
     try {
       setStatus('Loading beans…', 'info');
@@ -356,12 +405,67 @@ document.addEventListener('DOMContentLoaded', () => {
       state.beans = Array.isArray(response.data) ? response.data.map(normalizeBeanFromApi) : [];
       filterAndRenderBeans();
       renderHelperBeanOptions();
+      syncHelperBeanSummary();
       setStatus(`Loaded ${state.beans.length} bean${state.beans.length === 1 ? '' : 's'}.`, 'success');
     } catch (error) {
       state.beans = [];
       filterAndRenderBeans();
       renderHelperBeanOptions();
+      syncHelperBeanSummary();
       setStatus(error.message || 'Could not load beans.', 'error');
+    }
+  }
+
+  async function loadLogs(beanId = '') {
+    try {
+      const query = beanId ? `?type=logs&beanId=${encodeURIComponent(beanId)}` : '?type=logs';
+      const response = await fetchJson(`${resolveScriptUrl()}${query}`);
+      const logs = Array.isArray(response.data) ? response.data.map(normalizeLogFromApi) : [];
+
+      if (beanId) {
+        state.logsByBeanId[beanId] = logs.slice();
+        state.brewCountByBeanId[beanId] = logs.length;
+        state.latestLogByBeanId[beanId] = logs.length ? logs[0] : null;
+
+        state.logs = Object.values(state.logsByBeanId).flat();
+      } else {
+        state.logs = logs.slice();
+        const byBeanId = {};
+        const countByBeanId = {};
+        const latestByBeanId = {};
+
+        logs.forEach((log) => {
+          const id = log.beanId;
+          if (!id) return;
+          if (!byBeanId[id]) byBeanId[id] = [];
+          byBeanId[id].push(log);
+        });
+
+        Object.keys(byBeanId).forEach((id) => {
+          byBeanId[id].sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+          countByBeanId[id] = byBeanId[id].length;
+          latestByBeanId[id] = byBeanId[id][0] || null;
+        });
+
+        state.logsByBeanId = byBeanId;
+        state.brewCountByBeanId = countByBeanId;
+        state.latestLogByBeanId = latestByBeanId;
+      }
+
+      renderBeanList();
+      renderBrewLogList();
+      refillBrewLogForm();
+      syncHelperBeanSummary();
+    } catch (error) {
+      if (!beanId) {
+        state.logs = [];
+        state.logsByBeanId = {};
+        state.brewCountByBeanId = {};
+        state.latestLogByBeanId = {};
+      }
+      renderBeanList();
+      renderBrewLogList();
+      setStatus(error.message || 'Could not load brew logs.', 'error');
     }
   }
 
@@ -433,111 +537,127 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBeanList();
   }
 
-function renderBeanList() {
-  if (!els.beanList) return;
-
-  if (!state.filteredBeans.length) {
-    els.beanList.innerHTML = `<div class="empty-state">No beans found.</div>`;
-    return;
+  function formatBrewCount(beanId) {
+    const count = Number(state.brewCountByBeanId[beanId] || 0);
+    return `${count} brew${count === 1 ? '' : 's'}`;
   }
 
-  const openBeanId = state.openBeanId || '';
+  function renderBeanList() {
+    if (!els.beanList) return;
 
-  els.beanList.innerHTML = state.filteredBeans.map((bean) => {
-    const flag = countryFlag(bean.origin_country);
-    const originLine = [flag, bean.origin_country, bean.origin_region].filter(Boolean).join(' ');
-    const isOpen = openBeanId === bean.id;
-    const tagHtml = bean.tags.length
-      ? `<div class="tags-wrap">${bean.tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</div>`
-      : '';
+    if (!state.filteredBeans.length) {
+      els.beanList.innerHTML = `<div class="empty-state">No beans found.</div>`;
+      return;
+    }
 
-    return `
-      <article class="bean-card ${isOpen ? 'bean-card--open' : ''}" data-bean-card="${escapeHtml(bean.id)}">
-        <button
-          type="button"
-          class="bean-card__summary"
-          data-bean-toggle="${escapeHtml(bean.id)}"
-          aria-expanded="${isOpen ? 'true' : 'false'}"
-        >
-          <div class="bean-card__summary-main">
-            <div>
-              <h3>${escapeHtml(bean.bean || 'Untitled bean')}</h3>
-              <div class="muted">${escapeHtml(bean.roaster || 'Unknown roaster')}</div>
+    const openBeanId = state.openBeanId;
+
+    els.beanList.innerHTML = state.filteredBeans.map((bean) => {
+      const flag = countryFlag(bean.origin_country);
+      const originLine = [flag, bean.origin_country, bean.origin_region].filter(Boolean).join(' ');
+      const isOpen = openBeanId === bean.id;
+      const brewCount = formatBrewCount(bean.id);
+
+      const tagHtml = bean.tags.length
+        ? `<div class="tags-wrap">${bean.tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</div>`
+        : '';
+
+      return `
+        <article class="bean-card ${isOpen ? 'bean-card--open' : ''}" data-bean-card="${escapeHtml(bean.id)}">
+          <button type="button" class="bean-card__summary" data-bean-toggle="${escapeHtml(bean.id)}" aria-expanded="${isOpen ? 'true' : 'false'}">
+            <div class="bean-card__summary-main">
+              <div>
+                <h3>${escapeHtml(bean.bean || 'Untitled bean')}</h3>
+                <div class="muted">${escapeHtml(bean.roaster || 'Unknown roaster')}</div>
+              </div>
+              <div class="bean-card__summary-meta">
+                ${originLine ? `<div>${escapeHtml(originLine)}</div>` : ''}
+                ${bean.process ? `<div>${escapeHtml(bean.process)}</div>` : ''}
+                ${bean.roast ? `<div>${escapeHtml(bean.roast)}</div>` : ''}
+                <div>${escapeHtml(brewCount)}</div>
+              </div>
             </div>
-            <div class="bean-card__summary-meta">
-              ${originLine ? `<div>${escapeHtml(originLine)}</div>` : ''}
-              ${bean.process ? `<div>${escapeHtml(bean.process)}</div>` : ''}
-              ${bean.roast ? `<div>${escapeHtml(bean.roast)}</div>` : ''}
+            <span class="bean-card__chevron" aria-hidden="true">${isOpen ? '–' : '+'}</span>
+          </button>
+
+          <div class="bean-card__details ${isOpen ? '' : 'hidden'}" data-bean-details="${escapeHtml(bean.id)}">
+            ${tagHtml}
+            ${bean.notes ? `<p class="bean-card__notes">${escapeHtml(bean.notes)}</p>` : ''}
+            <div class="action-row">
+              <button type="button" class="bean-use-btn" data-bean-id="${escapeHtml(bean.id)}">Use this bean</button>
+              <button type="button" class="bean-edit-btn" data-bean-id="${escapeHtml(bean.id)}">Edit</button>
+              <button type="button" class="bean-delete-btn bean-delete-btn--ghost" data-bean-id="${escapeHtml(bean.id)}">Delete</button>
             </div>
           </div>
-          <span class="bean-card__chevron" aria-hidden="true">${isOpen ? '−' : '+'}</span>
-        </button>
+        </article>
+      `;
+    }).join('');
 
-        <div class="bean-card__details ${isOpen ? '' : 'hidden'}" data-bean-details="${escapeHtml(bean.id)}">
-          ${tagHtml}
-          ${bean.notes ? `<p class="bean-card__notes">${escapeHtml(bean.notes)}</p>` : ''}
-          <div class="action-row">
-            <button type="button" class="bean-use-btn" data-bean-id="${escapeHtml(bean.id)}">Use this bean</button>
-            <button type="button" class="bean-edit-btn" data-bean-id="${escapeHtml(bean.id)}">Edit</button>
-            <button type="button" class="bean-delete-btn bean-delete-btn--ghost" data-bean-id="${escapeHtml(bean.id)}">Delete</button>
-          </div>
-        </div>
-      </article>
-    `;
-  }).join('');
-
-  Array.from(document.querySelectorAll('[data-bean-toggle]')).forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const beanId = btn.dataset.beanToggle || '';
-      state.openBeanId = state.openBeanId === beanId ? '' : beanId;
-      renderBeanList();
+    Array.from(document.querySelectorAll('[data-bean-toggle]')).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const beanId = btn.dataset.beanToggle;
+        state.openBeanId = state.openBeanId === beanId ? '' : beanId;
+        renderBeanList();
+      });
     });
-  });
 
-  Array.from(document.querySelectorAll('.bean-use-btn')).forEach((btn) => {
-    btn.addEventListener('click', () => {
-      state.selectedBeanId = btn.dataset.beanId || '';
-      if (els.helperBeanSelect) els.helperBeanSelect.value = state.selectedBeanId;
-      syncHelperBeanSummary();
-      setView('helper');
+    Array.from(document.querySelectorAll('.bean-use-btn')).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        state.selectedBeanId = btn.dataset.beanId || '';
+        if (els.helperBeanSelect) els.helperBeanSelect.value = state.selectedBeanId;
+        await handleSelectedBeanChange();
+        setView('helper');
+      });
     });
-  });
 
-  Array.from(document.querySelectorAll('.bean-edit-btn')).forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const bean = state.beans.find((item) => item.id === btn.dataset.beanId);
-      if (bean) openBeanModal(bean);
+    Array.from(document.querySelectorAll('.bean-edit-btn')).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const bean = state.beans.find((item) => item.id === btn.dataset.beanId);
+        if (bean) openBeanModal(bean);
+      });
     });
-  });
 
-  Array.from(document.querySelectorAll('.bean-delete-btn')).forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const beanId = btn.dataset.beanId;
-      if (!beanId) return;
-      if (!window.confirm('Delete this bean?')) return;
+    Array.from(document.querySelectorAll('.bean-delete-btn')).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const beanId = btn.dataset.beanId;
+        if (!beanId) return;
+        if (!window.confirm('Delete this bean?')) return;
 
-      try {
-        setStatus('Deleting bean…', 'info');
-        await fetchJson(resolveScriptUrl(), {
-          method: 'POST',
-          body: { action: 'deleteBean', beanId }
-        });
-        if (state.openBeanId === beanId) {
-          state.openBeanId = '';
+        try {
+          setStatus('Deleting bean…', 'info');
+          await fetchJson(resolveScriptUrl(), {
+            method: 'POST',
+            body: { action: 'deleteBean', beanId }
+          });
+
+          if (state.openBeanId === beanId) state.openBeanId = '';
+          if (state.selectedBeanId === beanId) {
+            state.selectedBeanId = '';
+            state.currentRecipeData = null;
+            state.currentRecipeStyle = 'hot';
+          }
+
+          delete state.logsByBeanId[beanId];
+          delete state.brewCountByBeanId[beanId];
+          delete state.latestLogByBeanId[beanId];
+
+          await loadBeans();
+          renderRecipeOutput();
+          renderBrewLogList();
+          refillBrewLogForm();
+          setStatus('Bean deleted.', 'success');
+        } catch (error) {
+          setStatus(error.message || 'Could not delete bean.', 'error');
         }
-        await loadBeans();
-        setStatus('Bean deleted.', 'success');
-      } catch (error) {
-        setStatus(error.message || 'Could not delete bean.', 'error');
-      }
+      });
     });
-  });
-}
+  }
+
   function renderHelperBeanOptions() {
     if (!els.helperBeanSelect) return;
 
     const options = [
-      `<option value="">Select bean</option>`,
+      `<option value="">Select a bean…</option>`,
       ...state.beans.map((bean) => `<option value="${escapeHtml(bean.id)}">${escapeHtml(bean.bean || bean.name || 'Untitled bean')}</option>`)
     ];
 
@@ -558,20 +678,23 @@ function renderBeanList() {
 
     if (!bean) {
       if (els.helperBeanSummary) {
-        els.helperBeanSummary.textContent = 'Select a bean to see its summary.';
+        els.helperBeanSummary.textContent = 'Select a bean to see its summary, recipe suggestions, and brew history.';
       }
       return;
     }
 
     state.selectedBeanId = bean.id;
+
     const flag = countryFlag(bean.origin_country);
     const origin = [flag, bean.origin_country, bean.origin_region].filter(Boolean).join(' ');
+    const brewCount = formatBrewCount(bean.id);
     const lines = [
-      bean.bean || '',
-      bean.roaster || '',
-      origin || '',
-      bean.process || '',
-      bean.roast || ''
+      bean.bean,
+      bean.roaster,
+      origin,
+      bean.process,
+      bean.roast,
+      brewCount
     ].filter(Boolean);
 
     if (els.helperBeanSummary) {
@@ -593,25 +716,44 @@ function renderBeanList() {
     els.recipeStyleToggle.innerHTML = styles.map((style) => {
       const label = style === 'iced_half_shaken' ? 'Iced' : 'Hot';
       const active = style === state.currentRecipeStyle ? 'active' : '';
-      return `<button type="button" class="recipe-style-btn ${active}" data-recipe-style="${style}">${label}</button>`;
+      return `<button type="button" class="recipe-style-btn ${active}" data-recipe-style="${escapeHtml(style)}">${label}</button>`;
     }).join('');
 
     Array.from(els.recipeStyleToggle.querySelectorAll('[data-recipe-style]')).forEach((btn) => {
       btn.addEventListener('click', () => {
         state.currentRecipeStyle = btn.dataset.recipeStyle || 'hot';
         renderRecipeOutput();
+        refillBrewLogForm();
       });
     });
+  }
+
+  function getActiveRecipe() {
+    if (!state.currentRecipeData || !state.currentRecipeData.recipes) return null;
+    return state.currentRecipeData.recipes[state.currentRecipeStyle] || state.currentRecipeData.recipes.hot || null;
   }
 
   function renderRecipeOutput() {
     if (!els.helperOutput) return;
 
-    if (!state.currentRecipeData || !state.currentRecipeData.recipes) {
+    const recipe = getActiveRecipe();
+
+    if (!state.currentRecipeData || !state.currentRecipeData.recipes || !recipe) {
       els.helperOutput.innerHTML = `
-        <div class="helper-placeholder">
-          Generate a recipe to see grind size, pours, time, and expected notes.
-        </div>
+        <article class="recipe-card">
+          <div class="recipe-card__header">
+            <div>
+              <h3>Recommended brew</h3>
+              <p class="muted">Generate a recipe to see grind size, pours, time, and expected notes.</p>
+            </div>
+          </div>
+          <div class="helper-placeholder">
+            <div>
+              <strong>Generate a recipe.</strong>
+              <p class="muted">Then review previous brew logs below and save feedback for the next attempt.</p>
+            </div>
+          </div>
+        </article>
       `;
       if (els.recipeStyleToggle) {
         els.recipeStyleToggle.classList.add('hidden');
@@ -620,68 +762,213 @@ function renderBeanList() {
       return;
     }
 
-    const recipe = state.currentRecipeData.recipes[state.currentRecipeStyle] || state.currentRecipeData.recipes.hot;
-    if (!recipe) {
-      els.helperOutput.innerHTML = `<div class="helper-placeholder">No recipe returned.</div>`;
-      return;
-    }
-
     renderRecipeStyleToggle(state.currentRecipeData);
 
     const pours = Array.isArray(recipe.pours) ? recipe.pours : [];
-    const extraIcedFields = recipe.hot_water_g || recipe.brew_ice_g ? `
-      <div class="recipe-grid">
-        ${recipe.hot_water_g ? `<div><strong>Hot water</strong><span>${escapeHtml(recipe.hot_water_g)} g</span></div>` : ''}
-        ${recipe.brew_ice_g ? `<div><strong>Ice</strong><span>${escapeHtml(recipe.brew_ice_g)} g</span></div>` : ''}
-      </div>
-    ` : '';
+    const extraIcedFields = recipe.hot_water_g || recipe.brew_ice_g
+      ? `
+        <div class="recipe-grid">
+          ${recipe.hot_water_g ? `<div><strong>Hot water</strong><span>${escapeHtml(recipe.hot_water_g)} g</span></div>` : ''}
+          ${recipe.brew_ice_g ? `<div><strong>Ice</strong><span>${escapeHtml(recipe.brew_ice_g)} g</span></div>` : ''}
+        </div>
+      `
+      : '';
 
     els.helperOutput.innerHTML = `
-      <div class="recipe-output">
-        <div class="recipe-grid">
-          <div><strong>Grind</strong><span>${escapeHtml(recipe.grind || '')}</span></div>
-          <div><strong>Dose</strong><span>${escapeHtml(recipe.dose_g || '')} g</span></div>
-          <div><strong>Water</strong><span>${escapeHtml(recipe.water_total_g || '')} g</span></div>
-          <div><strong>Temp</strong><span>${escapeHtml(recipe.water_temp_c || '')} C</span></div>
-          <div><strong>Time</strong><span>${escapeHtml(recipe.target_time || '')}</span></div>
-          <div><strong>Ratio</strong><span>${escapeHtml(recipe.ratio || '')}</span></div>
+      <article class="recipe-card">
+        <div class="recipe-card__header">
+          <div>
+            <h3>${escapeHtml(recipe.label || 'Recommended brew')}</h3>
+            <p class="muted">Generated for this bean${state.latestLogByBeanId[state.selectedBeanId] ? ' using your latest brew feedback.' : '.'}</p>
+          </div>
         </div>
 
-        ${extraIcedFields}
-
-        ${recipe.why ? `
-          <div class="recipe-block">
-            <h4>Why this recipe</h4>
-            <p>${escapeHtml(recipe.why)}</p>
+        <div class="recipe-output">
+          <div class="recipe-grid">
+            <div><strong>Grind</strong><span>${escapeHtml(recipe.grind || '')}</span></div>
+            <div><strong>Dose</strong><span>${escapeHtml(recipe.dose_g || '')} g</span></div>
+            <div><strong>Water</strong><span>${escapeHtml(recipe.water_total_g || '')} g</span></div>
+            <div><strong>Temp</strong><span>${escapeHtml(recipe.water_temp_c || '')} °C</span></div>
+            <div><strong>Time</strong><span>${escapeHtml(recipe.target_time || '')}</span></div>
+            <div><strong>Ratio</strong><span>${escapeHtml(recipe.ratio || '')}</span></div>
           </div>
-        ` : ''}
 
-        ${pours.length ? `
-          <div class="recipe-block">
-            <h4>Pours</h4>
-            <ol>
-              ${pours.map((pour) => `<li>${escapeHtml(pour)}</li>`).join('')}
-            </ol>
-          </div>
-        ` : ''}
+          ${extraIcedFields}
 
-        ${recipe.expected_notes ? `
-          <div class="recipe-block">
-            <h4>Expected notes</h4>
-            <p>${escapeHtml(recipe.expected_notes)}</p>
-          </div>
-        ` : ''}
-      </div>
+          ${recipe.why ? `
+            <div class="recipe-block">
+              <h4>Why this recipe</h4>
+              <p>${escapeHtml(recipe.why)}</p>
+            </div>
+          ` : ''}
+
+          ${pours.length ? `
+            <div class="recipe-block">
+              <h4>Pours</h4>
+              <ol>${pours.map((pour) => `<li>${escapeHtml(pour)}</li>`).join('')}</ol>
+            </div>
+          ` : ''}
+
+          ${recipe.expected_notes ? `
+            <div class="recipe-block">
+              <h4>Expected notes</h4>
+              <p>${escapeHtml(recipe.expected_notes)}</p>
+            </div>
+          ` : ''}
+        </div>
+      </article>
     `;
+  }
+
+  function getLogsForBean(beanId) {
+    return Array.isArray(state.logsByBeanId[beanId]) ? state.logsByBeanId[beanId] : [];
+  }
+
+  function renderBrewLogList() {
+    if (!els.brewLogList) return;
+
+    const bean = getSelectedHelperBean();
+    if (!bean) {
+      els.brewLogList.innerHTML = `<div class="empty-state">Select a bean to view its brew sessions.</div>`;
+      return;
+    }
+
+    const logs = getLogsForBean(bean.id);
+
+    if (!logs.length) {
+      els.brewLogList.innerHTML = `<div class="empty-state">No brew sessions logged for this bean yet.</div>`;
+      return;
+    }
+
+    els.brewLogList.innerHTML = logs.map((log) => `
+      <article class="brew-log-item">
+        <div class="brew-log-item__top">
+          <div class="brew-log-item__date">${escapeHtml(log.brew_date || 'Undated brew')}</div>
+          <div class="brew-log-item__stamp">${escapeHtml(log.timestamp || '')}</div>
+        </div>
+
+        <div class="brew-log-item__grid">
+          <div><strong>Grind</strong><span>${escapeHtml(log.grind || '—')}</span></div>
+          <div><strong>Dose</strong><span>${escapeHtml(log.dose_g || '—')} ${log.dose_g ? 'g' : ''}</span></div>
+          <div><strong>Water</strong><span>${escapeHtml(log.water_g || '—')} ${log.water_g ? 'g' : ''}</span></div>
+          <div><strong>Temp</strong><span>${escapeHtml(log.water_temp_c || '—')} ${log.water_temp_c ? '°C' : ''}</span></div>
+        </div>
+
+        <div class="brew-log-item__notes">${escapeHtml(log.notes || 'No notes recorded.')}</div>
+      </article>
+    `).join('');
+  }
+
+  function getGeneratedRecipeDefaults() {
+    const recipe = getActiveRecipe();
+    if (!recipe) return null;
+
+    const defaultNote = [
+      recipe.why ? `Starting point: ${recipe.why}` : '',
+      recipe.expected_notes ? `Expected: ${recipe.expected_notes}` : ''
+    ].filter(Boolean).join('\n');
+
+    return {
+      brew_date: todayIsoDate(),
+      grind: recipe.grind || '',
+      dose_g: recipe.dose_g != null ? String(recipe.dose_g) : '',
+      water_g: recipe.water_total_g != null ? String(recipe.water_total_g) : '',
+      water_temp_c: recipe.water_temp_c != null ? String(recipe.water_temp_c) : '',
+      notes: defaultNote
+    };
+  }
+
+  function getLatestLogDefaults(beanId) {
+    const latestLog = state.latestLogByBeanId[beanId];
+    if (!latestLog) return null;
+
+    return {
+      brew_date: todayIsoDate(),
+      grind: latestLog.grind || '',
+      dose_g: latestLog.dose_g || '',
+      water_g: latestLog.water_g || '',
+      water_temp_c: latestLog.water_temp_c || '',
+      notes: latestLog.notes || ''
+    };
+  }
+
+  function refillBrewLogForm() {
+    const bean = getSelectedHelperBean();
+
+    if (!bean) {
+      if (els.brewDate) els.brewDate.value = todayIsoDate();
+      if (els.brewGrind) els.brewGrind.value = '';
+      if (els.brewDose) els.brewDose.value = '';
+      if (els.brewWater) els.brewWater.value = '';
+      if (els.brewTemp) els.brewTemp.value = '';
+      if (els.brewNotes) els.brewNotes.value = '';
+      setBrewLogStatus('Select a bean to begin logging brews.');
+      return;
+    }
+
+    const latestDefaults = getLatestLogDefaults(bean.id);
+    const recipeDefaults = getGeneratedRecipeDefaults();
+    const defaults = latestDefaults || recipeDefaults || {
+      brew_date: todayIsoDate(),
+      grind: '',
+      dose_g: '',
+      water_g: '',
+      water_temp_c: '',
+      notes: ''
+    };
+
+    if (els.brewDate) els.brewDate.value = defaults.brew_date || todayIsoDate();
+    if (els.brewGrind) els.brewGrind.value = defaults.grind || '';
+    if (els.brewDose) els.brewDose.value = defaults.dose_g || '';
+    if (els.brewWater) els.brewWater.value = defaults.water_g || '';
+    if (els.brewTemp) els.brewTemp.value = defaults.water_temp_c || '';
+    if (els.brewNotes) els.brewNotes.value = defaults.notes || '';
+
+    if (latestDefaults) {
+      setBrewLogStatus('Autofilled from the latest brew session.');
+    } else if (recipeDefaults) {
+      setBrewLogStatus('Autofilled from the current generated recipe.');
+    } else {
+      setBrewLogStatus('Ready to log a new brew for this bean.');
+    }
+  }
+
+  function collectBrewLogFormData() {
+    return {
+      beanId: state.selectedBeanId || '',
+      brew_date: els.brewDate ? els.brewDate.value : '',
+      grind: els.brewGrind ? els.brewGrind.value.trim() : '',
+      dose_g: els.brewDose ? els.brewDose.value.trim() : '',
+      water_g: els.brewWater ? els.brewWater.value.trim() : '',
+      water_temp_c: els.brewTemp ? els.brewTemp.value.trim() : '',
+      notes: els.brewNotes ? els.brewNotes.value.trim() : ''
+    };
+  }
+
+  async function handleSelectedBeanChange() {
+    state.selectedBeanId = els.helperBeanSelect ? els.helperBeanSelect.value : '';
+    state.currentRecipeData = null;
+    state.currentRecipeStyle = 'hot';
+
+    syncHelperBeanSummary();
+    renderRecipeOutput();
+
+    if (!state.selectedBeanId) {
+      renderBrewLogList();
+      refillBrewLogForm();
+      return;
+    }
+
+    await loadLogs(state.selectedBeanId);
+    renderBrewLogList();
+    refillBrewLogForm();
   }
 
   async function generateRecipe() {
     const bean = getSelectedHelperBean();
 
     if (!bean) {
-      if (els.recipeStatus) {
-        els.recipeStatus.textContent = 'Select a bean first.';
-      }
+      if (els.recipeStatus) els.recipeStatus.textContent = 'Select a bean first.';
       setStatus('Select a bean first.', 'warn');
       return;
     }
@@ -705,9 +992,11 @@ function renderBeanList() {
       photo_text: bean.photo_text || ''
     };
 
+    const latestLog = state.latestLogByBeanId[bean.id] || null;
+
     try {
       if (els.recipeStatus) {
-        els.recipeStatus.textContent = 'Generating recipe…';
+        els.recipeStatus.textContent = latestLog ? 'Generating recipe with latest brew feedback…' : 'Generating recipe…';
       }
       setStatus('Generating recipe…', 'info');
 
@@ -715,23 +1004,75 @@ function renderBeanList() {
         method: 'POST',
         body: {
           action: 'generateRecipe',
-          beanData
+          beanData,
+          latestLog
         }
       });
 
       state.currentRecipeData = response.data || null;
-      state.currentRecipeStyle = (state.currentRecipeData && state.currentRecipeData.defaultStyle) || 'hot';
-      renderRecipeOutput();
+      state.currentRecipeStyle = state.currentRecipeData ? (state.currentRecipeData.defaultStyle || 'hot') : 'hot';
 
-      if (els.recipeStatus) {
-        els.recipeStatus.textContent = 'Recipe generated.';
-      }
+      renderRecipeOutput();
+      refillBrewLogForm();
+
+      if (els.recipeStatus) els.recipeStatus.textContent = 'Recipe generated.';
       setStatus('Recipe generated.', 'success');
     } catch (error) {
-      if (els.recipeStatus) {
-        els.recipeStatus.textContent = error.message || 'Recipe generation failed.';
-      }
+      if (els.recipeStatus) els.recipeStatus.textContent = error.message || 'Recipe generation failed.';
       setStatus(error.message || 'Recipe generation failed.', 'error');
+    }
+  }
+
+  async function saveBrewLog(event) {
+    event.preventDefault();
+
+    const bean = getSelectedHelperBean();
+    if (!bean) {
+      setBrewLogStatus('Select a bean before saving a brew log.', 'warn');
+      setStatus('Select a bean before saving a brew log.', 'warn');
+      return;
+    }
+
+    const logData = collectBrewLogFormData();
+    if (!logData.beanId) {
+      setBrewLogStatus('Missing bean selection.', 'error');
+      return;
+    }
+
+    try {
+      setBrewLogStatus('Saving brew log…', 'warn');
+      setStatus('Saving brew log…', 'info');
+
+      const response = await fetchJson(resolveScriptUrl(), {
+        method: 'POST',
+        body: {
+          action: 'saveBrewLog',
+          logData
+        }
+      });
+
+      const savedLog = response.data && response.data.log ? normalizeLogFromApi(response.data.log) : null;
+      if (!savedLog) {
+        throw new Error('No saved brew log returned.');
+      }
+
+      if (!state.logsByBeanId[bean.id]) state.logsByBeanId[bean.id] = [];
+      state.logsByBeanId[bean.id].unshift(savedLog);
+      state.logsByBeanId[bean.id].sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+      state.brewCountByBeanId[bean.id] = state.logsByBeanId[bean.id].length;
+      state.latestLogByBeanId[bean.id] = state.logsByBeanId[bean.id][0] || null;
+      state.logs = Object.values(state.logsByBeanId).flat();
+
+      renderBeanList();
+      renderBrewLogList();
+      syncHelperBeanSummary();
+      refillBrewLogForm();
+
+      setBrewLogStatus('Brew log saved.', 'success');
+      setStatus('Brew log saved.', 'success');
+    } catch (error) {
+      setBrewLogStatus(error.message || 'Could not save brew log.', 'error');
+      setStatus(error.message || 'Could not save brew log.', 'error');
     }
   }
 
@@ -762,9 +1103,7 @@ function renderBeanList() {
     if (els.beanPhotoMeta) {
       if (state.uploadedPhoto.fileName) {
         const parts = [state.uploadedPhoto.fileName];
-        if (state.uploadedPhoto.driveLink) {
-          parts.push('Saved to Drive');
-        }
+        if (state.uploadedPhoto.driveLink) parts.push('Saved to Drive');
         els.beanPhotoMeta.textContent = parts.join(' · ');
       } else {
         els.beanPhotoMeta.textContent = 'No photo uploaded yet.';
@@ -773,10 +1112,10 @@ function renderBeanList() {
 
     if (els.ocrStatusLine) {
       const status = state.uploadedPhoto.ocrStatus || 'not run yet';
-      const source = state.uploadedPhoto.ocrSource ? ` (${state.uploadedPhoto.ocrSource})` : '';
-      els.ocrStatusLine.textContent = `OCR: ${status}${source}`;
-
+      const source = state.uploadedPhoto.ocrSource ? ` · ${state.uploadedPhoto.ocrSource}` : '';
+      els.ocrStatusLine.textContent = `OCR status: ${status}${source}`;
       els.ocrStatusLine.classList.remove('ocr-status--neutral', 'ocr-status--success', 'ocr-status--warn');
+
       if (status === 'ok') {
         els.ocrStatusLine.classList.add('ocr-status--success');
       } else if (status === 'empty' || status === 'missing_api_key') {
@@ -786,10 +1125,7 @@ function renderBeanList() {
       }
     }
 
-    if (els.beanPhotoText) {
-      els.beanPhotoText.value = state.uploadedPhoto.photoText || '';
-    }
-
+    if (els.beanPhotoText) els.beanPhotoText.value = state.uploadedPhoto.photoText || '';
     if (els.beanExistingPhotoFileId) els.beanExistingPhotoFileId.value = state.uploadedPhoto.fileId || '';
     if (els.beanExistingPhotoFileName) els.beanExistingPhotoFileName.value = state.uploadedPhoto.fileName || '';
     if (els.beanExistingPhotoDriveLink) els.beanExistingPhotoDriveLink.value = state.uploadedPhoto.driveLink || '';
@@ -829,7 +1165,6 @@ function renderBeanList() {
     }
 
     if (els.addBeanForm) els.addBeanForm.reset();
-
     state.beanTags = [];
     resetUploadedPhoto();
 
@@ -849,7 +1184,6 @@ function renderBeanList() {
       if (els.beanNotes) els.beanNotes.value = bean.notes || '';
 
       state.beanTags = normalizeTags(bean.tags);
-
       state.uploadedPhoto = {
         fileId: bean.photo_file_id || '',
         fileName: bean.photo_file_name || '',
@@ -859,8 +1193,8 @@ function renderBeanList() {
         ocrStatus: bean.photo_text ? 'ok' : 'not run yet',
         ocrSource: bean.photo_text ? 'saved' : ''
       };
-    } else {
-      if (els.beanId) els.beanId.value = '';
+    } else if (els.beanId) {
+      els.beanId.value = '';
     }
 
     renderBeanTagsPreview();
@@ -901,7 +1235,7 @@ function renderBeanList() {
       photo_file_name: state.uploadedPhoto.fileName || '',
       photo_drive_link: state.uploadedPhoto.driveLink || '',
       photo_preview_data_url: state.uploadedPhoto.previewDataUrl || '',
-      photo_text: els.beanPhotoText ? els.beanPhotoText.value.trim() : (state.uploadedPhoto.photoText || '')
+      photo_text: els.beanPhotoText ? els.beanPhotoText.value.trim() : state.uploadedPhoto.photoText || ''
     };
   }
 
@@ -920,7 +1254,7 @@ function renderBeanList() {
     if (els.beanNotes) els.beanNotes.value = bean.notes || '';
     if (els.beanPhotoText) els.beanPhotoText.value = bean.photo_text || '';
 
-    state.beanTags = uniqueStrings(normalizeTags(bean.tags));
+    state.beanTags = uniqueStrings(normalizeTags(bean.tags || []));
     renderBeanTagsPreview();
 
     state.uploadedPhoto.photoText = bean.photo_text || state.uploadedPhoto.photoText || '';
@@ -980,9 +1314,7 @@ function renderBeanList() {
     const beanData = collectBeanFormData();
 
     try {
-      if (els.researchStatus) {
-        els.researchStatus.textContent = 'Researching bean and translating to English…';
-      }
+      if (els.researchStatus) els.researchStatus.textContent = 'Researching bean and translating to English…';
       setStatus('Researching bean…', 'info');
 
       const response = await fetchJson(resolveScriptUrl(), {
@@ -994,20 +1326,14 @@ function renderBeanList() {
       });
 
       const researchedBean = response.data && response.data.bean ? response.data.bean : null;
-      if (!researchedBean) {
-        throw new Error('No researched bean returned.');
-      }
+      if (!researchedBean) throw new Error('No researched bean returned.');
 
       applyResearchedBean(researchedBean);
 
-      if (els.researchStatus) {
-        els.researchStatus.textContent = 'Research complete. English details applied.';
-      }
+      if (els.researchStatus) els.researchStatus.textContent = 'Research complete. English details applied.';
       setStatus('Research complete.', 'success');
     } catch (error) {
-      if (els.researchStatus) {
-        els.researchStatus.textContent = error.message || 'Research failed.';
-      }
+      if (els.researchStatus) els.researchStatus.textContent = error.message || 'Research failed.';
       setStatus(error.message || 'Research failed.', 'error');
     }
   }
@@ -1030,18 +1356,15 @@ function renderBeanList() {
       });
 
       const savedBean = response.data && response.data.bean ? response.data.bean : null;
-      if (!savedBean) {
-        throw new Error('Bean save did not return a bean.');
-      }
+      if (!savedBean) throw new Error('Bean save did not return a bean.');
 
       closeBeanModal();
       await loadBeans();
 
-      state.selectedBeanId = savedBean.id || state.selectedBeanId;
-      if (els.helperBeanSelect) {
+      if (state.selectedBeanId === savedBean.id && els.helperBeanSelect) {
         els.helperBeanSelect.value = state.selectedBeanId;
+        syncHelperBeanSummary();
       }
-      syncHelperBeanSummary();
 
       setStatus(beanData.id ? 'Bean updated.' : 'Bean saved.', 'success');
     } catch (error) {
@@ -1058,6 +1381,7 @@ function renderBeanList() {
 
     const additions = raw.split(',').map((item) => item.trim()).filter(Boolean);
     state.beanTags = uniqueStrings(state.beanTags.concat(additions));
+
     if (els.beanTagInput) els.beanTagInput.value = '';
     renderBeanTagsPreview();
   }
@@ -1068,15 +1392,14 @@ function renderBeanList() {
 
     const additions = raw.split(',').map((item) => item.trim()).filter(Boolean);
     state.beanTags = uniqueStrings(state.beanTags.concat(additions));
+
     if (els.beanTagInput) els.beanTagInput.value = '';
     renderBeanTagsPreview();
   }
 
   function bindEvents() {
     els.navButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        setView(btn.dataset.view || 'library');
-      });
+      btn.addEventListener('click', () => setView(btn.dataset.view || 'library'));
     });
 
     if (els.beanSearchInput) {
@@ -1084,14 +1407,21 @@ function renderBeanList() {
     }
 
     if (els.helperBeanSelect) {
-      els.helperBeanSelect.addEventListener('change', () => {
-        state.selectedBeanId = els.helperBeanSelect.value || '';
-        syncHelperBeanSummary();
+      els.helperBeanSelect.addEventListener('change', async () => {
+        await handleSelectedBeanChange();
       });
     }
 
     if (els.generateRecipeBtn) {
       els.generateRecipeBtn.addEventListener('click', generateRecipe);
+    }
+
+    if (els.brewLogForm) {
+      els.brewLogForm.addEventListener('submit', saveBrewLog);
+    }
+
+    if (els.resetBrewLogBtn) {
+      els.resetBrewLogBtn.addEventListener('click', refillBrewLogForm);
     }
 
     if (els.settingsForm) {
@@ -1118,12 +1448,10 @@ function renderBeanList() {
     }
 
     if (els.addBeanModal) {
-      els.addBeanModal.addEventListener('click', (event) => {
-        const target = event.target;
-        if (target instanceof HTMLElement && target.dataset.closeAddBean === 'true') {
-          closeBeanModal();
-        }
-      });
+      const backdrop = els.addBeanModal.querySelector('.modal__backdrop');
+      if (backdrop) {
+        backdrop.addEventListener('click', closeBeanModal);
+      }
     }
 
     if (els.uploadPhotoBtn) {
@@ -1149,9 +1477,11 @@ function renderBeanList() {
     bindEvents();
     setView('library');
     renderRecipeOutput();
+    renderBrewLogList();
     renderBeanTagsPreview();
     renderBeanAvatar();
     renderPhotoMeta();
+    refillBrewLogForm();
 
     try {
       await loadSettings();
@@ -1161,8 +1491,9 @@ function renderBeanList() {
 
     try {
       await loadBeans();
+      await loadLogs();
     } catch (error) {
-      setStatus(error.message || 'Could not load beans.', 'error');
+      setStatus(error.message || 'Could not load app data.', 'error');
     }
   }
 
