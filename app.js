@@ -168,10 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!els.brewLogStatus) return;
     els.brewLogStatus.textContent = message || '';
     if (tone) {
-      els.brewLogStatus.className = `field-hint brew-log-status`;
+      els.brewLogStatus.className = 'field-hint brew-log-status';
       els.brewLogStatus.dataset.status = tone;
     } else {
-      els.brewLogStatus.className = 'field-hint';
+      els.brewLogStatus.className = 'field-hint brew-log-status';
       delete els.brewLogStatus.dataset.status;
     }
   }
@@ -206,7 +206,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function countryFlag(country) {
-    return COUNTRY_FLAGS[country] || '';
+    if (!country) return '🏳️';
+    return COUNTRY_FLAGS[country] || '🏳️';
   }
 
   function resolveScriptUrl() {
@@ -223,10 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function fetchJson(url, options = {}) {
     const method = options.method || 'GET';
-    const init = {
-      method,
-      headers: {}
-    };
+    const init = { method, headers: {} };
 
     if (method !== 'GET' && options.body) {
       init.headers['Content-Type'] = 'text/plain;charset=utf-8';
@@ -333,7 +331,6 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const response = await fetchJson(`${resolveScriptUrl()}?type=settings`);
       const data = response.data || {};
-
       state.settings = {
         sheetUrl: data.sheetUrl || '',
         scriptUrl: data.scriptUrl || APPS_SCRIPT_URL,
@@ -426,8 +423,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.logsByBeanId[beanId] = logs.slice();
         state.brewCountByBeanId[beanId] = logs.length;
         state.latestLogByBeanId[beanId] = logs.length ? logs[0] : null;
-
-        state.logs = Object.values(state.logsByBeanId).flat();
       } else {
         state.logs = logs.slice();
         const byBeanId = {};
@@ -550,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const openBeanId = state.openBeanId;
+    const openBeanId = state.openBeanId || '';
 
     els.beanList.innerHTML = state.filteredBeans.map((bean) => {
       const flag = countryFlag(bean.origin_country);
@@ -577,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div>${escapeHtml(brewCount)}</div>
               </div>
             </div>
-            <span class="bean-card__chevron" aria-hidden="true">${isOpen ? '–' : '+'}</span>
+            <span class="bean-card__chevron" aria-hidden="true">${isOpen ? '−' : '+'}</span>
           </button>
 
           <div class="bean-card__details ${isOpen ? '' : 'hidden'}" data-bean-details="${escapeHtml(bean.id)}">
@@ -595,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     Array.from(document.querySelectorAll('[data-bean-toggle]')).forEach((btn) => {
       btn.addEventListener('click', () => {
-        const beanId = btn.dataset.beanToggle;
+        const beanId = btn.dataset.beanToggle || '';
         state.openBeanId = state.openBeanId === beanId ? '' : beanId;
         renderBeanList();
       });
@@ -733,6 +728,23 @@ document.addEventListener('DOMContentLoaded', () => {
     return state.currentRecipeData.recipes[state.currentRecipeStyle] || state.currentRecipeData.recipes.hot || null;
   }
 
+  function formatPourStep(pour, index) {
+    if (typeof pour === 'string') return pour;
+    if (!pour || typeof pour !== 'object') return `Step ${index + 1}`;
+
+    if (pour.text) return String(pour.text);
+    if (pour.step) return String(pour.step);
+
+    const parts = [
+      pour.label ? String(pour.label) : '',
+      pour.water_g ? `${pour.water_g} g water` : '',
+      pour.target_time ? `at ${pour.target_time}` : '',
+      pour.note ? String(pour.note) : ''
+    ].filter(Boolean);
+
+    return parts.length ? parts.join(' · ') : `Step ${index + 1}`;
+  }
+
   function renderRecipeOutput() {
     if (!els.helperOutput) return;
 
@@ -805,7 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ${pours.length ? `
             <div class="recipe-block">
               <h4>Pours</h4>
-              <ol>${pours.map((pour) => `<li>${escapeHtml(pour)}</li>`).join('')}</ol>
+              <ol>${pours.map((pour, index) => `<li>${escapeHtml(formatPourStep(pour, index))}</li>`).join('')}</ol>
             </div>
           ` : ''}
 
@@ -1061,7 +1073,6 @@ document.addEventListener('DOMContentLoaded', () => {
       state.logsByBeanId[bean.id].sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
       state.brewCountByBeanId[bean.id] = state.logsByBeanId[bean.id].length;
       state.latestLogByBeanId[bean.id] = state.logsByBeanId[bean.id][0] || null;
-      state.logs = Object.values(state.logsByBeanId).flat();
 
       renderBeanList();
       renderBrewLogList();
@@ -1184,6 +1195,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.beanNotes) els.beanNotes.value = bean.notes || '';
 
       state.beanTags = normalizeTags(bean.tags);
+
       state.uploadedPhoto = {
         fileId: bean.photo_file_id || '',
         fileName: bean.photo_file_name || '',
@@ -1361,11 +1373,15 @@ document.addEventListener('DOMContentLoaded', () => {
       closeBeanModal();
       await loadBeans();
 
-      if (state.selectedBeanId === savedBean.id && els.helperBeanSelect) {
-        els.helperBeanSelect.value = state.selectedBeanId;
-        syncHelperBeanSummary();
+      if (savedBean.id) {
+        state.selectedBeanId = savedBean.id;
       }
 
+      if (els.helperBeanSelect) {
+        els.helperBeanSelect.value = state.selectedBeanId;
+      }
+
+      syncHelperBeanSummary();
       setStatus(beanData.id ? 'Bean updated.' : 'Bean saved.', 'success');
     } catch (error) {
       setStatus(error.message || 'Could not save bean.', 'error');
@@ -1381,7 +1397,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const additions = raw.split(',').map((item) => item.trim()).filter(Boolean);
     state.beanTags = uniqueStrings(state.beanTags.concat(additions));
-
     if (els.beanTagInput) els.beanTagInput.value = '';
     renderBeanTagsPreview();
   }
@@ -1392,7 +1407,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const additions = raw.split(',').map((item) => item.trim()).filter(Boolean);
     state.beanTags = uniqueStrings(state.beanTags.concat(additions));
-
     if (els.beanTagInput) els.beanTagInput.value = '';
     renderBeanTagsPreview();
   }
