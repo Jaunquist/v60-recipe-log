@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filteredBeans: [],
     activeView: 'library',
     activeTag: '',
+    showAllTagFilters: false,
     openBeanId: '',
     settings: {
       sheetUrl: '',
@@ -209,6 +210,17 @@ document.addEventListener('DOMContentLoaded', () => {
       seen.add(key);
       return true;
     });
+  }
+
+  function formatBeanLine(parts, separator = ' · ') {
+    return parts.map((part) => String(part || '').trim()).filter(Boolean).join(separator);
+  }
+
+  function truncateText(value, maxLength = 100) {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength).trim()}…`;
   }
 
   function countryFlag(country) {
@@ -419,14 +431,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const counts = buildTagCounts(beans);
     const allActive = !state.activeTag ? 'active' : '';
+    const defaultVisibleCount = 6;
+    const visibleCounts = state.showAllTagFilters ? counts : counts.slice(0, defaultVisibleCount);
+    const hiddenCount = Math.max(0, counts.length - visibleCounts.length);
 
     const buttons = [
       `<button type="button" class="tag-filter ${allActive}" data-tag-filter="">All</button>`,
-      ...counts.map(([tag, count]) => {
+      ...visibleCounts.map(([tag, count]) => {
         const active = state.activeTag === tag ? 'active' : '';
         return `<button type="button" class="tag-filter ${active}" data-tag-filter="${escapeHtml(tag)}">${escapeHtml(tag)} <span>${count}</span></button>`;
       })
     ];
+
+    if (hiddenCount > 0 && !state.showAllTagFilters) {
+      buttons.push(
+        `<button type="button" class="tag-filter tag-filter--toggle" data-tag-toggle="show">+${hiddenCount} more</button>`
+      );
+    }
+
+    if (counts.length > defaultVisibleCount && state.showAllTagFilters) {
+      buttons.push(
+        `<button type="button" class="tag-filter tag-filter--toggle" data-tag-toggle="hide">Show less</button>`
+      );
+    }
 
     els.tagFilterBar.innerHTML = buttons.join('');
 
@@ -434,6 +461,13 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', () => {
         state.activeTag = btn.dataset.tagFilter || '';
         filterAndRenderBeans();
+      });
+    });
+
+    Array.from(els.tagFilterBar.querySelectorAll('[data-tag-toggle]')).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.showAllTagFilters = btn.dataset.tagToggle === 'show';
+        renderTagFilters(state.beans);
       });
     });
   }
@@ -444,7 +478,6 @@ document.addEventListener('DOMContentLoaded', () => {
     state.filteredBeans = state.beans.filter((bean) => {
       const matchesTag = !state.activeTag || bean.tags.includes(state.activeTag);
       if (!matchesTag) return false;
-
       if (!search) return true;
 
       const haystack = [
@@ -482,12 +515,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     els.beanList.innerHTML = state.filteredBeans.map((bean) => {
       const flag = countryFlag(bean.origin_country);
-      const originLine = [flag, bean.origin_country, bean.origin_region].filter(Boolean).join(' ');
       const isOpen = openBeanId === bean.id;
-      const tagHtml = bean.tags.length
-        ? `<div class="tags-wrap">${bean.tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</div>`
-        : '';
       const brewCount = Number(bean.brew_count || 0);
+      const tastingNotes = truncateText(formatBeanLine(normalizeTags(bean.tags), ' · '), 120);
+      const line2 = formatBeanLine([
+        bean.roaster,
+        [flag, bean.origin_country].filter(Boolean).join(' '),
+        bean.origin_region
+      ], ', ');
+      const expandedLine1 = formatBeanLine([bean.roast, bean.process, bean.variety], ' · ');
+      const expandedLine2 = formatBeanLine([bean.producer, bean.farm, bean.altitude], ' · ');
       const lockBadge = bean.recipe_locked ? `<span class="tag-pill">Locked recipe</span>` : '';
 
       return `
@@ -499,24 +536,27 @@ document.addEventListener('DOMContentLoaded', () => {
             aria-expanded="${isOpen ? 'true' : 'false'}"
           >
             <div class="bean-card__summary-main">
-              <div>
-                <h3>${escapeHtml(bean.bean || 'Untitled bean')}</h3>
-                <div class="muted">${escapeHtml(bean.roaster || 'Unknown roaster')}</div>
-              </div>
-              <div class="bean-card__summary-meta">
-                ${originLine ? `<div>${escapeHtml(originLine)}</div>` : ''}
-                ${bean.process ? `<div>${escapeHtml(bean.process)}</div>` : ''}
-                ${bean.roast ? `<div>${escapeHtml(bean.roast)}</div>` : ''}
-                <div>${brewCount} brew${brewCount === 1 ? '' : 's'}</div>
-              </div>
+              <h3>${escapeHtml(bean.bean || 'Untitled bean')}</h3>
+
+              ${line2 ? `<div class="bean-card__line bean-card__line--meta">${escapeHtml(line2)}</div>` : ''}
+
+              ${tastingNotes ? `<div class="bean-card__line bean-card__line--notes">${escapeHtml(tastingNotes)}</div>` : ''}
+
+              <div class="bean-card__line bean-card__line--count">${brewCount} brew${brewCount === 1 ? '' : 's'}</div>
             </div>
+
             <span class="bean-card__chevron" aria-hidden="true">${isOpen ? '−' : '+'}</span>
           </button>
 
           <div class="bean-card__details ${isOpen ? '' : 'hidden'}" data-bean-details="${escapeHtml(bean.id)}">
-            ${lockBadge}
-            ${tagHtml}
+            ${lockBadge ? `<div class="bean-card__detail-badges">${lockBadge}</div>` : ''}
+
+            ${expandedLine1 ? `<div class="bean-card__detail-line"><strong>Roast / Process / Variety</strong><span>${escapeHtml(expandedLine1)}</span></div>` : ''}
+
+            ${expandedLine2 ? `<div class="bean-card__detail-line"><strong>Producer / Farm / Altitude</strong><span>${escapeHtml(expandedLine2)}</span></div>` : ''}
+
             ${bean.notes ? `<p class="bean-card__notes">${escapeHtml(bean.notes)}</p>` : ''}
+
             <div class="action-row">
               <button type="button" class="bean-use-btn" data-bean-id="${escapeHtml(bean.id)}">Use this bean</button>
               <button type="button" class="bean-edit-btn" data-bean-id="${escapeHtml(bean.id)}">Edit</button>
