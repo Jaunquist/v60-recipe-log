@@ -34,7 +34,7 @@ body {
 }
 
 body {
-  font-family: 'Satoshi', sans-serif;
+  font-family: 'Work Sans', sans-serif;
   background: linear-gradient(180deg, #f7f3ed 0%, #f3eee6 100%);
   color: var(--text);
 }
@@ -61,10 +61,6 @@ label {
   color: var(--text-soft);
   font-size: 0.92rem;
   font-weight: 500;
-}
-
-strong {
-  font-weight: 700;
 }
 
 .hidden {
@@ -102,8 +98,15 @@ strong {
   box-shadow: 0 8px 24px rgba(66, 40, 21, 0.06);
 }
 
+.brand h1,
+.top-title,
+.section-head h2,
+.recipe-card__header h3,
+.modal-header h2 {
+  font-family: 'Outfit', sans-serif;
+}
+
 .brand h1 {
-  font-family: 'Cabinet Grotesk', sans-serif;
   margin: 0;
   font-size: 2rem;
   line-height: 1;
@@ -168,7 +171,6 @@ strong {
 }
 
 .top-title {
-  font-family: 'Cabinet Grotesk', sans-serif;
   font-size: 1.45rem;
 }
 
@@ -199,20 +201,12 @@ strong {
   background: rgba(159, 63, 63, 0.08);
 }
 
-.content {
-  display: grid;
-}
-
-.panel {
-  background: transparent;
-}
-
 .section-head {
   background: rgba(255, 250, 244, 0.92);
   border: 1px solid rgba(139, 94, 60, 0.12);
   box-shadow: var(--shadow);
   border-radius: 22px;
-  padding: 22px 22px;
+  padding: 22px;
   margin-bottom: 18px;
   display: flex;
   justify-content: space-between;
@@ -222,7 +216,6 @@ strong {
 
 .section-head h2 {
   margin: 0 0 6px;
-  font-family: 'Cabinet Grotesk', sans-serif;
   font-size: 1.9rem;
 }
 
@@ -374,7 +367,6 @@ textarea {
 }
 
 .helper-form,
-.helper-output,
 .recipe-card,
 .settings-grid,
 .photo-upload-card,
@@ -408,15 +400,8 @@ textarea {
 }
 
 .helper-output {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
   display: grid;
   gap: 18px;
-}
-
-.recipe-card {
-  min-height: 0;
 }
 
 .recipe-card__header {
@@ -429,7 +414,6 @@ textarea {
 
 .recipe-card__header h3 {
   margin: 0 0 4px;
-  font-family: 'Cabinet Grotesk', sans-serif;
   font-size: 1.4rem;
 }
 
@@ -481,7 +465,8 @@ textarea {
   padding: 12px 14px;
 }
 
-.recipe-grid strong {
+.recipe-grid strong,
+.brew-log-item__grid strong {
   display: block;
   margin-bottom: 6px;
   font-size: 0.84rem;
@@ -509,11 +494,6 @@ textarea {
 
 .recipe-block ol {
   padding-left: 18px;
-}
-
-.brew-log-card,
-.brew-form-card {
-  min-height: 0;
 }
 
 .brew-log-list {
@@ -559,15 +539,6 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 10px 12px;
-}
-
-.brew-log-item__grid strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.76rem;
-  color: var(--text-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .brew-log-item__notes {
@@ -735,7 +706,6 @@ textarea {
 
 .modal-header h2 {
   margin: 0 0 4px;
-  font-family: 'Cabinet Grotesk', sans-serif;
   font-size: 1.7rem;
 }
 
@@ -828,12 +798,6 @@ textarea {
   margin-top: 16px;
   display: grid;
   gap: 8px;
-}
-
-.modal-footer {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .empty-state {
