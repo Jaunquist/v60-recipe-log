@@ -88,6 +88,22 @@
 
               <button id="generateRecipeBtn" type="button">Generate Recipe</button>
               <div class="field-hint" id="recipeStatus">No recipe generated yet.</div>
+
+              <div class="helper-lock-box">
+                <div class="helper-lock-box__top">
+                  <label class="checkbox-inline" for="lockRecipeCheckbox">
+                    <input id="lockRecipeCheckbox" type="checkbox" />
+                    <span>Lock this recipe for the bean</span>
+                  </label>
+                </div>
+                <div class="action-row helper-lock-actions">
+                  <button id="saveRecipeLockBtn" type="button">Save Lock State</button>
+                  <button id="forceRegenerateBtn" type="button" class="bean-use-btn">Regenerate with AI</button>
+                </div>
+                <div class="field-hint brew-log-status" id="recipeEngineStatus" data-status="info">
+                  No recipe generated yet.
+                </div>
+              </div>
             </aside>
 
             <div class="helper-output">
@@ -97,7 +113,7 @@
                 <div class="recipe-card__header">
                   <div>
                     <h3>Brew Log</h3>
-                    <p class="muted">Previous brew sessions for this bean.</p>
+                    <p class="muted">Previous brew sessions for this bean. Default view is collapsed by date.</p>
                   </div>
                 </div>
                 <div class="brew-log-list" id="brewLogList">
@@ -108,12 +124,14 @@
               <article class="recipe-card brew-form-card">
                 <div class="recipe-card__header">
                   <div>
-                    <h3>Log this brew</h3>
+                    <h3 id="brewLogFormTitle">Log this brew</h3>
                     <p class="muted">Autofills from your latest brew session, or the generated recipe by default.</p>
                   </div>
                 </div>
 
                 <form id="brewLogForm">
+                  <input id="brewLogId" type="hidden" />
+
                   <div class="brew-form-grid">
                     <div>
                       <label for="brewDate">Brew date</label>
@@ -153,9 +171,10 @@
 
                   <div class="action-row">
                     <button id="resetBrewLogBtn" type="button" class="bean-use-btn">Reset Autofill</button>
+                    <button id="cancelBrewLogEditBtn" type="button" class="bean-delete-btn bean-delete-btn--ghost hidden">Cancel Edit</button>
                   </div>
 
-                  <div class="field-hint brew-log-status" id="brewLogStatus">
+                  <div class="field-hint brew-log-status" id="brewLogStatus" data-status="info">
                     Select a bean to begin logging brews.
                   </div>
                 </form>
@@ -204,7 +223,7 @@
   </div>
 
   <div class="modal hidden" id="addBeanModal" aria-hidden="true">
-    <div class="modal__backdrop"></div>
+    <div class="modal__backdrop" data-close-add-bean="true"></div>
 
     <div class="modal__dialog">
       <div class="modal-header">
