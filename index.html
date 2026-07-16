@@ -2,291 +2,358 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bean Ledger</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet" />
-  <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700&family=Satoshi:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo">
-          <svg viewBox="0 0 64 64" aria-hidden="true" width="32" height="32">
-            <ellipse cx="32" cy="30" rx="19" ry="25" fill="#8b5e3c" transform="rotate(-18 32 30)"></ellipse>
-            <path d="M27 13c7 8 10 24 5 35" stroke="#e7c3a3" stroke-width="3.3" stroke-linecap="round" fill="none"></path>
-          </svg>
-        </div>
+        <div class="logo" aria-hidden="true">☕</div>
         <div>
           <h1>Bean Ledger</h1>
-          <small class="tiny">Beans, OCR, recipes, and shared brew notes.</small>
+          <div class="tiny">Coffee bean library & recipe helper</div>
         </div>
       </div>
 
-      <div class="nav">
-        <div>
-          <div class="nav-title">Views</div>
+      <nav class="nav" aria-label="Primary">
+        <div class="nav-group">
+          <div class="nav-title">Workspace</div>
           <button class="nav-btn active" data-view="library" type="button">Bean Library</button>
           <button class="nav-btn" data-view="helper" type="button">Recipe Helper</button>
           <button class="nav-btn" data-view="settings" type="button">Settings</button>
         </div>
-
-        <div class="nav-group">
-          <div class="nav-title">Actions</div>
-          <button id="openAddBeanBtn" class="nav-btn" type="button">Add bean</button>
-        </div>
-      </div>
+      </nav>
     </aside>
 
     <main class="main">
       <header class="topbar">
         <div class="top-title" id="viewTitle">Bean Library</div>
-        <div id="appStatus" class="app-status" data-status="info">Loading app…</div>
+        <div class="app-status" id="appStatus" data-status="info">Ready.</div>
       </header>
 
-      <section class="content">
-        <section id="view-library" class="panel">
+      <div class="content">
+        <section class="panel" id="view-library">
           <div class="section-head">
             <div>
               <h2>Bean Library</h2>
-              <p class="muted">Search, review, edit, and send a bean into Recipe Helper.</p>
+              <p class="muted">Track beans, notes, origins, and now how many brews each bean has had.</p>
             </div>
+
             <div class="section-head__search">
-              <label for="beanSearchInput" class="tiny">Search</label>
-              <input id="beanSearchInput" type="search" placeholder="Search by name, roaster, country, notes…" />
+              <label for="beanSearchInput" class="tiny">Search beans</label>
+              <input
+                id="beanSearchInput"
+                type="search"
+                placeholder="Search by bean, roaster, country, process, note, or tag"
+                autocomplete="off"
+              />
             </div>
           </div>
 
-          <div id="tagFilterBar" class="tag-filter-bar"></div>
-          <div id="beanList" class="bean-list"></div>
+          <div class="tag-filter-bar" id="tagFilterBar"></div>
+
+          <div class="action-row" style="margin-bottom: 14px;">
+            <button id="openAddBeanBtn" type="button">Add bean</button>
+          </div>
+
+          <div class="bean-list" id="beanList"></div>
         </section>
 
-        <section id="view-helper" class="panel hidden">
+        <section class="panel hidden" id="view-helper">
           <div class="section-head">
             <div>
               <h2>Recipe Helper</h2>
-              <p class="muted">Generate hot or iced recommendations from the bean profile.</p>
+              <p class="muted">Generate a brew recipe, review prior brew sessions, then log feedback for the next adjustment.</p>
             </div>
           </div>
 
           <div class="helper-layout">
-            <div class="helper-form">
+            <aside class="helper-form">
               <div>
-                <label for="helperBeanSelect">Bean</label>
+                <label for="helperBeanSelect" class="tiny">Choose bean</label>
                 <select id="helperBeanSelect">
-                  <option value="">Select bean</option>
+                  <option value="">Select a bean…</option>
                 </select>
               </div>
 
-              <div id="helperBeanSummary" class="helper-bean-summary">
-                Select a bean to see its summary.
+              <div class="helper-bean-summary" id="helperBeanSummary">
+                Choose a bean to see its summary, recipe suggestions, and brew history.
               </div>
 
-              <div class="action-row">
-                <button id="generateRecipeBtn" type="button">Generate recipe</button>
-                <small id="recipeStatus" class="field-hint">Pick a bean, then generate a recipe based on its profile.</small>
+              <div>
+                <div class="tiny" style="margin-bottom: 8px;">Recipe style</div>
+                <div class="recipe-style-toggle" id="recipeStyleToggle" aria-label="Recipe style toggle"></div>
               </div>
-            </div>
 
-            <div class="helper-output">
-              <div class="recipe-card">
+              <button id="generateRecipeBtn" type="button">Generate recipe</button>
+              <div class="field-hint" id="recipeStatus">No recipe generated yet.</div>
+            </aside>
+
+            <section class="helper-output" id="helperOutput" aria-live="polite">
+              <article class="recipe-card">
                 <div class="recipe-card__header">
                   <div>
-                    <h3>Recommendation</h3>
-                    <p class="muted">Hot is always available. Iced appears only when the bean profile supports it.</p>
-                  </div>
-                  <div id="recipeStyleToggle" class="recipe-style-toggle hidden"></div>
-                </div>
-                <div id="helperOutput">
-                  <div class="helper-placeholder">
-                    Generate a recipe to see grind size, pours, time, and expected notes.
+                    <h3>Recommended brew</h3>
+                    <p class="muted">Generate a recipe to see instructions tailored to the selected bean.</p>
                   </div>
                 </div>
-              </div>
-            </div>
+
+                <div class="helper-placeholder">
+                  <div>
+                    <strong>Start with a bean.</strong>
+                    <p class="muted">Pick a bean, generate a recipe, then log the brew result so the next recipe can improve.</p>
+                  </div>
+                </div>
+              </article>
+
+              <section class="recipe-card brew-log-card" aria-labelledby="brewLogTitle">
+                <div class="recipe-card__header">
+                  <div>
+                    <h3 id="brewLogTitle">Brew Log</h3>
+                    <p class="muted">Recent brew sessions for the selected bean appear here.</p>
+                  </div>
+                </div>
+
+                <div id="brewLogList" class="brew-log-list">
+                  <div class="empty-state">No brew sessions logged for this bean yet.</div>
+                </div>
+              </section>
+
+              <section class="recipe-card brew-form-card" aria-labelledby="brewFormTitle">
+                <div class="recipe-card__header">
+                  <div>
+                    <h3 id="brewFormTitle">Log this brew</h3>
+                    <p class="muted">Autofills from your latest brew first, or the current generated recipe if there is no brew history yet.</p>
+                  </div>
+                </div>
+
+                <form id="brewLogForm" aria-label="Log this brew form">
+                  <div class="brew-form-grid">
+                    <div>
+                      <label for="brewDate">Brew date</label>
+                      <input id="brewDate" name="brew_date" type="date" />
+                    </div>
+
+                    <div>
+                      <label for="brewGrind">Grind</label>
+                      <input id="brewGrind" name="grind" type="text" placeholder="e.g. 6.0 on Eureka Mignon Perfetto" />
+                    </div>
+
+                    <div>
+                      <label for="brewDose">Dose (g)</label>
+                      <input id="brewDose" name="dose_g" type="number" inputmode="decimal" step="0.1" placeholder="15" />
+                    </div>
+
+                    <div>
+                      <label for="brewWater">Water (g)</label>
+                      <input id="brewWater" name="water_g" type="number" inputmode="decimal" step="0.1" placeholder="250" />
+                    </div>
+
+                    <div>
+                      <label for="brewTemp">Water temp (°C)</label>
+                      <input id="brewTemp" name="water_temp_c" type="number" inputmode="decimal" step="0.1" placeholder="93" />
+                    </div>
+                  </div>
+
+                  <div style="margin-top: 14px;">
+                    <label for="brewNotes">Brew feedback / adjustment notes</label>
+                    <textarea
+                      id="brewNotes"
+                      name="notes"
+                      rows="5"
+                      placeholder="Example: A little hollow and fast. Try slightly finer grind, higher temp, or gentler second pour."
+                    ></textarea>
+                  </div>
+
+                  <div class="action-row">
+                    <button id="saveBrewLogBtn" type="submit">Save brew log</button>
+                    <button id="resetBrewLogBtn" type="button" class="bean-edit-btn">Refill defaults</button>
+                  </div>
+
+                  <div class="field-hint" id="brewLogStatus">Select a bean to begin logging brews.</div>
+                </form>
+              </section>
+            </section>
           </div>
         </section>
 
-        <section id="view-settings" class="panel hidden">
+        <section class="panel hidden" id="view-settings">
           <div class="section-head">
             <div>
               <h2>Settings</h2>
-              <p class="muted">Shared sheet/script settings and photo folder.</p>
+              <p class="muted">Shared app settings for the Google Sheet, Apps Script endpoint, and optional photo folder.</p>
             </div>
           </div>
 
           <form id="settings-form" class="settings-grid">
             <div>
-              <label for="sheetUrl">Sheet URL</label>
-              <input id="sheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/…" />
+              <label for="sheetUrl">Google Sheet URL</label>
+              <input id="sheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
             </div>
 
             <div>
-              <label for="scriptUrl">Apps Script web app URL</label>
-              <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
+              <label for="scriptUrl">Apps Script URL</label>
+              <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
             </div>
 
-            <div>
-              <label for="photoFolder">Bean photos Drive folder</label>
-              <input id="photoFolder" type="text" placeholder="Paste full folder URL or folder ID" />
-              <small id="photoFolderHint" class="field-hint">Paste a full Google Drive folder URL and it will auto-convert to the folder ID.</small>
-            </div>
-
-            <div>
-              <label class="tiny" for="settingsLocked">
-                Lock settings (read-only)
-              </label>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <input id="settingsLocked" type="checkbox" />
-                <small class="field-hint">
-                  When locked, settings fields are non-editable. Unlock to change them.
-                </small>
+            <div class="form-group--full">
+              <label for="photoFolder">Photo folder URL or ID</label>
+              <input id="photoFolder" type="text" placeholder="Google Drive folder URL or folder ID" />
+              <div class="field-hint" id="photoFolderHint">
+                Paste a full Google Drive folder URL and it will auto-convert to the folder ID.
               </div>
             </div>
-            
-            <button class="save-btn" type="submit">Save shared settings</button>
+
+            <div>
+              <label for="settingsLocked">Lock settings</label>
+              <input id="settingsLocked" type="checkbox" />
+            </div>
+
+            <div class="action-row">
+              <button class="save-btn" type="submit">Save settings</button>
+            </div>
           </form>
         </section>
-      </section>
+      </div>
     </main>
   </div>
 
-  <div id="addBeanModal" class="modal hidden" aria-hidden="true">
-    <div class="modal__backdrop" data-close-add-bean="true"></div>
+  <div class="modal hidden" id="addBeanModal" aria-hidden="true">
+    <div class="modal__backdrop"></div>
 
     <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="addBeanTitle">
-      <header class="modal-header">
+      <div class="modal-header">
         <div>
           <h2 id="addBeanTitle">Add Bean</h2>
-          <p id="addBeanSubtitle" class="muted">Upload a photo, research the bean, then save.</p>
+          <p class="muted" id="addBeanSubtitle">Save a new bean to your library.</p>
         </div>
-        <button id="closeAddBeanBtn" class="icon-btn" type="button" aria-label="Close">✕</button>
-      </header>
+        <button class="icon-btn" id="closeAddBeanBtn" type="button" aria-label="Close add bean dialog">✕</button>
+      </div>
 
-      <main class="modal-body">
-        <section class="photo-upload-card">
-          <div class="photo-upload-card__top">
-            <div class="bean-photo-preview" id="beanAvatar">
-              <div class="bean-photo-preview--empty">No photo yet. Upload one to see a preview.</div>
+      <form id="addBeanForm">
+        <input type="hidden" id="beanId" />
+        <input type="hidden" id="beanExistingPhotoFileId" />
+        <input type="hidden" id="beanExistingPhotoFileName" />
+        <input type="hidden" id="beanExistingPhotoDriveLink" />
+        <input type="hidden" id="beanExistingPhotoPreviewDataUrl" />
+
+        <div class="modal-body">
+          <section class="photo-upload-card">
+            <div class="photo-upload-card__top">
+              <div class="bean-photo-preview" id="beanAvatar">
+                <div class="bean-photo-preview--empty">No bean photo uploaded yet.</div>
+              </div>
+
+              <div>
+                <div class="photo-upload-card__actions">
+                  <div>
+                    <label for="beanPhotoFile">Bean bag photo</label>
+                    <input id="beanPhotoFile" type="file" accept="image/*" />
+                  </div>
+                  <button id="uploadPhotoBtn" type="button">Upload photo</button>
+                </div>
+
+                <div class="photo-meta" id="beanPhotoMeta">Upload a bean bag photo to save the image and run OCR.</div>
+                <div class="ocr-status ocr-status--neutral" id="ocrStatusLine">OCR not run yet.</div>
+
+                <div class="photo-file-meta">
+                  <label for="beanPhotoText">Extracted / translated bag text</label>
+                  <textarea id="beanPhotoText" rows="8" placeholder="OCR or translated bag text appears here."></textarea>
+                </div>
+
+                <div class="action-row">
+                  <button id="researchBeanBtn" type="button">Research bean</button>
+                  <span class="field-hint" id="researchStatus">No bean research run yet.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-grid">
+            <div>
+              <label for="beanName">Bean name</label>
+              <input id="beanName" type="text" placeholder="Bean name" />
             </div>
 
             <div>
-              <div class="photo-upload-card__actions">
-                <div>
-                  <label for="beanPhotoFile" class="tiny">Bean photo</label>
-                  <input id="beanPhotoFile" type="file" accept="image/*" />
-                </div>
-
-                <div>
-                  <label class="tiny">&nbsp;</label>
-                  <button id="uploadPhotoBtn" type="button">Upload photo</button>
-                </div>
-              </div>
-
-              <div id="beanPhotoMeta" class="photo-meta">No photo uploaded yet.</div>
-              <div id="ocrStatusLine" class="ocr-status ocr-status--neutral">OCR: not run yet</div>
+              <label for="beanRoaster">Roaster</label>
+              <input id="beanRoaster" type="text" placeholder="Roaster" />
             </div>
-          </div>
 
-          <div class="photo-file-meta">
-            <div><strong>Photo text (OCR / filename)</strong></div>
-            <textarea id="beanPhotoText" rows="2" placeholder="Rough OCR + filename guess. Edit to fix before saving."></textarea>
-          </div>
-        </section>
-
-        <form id="addBeanForm" class="settings-grid" autocomplete="off">
-          <input id="beanId" type="hidden" />
-          <input id="beanExistingPhotoFileId" type="hidden" />
-          <input id="beanExistingPhotoFileName" type="hidden" />
-          <input id="beanExistingPhotoDriveLink" type="hidden" />
-          <input id="beanExistingPhotoPreviewDataUrl" type="hidden" />
-
-          <div>
-            <label for="beanName">Bean name</label>
-            <input id="beanName" type="text" placeholder="e.g. Worka Cheliche washed" />
-          </div>
-
-          <div>
-            <label for="beanRoaster">Roaster</label>
-            <input id="beanRoaster" type="text" placeholder="e.g. Sey Coffee" />
-          </div>
-
-          <div>
-            <label for="beanOriginCountry">Origin country</label>
-            <input id="beanOriginCountry" list="countryOptions" placeholder="e.g. Ethiopia" />
-            <datalist id="countryOptions"></datalist>
-          </div>
-
-          <div>
-            <label for="beanOriginRegion">Origin region</label>
-            <input id="beanOriginRegion" type="text" placeholder="e.g. Guji, Worka Cheliche" />
-          </div>
-
-          <div>
-            <label for="beanPurchaseCountry">Purchased in</label>
-            <input id="beanPurchaseCountry" list="countryOptions" placeholder="e.g. United States" />
-          </div>
-
-          <div>
-            <label for="beanVariety">Variety</label>
-            <input id="beanVariety" type="text" placeholder="e.g. Heirloom" />
-          </div>
-
-          <div>
-            <label for="beanProducer">Producer</label>
-            <input id="beanProducer" type="text" placeholder="e.g. Worka cooperative" />
-          </div>
-
-          <div>
-            <label for="beanFarm">Farm</label>
-            <input id="beanFarm" type="text" placeholder="Farm name if known" />
-          </div>
-
-          <div>
-            <label for="beanAltitude">Altitude</label>
-            <input id="beanAltitude" type="text" placeholder="e.g. 1900–2100 masl" />
-          </div>
-
-          <div>
-            <label for="beanProcess">Process</label>
-            <input id="beanProcess" type="text" placeholder="e.g. washed, natural, anaerobic" />
-          </div>
-
-          <div>
-            <label for="beanRoast">Roast</label>
-            <input id="beanRoast" type="text" placeholder="e.g. light, light-medium, medium" />
-          </div>
-
-          <div class="form-group--full">
-            <label for="beanNotes">Notes</label>
-            <textarea id="beanNotes" rows="3" placeholder="Flavor notes, roast level, other context"></textarea>
-          </div>
-
-          <div class="form-group--full">
-            <label for="beanTagInput">Tags</label>
-            <input id="beanTagInput" type="text" placeholder="Type tags, press Enter or comma to add" />
-            <div id="beanTagsPreview" class="tags-wrap">
-              <div class="tags-empty">No tags added yet.</div>
+            <div>
+              <label for="beanOriginCountry">Origin country</label>
+              <input id="beanOriginCountry" type="text" list="countryOptions" placeholder="Country" />
             </div>
-          </div>
 
-          <div class="form-group--full">
-            <label class="tiny">Research</label>
-            <div class="action-row">
-              <button id="researchBeanBtn" type="button">Research bean</button>
-              <small id="researchStatus" class="field-hint">Upload a bean photo first, then run Research Bean to use OCR text and metadata.</small>
+            <div>
+              <label for="beanOriginRegion">Origin region</label>
+              <input id="beanOriginRegion" type="text" placeholder="Region" />
             </div>
-          </div>
 
-          <footer class="modal-footer">
-            <button id="saveBeanBtn" type="submit" class="save-btn">Save bean</button>
-          </footer>
-        </form>
-      </main>
+            <div>
+              <label for="beanPurchaseCountry">Purchase country</label>
+              <input id="beanPurchaseCountry" type="text" list="countryOptions" placeholder="Where you bought it" />
+            </div>
+
+            <div>
+              <label for="beanVariety">Variety</label>
+              <input id="beanVariety" type="text" placeholder="e.g. Gesha, Bourbon" />
+            </div>
+
+            <div>
+              <label for="beanProducer">Producer</label>
+              <input id="beanProducer" type="text" placeholder="Producer" />
+            </div>
+
+            <div>
+              <label for="beanFarm">Farm</label>
+              <input id="beanFarm" type="text" placeholder="Farm" />
+            </div>
+
+            <div>
+              <label for="beanAltitude">Altitude</label>
+              <input id="beanAltitude" type="text" placeholder="e.g. 1900 masl" />
+            </div>
+
+            <div>
+              <label for="beanProcess">Process</label>
+              <input id="beanProcess" type="text" placeholder="Washed, natural, honey..." />
+            </div>
+
+            <div>
+              <label for="beanRoast">Roast</label>
+              <input id="beanRoast" type="text" placeholder="Light, medium..." />
+            </div>
+
+            <div class="form-group--full">
+              <label for="beanTagInput">Tags</label>
+              <input id="beanTagInput" type="text" placeholder="Comma-separated tags" />
+              <div id="beanTagsPreview" class="tags-wrap"></div>
+            </div>
+
+            <div class="form-group--full">
+              <label for="beanNotes">Notes</label>
+              <textarea id="beanNotes" rows="5" placeholder="Tasting notes, brew ideas, buying notes, anything useful."></textarea>
+            </div>
+          </section>
+        </div>
+
+        <div class="modal-footer">
+          <div class="action-row">
+            <button class="save-btn" type="submit">Save bean</button>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
 
-  <script src="./app.js"></script>
+  <datalist id="countryOptions"></datalist>
+
+  <script src="app.js"></script>
 </body>
 </html>
