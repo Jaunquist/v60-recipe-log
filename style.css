@@ -55,6 +55,18 @@ img {
   display: block;
 }
 
+label {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+strong {
+  font-weight: 700;
+}
+
 .hidden {
   display: none !important;
 }
@@ -244,6 +256,10 @@ textarea:focus {
   box-shadow: 0 0 0 4px rgba(139, 94, 60, 0.12);
 }
 
+textarea {
+  resize: vertical;
+}
+
 .settings-readonly {
   background: #f5efe7;
   color: var(--text-soft);
@@ -354,6 +370,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: 360px 1fr;
   gap: 18px;
+  align-items: start;
 }
 
 .helper-form,
@@ -378,6 +395,8 @@ textarea:focus {
   display: grid;
   gap: 16px;
   align-self: start;
+  position: sticky;
+  top: 18px;
 }
 
 .helper-bean-summary {
@@ -392,10 +411,12 @@ textarea:focus {
   background: transparent;
   border: 0;
   box-shadow: none;
+  display: grid;
+  gap: 18px;
 }
 
 .recipe-card {
-  min-height: 420px;
+  min-height: 0;
 }
 
 .recipe-card__header {
@@ -490,6 +511,104 @@ textarea:focus {
   padding-left: 18px;
 }
 
+.brew-log-card,
+.brew-form-card {
+  min-height: 0;
+}
+
+.brew-log-list {
+  display: grid;
+  gap: 12px;
+}
+
+.brew-log-item {
+  background: #fffdf9;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.brew-log-item__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.brew-log-item__date {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.brew-log-item__stamp {
+  color: var(--text-faint);
+  font-size: 0.86rem;
+}
+
+.brew-log-item__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.brew-log-item__grid > div {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.brew-log-item__grid strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.76rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.brew-log-item__notes {
+  color: var(--text-soft);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.brew-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 12px;
+}
+
+.brew-log-status {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fffdf8;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
+.brew-log-status[data-status='success'] {
+  color: var(--success);
+  border-color: rgba(47, 125, 87, 0.22);
+  background: rgba(47, 125, 87, 0.08);
+}
+
+.brew-log-status[data-status='warn'] {
+  color: var(--warn);
+  border-color: rgba(155, 106, 36, 0.22);
+  background: rgba(155, 106, 36, 0.08);
+}
+
+.brew-log-status[data-status='error'] {
+  color: var(--error);
+  border-color: rgba(159, 63, 63, 0.22);
+  background: rgba(159, 63, 63, 0.08);
+}
+
 .settings-grid {
   display: grid;
   gap: 16px;
@@ -510,7 +629,8 @@ textarea:focus {
 .action-row button,
 #uploadPhotoBtn,
 #generateRecipeBtn,
-#researchBeanBtn {
+#researchBeanBtn,
+#saveBrewLogBtn {
   border: 1px solid transparent;
   background: var(--accent);
   color: #fff;
@@ -523,7 +643,8 @@ textarea:focus {
 .action-row button:hover,
 #uploadPhotoBtn:hover,
 #generateRecipeBtn:hover,
-#researchBeanBtn:hover {
+#researchBeanBtn:hover,
+#saveBrewLogBtn:hover {
   background: var(--accent-strong);
 }
 
@@ -738,8 +859,16 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .helper-form {
+    position: static;
+  }
+
   .photo-upload-card__top {
     grid-template-columns: 1fr;
+  }
+
+  .brew-log-item__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -751,7 +880,8 @@ textarea:focus {
   .topbar,
   .section-head,
   .recipe-card__header,
-  .modal-header {
+  .modal-header,
+  .brew-log-item__top {
     flex-direction: column;
     align-items: stretch;
   }
@@ -762,6 +892,10 @@ textarea:focus {
 
   .recipe-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .brew-form-grid {
+    grid-template-columns: 1fr;
   }
 
   .photo-upload-card__actions {
@@ -777,7 +911,8 @@ textarea:focus {
 }
 
 @media (max-width: 520px) {
-  .recipe-grid {
+  .recipe-grid,
+  .brew-log-item__grid {
     grid-template-columns: 1fr;
   }
 
