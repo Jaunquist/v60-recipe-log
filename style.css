@@ -399,6 +399,42 @@ textarea {
   color: var(--text-soft);
 }
 
+.helper-lock-box {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+
+.helper-lock-box__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.helper-lock-actions {
+  margin-top: 0;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--text);
+}
+
+.checkbox-inline input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
 .helper-output {
   display: grid;
   gap: 18px;
@@ -505,9 +541,58 @@ textarea {
   background: #fffdf9;
   border: 1px solid var(--line);
   border-radius: 16px;
+  overflow: hidden;
+}
+
+.brew-log-item__summary {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
   padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.brew-log-item__summary:hover {
+  background: rgba(139, 94, 60, 0.035);
+}
+
+.brew-log-item__summary-date {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brew-log-item__summary-date span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brew-log-item__summary-toggle {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--panel-3);
+  color: var(--accent-strong);
+  flex: 0 0 auto;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.brew-log-item__details {
   display: grid;
   gap: 12px;
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(139, 94, 60, 0.1);
 }
 
 .brew-log-item__top {
@@ -591,6 +676,12 @@ textarea {
   gap: 6px;
 }
 
+#settingsLocked {
+  width: 18px;
+  height: 18px;
+  margin-top: 6px;
+}
+
 .field-hint {
   color: var(--text-faint);
   font-size: 0.86rem;
@@ -601,7 +692,8 @@ textarea {
 #uploadPhotoBtn,
 #generateRecipeBtn,
 #researchBeanBtn,
-#saveBrewLogBtn {
+#saveBrewLogBtn,
+#saveRecipeLockBtn {
   border: 1px solid transparent;
   background: var(--accent);
   color: #fff;
@@ -615,7 +707,8 @@ textarea {
 #uploadPhotoBtn:hover,
 #generateRecipeBtn:hover,
 #researchBeanBtn:hover,
-#saveBrewLogBtn:hover {
+#saveBrewLogBtn:hover,
+#saveRecipeLockBtn:hover {
   background: var(--accent-strong);
 }
 
