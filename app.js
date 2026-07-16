@@ -114,7 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
     brewTemp: document.getElementById('brewTemp'),
     brewNotes: document.getElementById('brewNotes'),
     saveBrewLogBtn: document.getElementById('saveBrewLogBtn'),
+    resetBrewLogBtn: document.getElementById('resetBrewLogBtn'),
     cancelBrewLogEditBtn: document.getElementById('cancelBrewLogEditBtn'),
+    brewLogStatus: document.getElementById('brewLogStatus'),
 
     settingsForm: document.getElementById('settings-form'),
     sheetUrl: document.getElementById('sheetUrl'),
@@ -168,10 +170,16 @@ document.addEventListener('DOMContentLoaded', () => {
     els.appStatus.dataset.status = tone;
   }
 
-  function setRecipeEngineStatus(message, tone = '') {
+  function setRecipeEngineStatus(message, tone = 'info') {
     if (!els.recipeEngineStatus) return;
     els.recipeEngineStatus.textContent = message || '';
     els.recipeEngineStatus.dataset.status = tone || 'info';
+  }
+
+  function setBrewLogStatus(message, tone = 'info') {
+    if (!els.brewLogStatus) return;
+    els.brewLogStatus.textContent = message || '';
+    els.brewLogStatus.dataset.status = tone || 'info';
   }
 
   function escapeHtml(value) {
@@ -353,8 +361,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.sheetUrl) els.sheetUrl.value = state.settings.sheetUrl || '';
       if (els.scriptUrl) els.scriptUrl.value = state.settings.scriptUrl || APPS_SCRIPT_URL;
       if (els.photoFolder) els.photoFolder.value = state.settings.photoFolder || '';
-      if (els.settingsLocked) els.settingsLocked.checked = !!state.settings.settingsLocked;
+      if (els.settingsLocked) els.settingsLocked.checked = true;
 
+      state.settings.settingsLocked = true;
       applySettingsLockState();
       updatePhotoFolderHint();
       setStatus('Shared settings saved.', 'success');
@@ -555,6 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
             method: 'POST',
             body: { action: 'deleteBean', beanId }
           });
+
           if (state.openBeanId === beanId) state.openBeanId = '';
           if (state.selectedBeanId === beanId) {
             state.selectedBeanId = '';
@@ -562,6 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderBrewLogList();
             resetBrewLogForm();
           }
+
           await loadBeans();
           setStatus('Bean deleted.', 'success');
         } catch (error) {
@@ -742,6 +753,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.brewLogFormTitle) els.brewLogFormTitle.textContent = 'Log this brew';
     if (els.cancelBrewLogEditBtn) els.cancelBrewLogEditBtn.classList.add('hidden');
     refillBrewLogForm();
+
+    if (!state.selectedBeanId) {
+      setBrewLogStatus('Select a bean to begin logging brews.', 'info');
+    } else {
+      setBrewLogStatus('Autofill reset. You can log a fresh brew now.', 'info');
+    }
   }
 
   function refillBrewLogForm() {
@@ -762,6 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.brewWater) els.brewWater.value = latestLog.water_g || '';
       if (els.brewTemp) els.brewTemp.value = latestLog.water_temp_c || '';
       if (els.brewNotes) els.brewNotes.value = latestLog.notes || '';
+      setBrewLogStatus('Autofilled from the latest brew log.', 'success');
       return;
     }
 
@@ -771,6 +789,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.brewWater) els.brewWater.value = recipe.water_total_g || '';
       if (els.brewTemp) els.brewTemp.value = recipe.water_temp_c || '';
       if (els.brewNotes) els.brewNotes.value = '';
+      setBrewLogStatus('Autofilled from the current generated recipe.', 'success');
+      return;
+    }
+
+    if (state.selectedBeanId) {
+      setBrewLogStatus('No previous brew or recipe yet. Fill in the brew details manually.', 'info');
     }
   }
 
@@ -797,21 +821,24 @@ document.addEventListener('DOMContentLoaded', () => {
             data-log-toggle="${escapeHtml(log.id)}"
             aria-expanded="${isOpen ? 'true' : 'false'}"
           >
-            <span>${escapeHtml(log.brew_date || 'Unknown date')}</span>
-            <span aria-hidden="true">${isOpen ? '−' : '+'}</span>
+            <span class="brew-log-item__summary-date">
+              <span>☕</span>
+              <span>${escapeHtml(log.brew_date || 'Unknown date')}</span>
+            </span>
+            <span class="brew-log-item__summary-toggle" aria-hidden="true">${isOpen ? '−' : '+'}</span>
           </button>
 
           <div class="brew-log-item__details ${isOpen ? '' : 'hidden'}">
-            <div class="recipe-grid brew-log-grid">
-              <div><strong>Grind</strong><span>${escapeHtml(log.grind || '')}</span></div>
-              <div><strong>Dose</strong><span>${escapeHtml(log.dose_g || '')} g</span></div>
-              <div><strong>Water</strong><span>${escapeHtml(log.water_g || '')} g</span></div>
-              <div><strong>Temp</strong><span>${escapeHtml(log.water_temp_c || '')} C</span></div>
+            <div class="brew-log-item__grid">
+              <div><strong>Grind</strong>${escapeHtml(log.grind || '')}</div>
+              <div><strong>Dose</strong>${escapeHtml(log.dose_g || '')} g</div>
+              <div><strong>Water</strong>${escapeHtml(log.water_g || '')} g</div>
+              <div><strong>Temp</strong>${escapeHtml(log.water_temp_c || '')} °C</div>
             </div>
-            ${log.notes ? `<div class="recipe-block"><h4>Notes</h4><p>${escapeHtml(log.notes)}</p></div>` : ''}
+            ${log.notes ? `<div class="brew-log-item__notes">${escapeHtml(log.notes || '')}</div>` : ''}
             <div class="action-row">
-              <button type="button" class="bean-edit-btn" data-log-edit="${escapeHtml(log.id)}">Edit log</button>
-              <button type="button" class="bean-delete-btn bean-delete-btn--ghost" data-log-delete="${escapeHtml(log.id)}">Delete log</button>
+              <button type="button" class="bean-edit-btn" data-log-edit="${escapeHtml(log.id)}">Edit Log</button>
+              <button type="button" class="bean-delete-btn bean-delete-btn--ghost" data-log-delete="${escapeHtml(log.id)}">Delete Log</button>
             </div>
           </div>
         </article>
@@ -858,8 +885,10 @@ document.addEventListener('DOMContentLoaded', () => {
           await loadLogsForSelectedBean();
           await refreshSelectedBeanCounts();
           setStatus('Brew log deleted.', 'success');
+          setBrewLogStatus('Brew log deleted.', 'success');
         } catch (error) {
           setStatus(error.message || 'Could not delete brew log.', 'error');
+          setBrewLogStatus(error.message || 'Could not delete brew log.', 'error');
         }
       });
     });
@@ -872,6 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.openLogIds = new Set();
       renderBrewLogList();
       resetBrewLogForm();
+      setBrewLogStatus('Select a bean to begin logging brews.', 'info');
       return;
     }
 
@@ -881,11 +911,18 @@ document.addEventListener('DOMContentLoaded', () => {
       state.openLogIds = new Set();
       renderBrewLogList();
       resetBrewLogForm();
+
+      if (state.currentLogs.length) {
+        setBrewLogStatus('Loaded brew history for this bean.', 'success');
+      } else {
+        setBrewLogStatus('No brew logs yet for this bean.', 'info');
+      }
     } catch (error) {
       state.currentLogs = [];
       renderBrewLogList();
       resetBrewLogForm();
       setStatus(error.message || 'Could not load brew logs.', 'error');
+      setBrewLogStatus(error.message || 'Could not load brew logs.', 'error');
     }
   }
 
@@ -900,6 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.brewWater) els.brewWater.value = log.water_g || '';
     if (els.brewTemp) els.brewTemp.value = log.water_temp_c || '';
     if (els.brewNotes) els.brewNotes.value = log.notes || '';
+    setBrewLogStatus('Editing an existing brew log.', 'warn');
     if (els.brewLogForm) els.brewLogForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -909,6 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bean = getSelectedHelperBean();
     if (!bean || !bean.id) {
       setStatus('Select a bean before saving a brew log.', 'warn');
+      setBrewLogStatus('Select a bean before saving a brew log.', 'warn');
       return;
     }
 
@@ -927,6 +966,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       setStatus(logData.id ? 'Updating brew log…' : 'Saving brew log…', 'info');
+      setBrewLogStatus(logData.id ? 'Updating brew log…' : 'Saving brew log…', 'info');
+
       await fetchJson(resolveScriptUrl(), {
         method: 'POST',
         body: {
@@ -934,11 +975,14 @@ document.addEventListener('DOMContentLoaded', () => {
           logData
         }
       });
+
       await loadLogsForSelectedBean();
       await refreshSelectedBeanCounts();
       setStatus(logData.id ? 'Brew log updated.' : 'Brew log saved.', 'success');
+      setBrewLogStatus(logData.id ? 'Brew log updated.' : 'Brew log saved.', 'success');
     } catch (error) {
       setStatus(error.message || 'Could not save brew log.', 'error');
+      setBrewLogStatus(error.message || 'Could not save brew log.', 'error');
     }
   }
 
@@ -1469,6 +1513,17 @@ document.addEventListener('DOMContentLoaded', () => {
       els.brewLogForm.addEventListener('submit', saveBrewLog);
     }
 
+    if (els.resetBrewLogBtn) {
+      els.resetBrewLogBtn.addEventListener('click', () => {
+        state.brewLogDraftId = '';
+        if (els.brewLogId) els.brewLogId.value = '';
+        if (els.brewLogFormTitle) els.brewLogFormTitle.textContent = 'Log this brew';
+        if (els.cancelBrewLogEditBtn) els.cancelBrewLogEditBtn.classList.add('hidden');
+        if (els.brewLogForm) els.brewLogForm.reset();
+        refillBrewLogForm();
+      });
+    }
+
     if (els.cancelBrewLogEditBtn) {
       els.cancelBrewLogEditBtn.addEventListener('click', resetBrewLogForm);
     }
@@ -1479,7 +1534,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (els.settingsLocked) {
       els.settingsLocked.addEventListener('change', () => {
-        state.settings.settingsLocked = !!els.settingsLocked.checked;
+        els.settingsLocked.checked = true;
+        state.settings.settingsLocked = true;
         applySettingsLockState();
       });
     }
@@ -1534,6 +1590,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBrewLogList();
     resetBrewLogForm();
     setRecipeEngineStatus('No recipe generated yet.', 'info');
+    setBrewLogStatus('Select a bean to begin logging brews.', 'info');
 
     try {
       await loadSettings();
