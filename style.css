@@ -263,6 +263,7 @@ textarea {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 14px;
+  align-items: flex-start;
 }
 
 .tag-filter {
@@ -271,6 +272,7 @@ textarea {
   border-radius: 999px;
   padding: 8px 12px;
   color: var(--text-soft);
+  white-space: nowrap;
 }
 
 .tag-filter span {
@@ -282,6 +284,13 @@ textarea {
   border-color: var(--accent);
   color: var(--accent-strong);
   background: var(--accent-soft);
+}
+
+.tag-filter--toggle {
+  background: var(--panel-2);
+  color: var(--accent-strong);
+  border-color: rgba(139, 94, 60, 0.18);
+  font-weight: 600;
 }
 
 .bean-list {
@@ -320,11 +329,34 @@ textarea {
 .bean-card__summary-main {
   flex: 1;
   min-width: 0;
+  display: grid;
+  gap: 6px;
 }
 
 .bean-card__summary-main h3 {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.bean-card__line {
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.bean-card__line--meta {
+  color: var(--text-soft);
+  font-size: 0.95rem;
+}
+
+.bean-card__line--notes {
+  color: var(--text);
+  font-size: 0.96rem;
+}
+
+.bean-card__line--count {
+  color: var(--text-soft);
+  font-size: 0.94rem;
 }
 
 .bean-card__summary-meta {
@@ -352,6 +384,36 @@ textarea {
 .bean-card__details {
   padding: 0 20px 18px;
   border-top: 1px solid rgba(139, 94, 60, 0.1);
+}
+
+.bean-card__detail-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.bean-card__detail-line {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.bean-card__detail-line strong {
+  display: block;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.bean-card__detail-line span {
+  color: var(--text-soft);
+  line-height: 1.45;
 }
 
 .bean-card__notes {
@@ -676,10 +738,25 @@ textarea {
   gap: 6px;
 }
 
+.settings-lock-block {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-2);
+}
+
+.settings-inline-checkbox {
+  margin: 0;
+  color: var(--text);
+  font-weight: 500;
+}
+
 #settingsLocked {
   width: 18px;
   height: 18px;
-  margin-top: 6px;
+  margin: 0;
 }
 
 .field-hint {
