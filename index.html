@@ -191,32 +191,35 @@
             </div>
           </div>
 
-          <form class="settings-grid" id="settings-form">
-            <div>
-              <label for="sheetUrl">Google Sheet URL</label>
-              <input id="sheetUrl" type="text" placeholder="Paste sheet URL" />
-            </div>
-
-            <div>
-              <label for="scriptUrl">Apps Script Web App URL</label>
-              <input id="scriptUrl" type="text" placeholder="Paste web app URL" />
-            </div>
-
-            <div>
-              <label for="photoFolder">Google Drive photo folder</label>
-              <input id="photoFolder" type="text" placeholder="Paste Drive folder URL or ID" />
-              <div class="field-hint" id="photoFolderHint">Paste a full Google Drive folder URL and it will auto-convert to the folder ID.</div>
-            </div>
-
-            <div>
-              <label for="settingsLocked">Lock settings</label>
+        <form class="settings-grid" id="settings-form">
+          <div class="settings-lock-block">
+            <label for="settingsLocked">Lock settings</label>
+            <label class="checkbox-inline settings-inline-checkbox" for="settingsLocked">
               <input id="settingsLocked" type="checkbox" checked />
-            </div>
+              <span>Prevent accidental edits to shared settings</span>
+            </label>
+          </div>
 
-            <div class="action-row">
-              <button class="save-btn" type="submit">Save Settings</button>
-            </div>
-          </form>
+          <div>
+            <label for="sheetUrl">Google Sheet URL</label>
+            <input id="sheetUrl" type="text" placeholder="Paste sheet URL" />
+          </div>
+
+          <div>
+            <label for="scriptUrl">Apps Script Web App URL</label>
+            <input id="scriptUrl" type="text" placeholder="Paste web app URL" />
+          </div>
+
+          <div>
+            <label for="photoFolder">Google Drive photo folder</label>
+            <input id="photoFolder" type="text" placeholder="Paste Drive folder URL or ID" />
+            <div class="field-hint" id="photoFolderHint">Paste a full Google Drive folder URL and it will auto-convert to the folder ID.</div>
+          </div>
+
+          <div class="action-row">
+            <button class="save-btn" type="submit">Save Settings</button>
+          </div>
+        </form>
         </section>
       </div>
     </main>
