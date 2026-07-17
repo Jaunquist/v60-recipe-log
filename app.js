@@ -51,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
     filteredBeans: [],
     activeView: 'library',
     activeTag: '',
-    showAllTagFilters: false,
     openBeanId: '',
     settings: {
       sheetUrl: '',
@@ -62,15 +61,32 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedBeanId: '',
     modalMode: 'add',
     beanTags: [],
-    uploadedPhoto: {
-      fileId: '',
-      fileName: '',
-      driveLink: '',
-      previewDataUrl: '',
-      photoText: '',
-      ocrStatus: '',
-      ocrSource: ''
-    },
+    uploadedPhotos: [
+      {
+        slot: 1,
+        source: 'camera',
+        fileId: '',
+        fileName: '',
+        driveLink: '',
+        previewDataUrl: '',
+        photoText: '',
+        ocrStatus: '',
+        ocrSource: '',
+        isPrimary: true
+      },
+      {
+        slot: 2,
+        source: 'gallery',
+        fileId: '',
+        fileName: '',
+        driveLink: '',
+        previewDataUrl: '',
+        photoText: '',
+        ocrStatus: '',
+        ocrSource: '',
+        isPrimary: false
+      }
+    ],
     currentRecipeData: null,
     currentRecipeStyle: 'hot',
     currentLogs: [],
@@ -141,8 +157,9 @@ document.addEventListener('DOMContentLoaded', () => {
     beanExistingPhotoDriveLink: document.getElementById('beanExistingPhotoDriveLink'),
     beanExistingPhotoPreviewDataUrl: document.getElementById('beanExistingPhotoPreviewDataUrl'),
 
-    beanAvatar: document.getElementById('beanAvatar'),
-    beanPhotoFile: document.getElementById('beanPhotoFile'),
+    beanPhotoGallery: document.getElementById('beanPhotoGallery'),
+    beanCameraPhotoFile: document.getElementById('beanCameraPhotoFile'),
+    beanGalleryPhotoFile: document.getElementById('beanGalleryPhotoFile'),
     beanPhotoMeta: document.getElementById('beanPhotoMeta'),
     ocrStatusLine: document.getElementById('ocrStatusLine'),
     beanPhotoText: document.getElementById('beanPhotoText'),
@@ -210,17 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
       seen.add(key);
       return true;
     });
-  }
-
-  function formatBeanLine(parts, separator = ' · ') {
-    return parts.map((part) => String(part || '').trim()).filter(Boolean).join(separator);
-  }
-
-  function truncateText(value, maxLength = 100) {
-    const text = String(value || '').trim();
-    if (!text) return '';
-    if (text.length <= maxLength) return text;
-    return `${text.slice(0, maxLength).trim()}…`;
   }
 
   function countryFlag(country) {
@@ -431,29 +437,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const counts = buildTagCounts(beans);
     const allActive = !state.activeTag ? 'active' : '';
-    const defaultVisibleCount = 6;
-    const visibleCounts = state.showAllTagFilters ? counts : counts.slice(0, defaultVisibleCount);
-    const hiddenCount = Math.max(0, counts.length - visibleCounts.length);
 
     const buttons = [
       `<button type="button" class="tag-filter ${allActive}" data-tag-filter="">All</button>`,
-      ...visibleCounts.map(([tag, count]) => {
+      ...counts.map(([tag, count]) => {
         const active = state.activeTag === tag ? 'active' : '';
         return `<button type="button" class="tag-filter ${active}" data-tag-filter="${escapeHtml(tag)}">${escapeHtml(tag)} <span>${count}</span></button>`;
       })
     ];
-
-    if (hiddenCount > 0 && !state.showAllTagFilters) {
-      buttons.push(
-        `<button type="button" class="tag-filter tag-filter--toggle" data-tag-toggle="show">+${hiddenCount} more</button>`
-      );
-    }
-
-    if (counts.length > defaultVisibleCount && state.showAllTagFilters) {
-      buttons.push(
-        `<button type="button" class="tag-filter tag-filter--toggle" data-tag-toggle="hide">Show less</button>`
-      );
-    }
 
     els.tagFilterBar.innerHTML = buttons.join('');
 
@@ -461,13 +452,6 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', () => {
         state.activeTag = btn.dataset.tagFilter || '';
         filterAndRenderBeans();
-      });
-    });
-
-    Array.from(els.tagFilterBar.querySelectorAll('[data-tag-toggle]')).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        state.showAllTagFilters = btn.dataset.tagToggle === 'show';
-        renderTagFilters(state.beans);
       });
     });
   }
@@ -515,16 +499,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     els.beanList.innerHTML = state.filteredBeans.map((bean) => {
       const flag = countryFlag(bean.origin_country);
+      const originLine = [flag, bean.origin_country, bean.origin_region].filter(Boolean).join(' ');
       const isOpen = openBeanId === bean.id;
+      const tagHtml = bean.tags.length
+        ? `<div class="tags-wrap">${bean.tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</div>`
+        : '';
       const brewCount = Number(bean.brew_count || 0);
-      const tastingNotes = truncateText(formatBeanLine(normalizeTags(bean.tags), ' · '), 120);
-      const line2 = formatBeanLine([
-        bean.roaster,
-        [flag, bean.origin_country].filter(Boolean).join(' '),
-        bean.origin_region
-      ], ', ');
-      const expandedLine1 = formatBeanLine([bean.roast, bean.process, bean.variety], ' · ');
-      const expandedLine2 = formatBeanLine([bean.producer, bean.farm, bean.altitude], ' · ');
       const lockBadge = bean.recipe_locked ? `<span class="tag-pill">Locked recipe</span>` : '';
 
       return `
@@ -536,27 +516,24 @@ document.addEventListener('DOMContentLoaded', () => {
             aria-expanded="${isOpen ? 'true' : 'false'}"
           >
             <div class="bean-card__summary-main">
-              <h3>${escapeHtml(bean.bean || 'Untitled bean')}</h3>
-
-              ${line2 ? `<div class="bean-card__line bean-card__line--meta">${escapeHtml(line2)}</div>` : ''}
-
-              ${tastingNotes ? `<div class="bean-card__line bean-card__line--notes">${escapeHtml(tastingNotes)}</div>` : ''}
-
-              <div class="bean-card__line bean-card__line--count">${brewCount} brew${brewCount === 1 ? '' : 's'}</div>
+              <div>
+                <h3>${escapeHtml(bean.bean || 'Untitled bean')}</h3>
+                <div class="muted">${escapeHtml(bean.roaster || 'Unknown roaster')}</div>
+              </div>
+              <div class="bean-card__summary-meta">
+                ${originLine ? `<div>${escapeHtml(originLine)}</div>` : ''}
+                ${bean.process ? `<div>${escapeHtml(bean.process)}</div>` : ''}
+                ${bean.roast ? `<div>${escapeHtml(bean.roast)}</div>` : ''}
+                <div>${brewCount} brew${brewCount === 1 ? '' : 's'}</div>
+              </div>
             </div>
-
             <span class="bean-card__chevron" aria-hidden="true">${isOpen ? '−' : '+'}</span>
           </button>
 
           <div class="bean-card__details ${isOpen ? '' : 'hidden'}" data-bean-details="${escapeHtml(bean.id)}">
-            ${lockBadge ? `<div class="bean-card__detail-badges">${lockBadge}</div>` : ''}
-
-            ${expandedLine1 ? `<div class="bean-card__detail-line"><strong>Roast / Process / Variety</strong><span>${escapeHtml(expandedLine1)}</span></div>` : ''}
-
-            ${expandedLine2 ? `<div class="bean-card__detail-line"><strong>Producer / Farm / Altitude</strong><span>${escapeHtml(expandedLine2)}</span></div>` : ''}
-
+            ${lockBadge}
+            ${tagHtml}
             ${bean.notes ? `<p class="bean-card__notes">${escapeHtml(bean.notes)}</p>` : ''}
-
             <div class="action-row">
               <button type="button" class="bean-use-btn" data-bean-id="${escapeHtml(bean.id)}">Use this bean</button>
               <button type="button" class="bean-edit-btn" data-bean-id="${escapeHtml(bean.id)}">Edit</button>
@@ -1178,65 +1155,136 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function resetUploadedPhoto() {
-    state.uploadedPhoto = {
+  function createEmptyUploadedPhoto(slot, source) {
+    return {
+      slot,
+      source,
       fileId: '',
       fileName: '',
       driveLink: '',
       previewDataUrl: '',
       photoText: '',
       ocrStatus: '',
-      ocrSource: ''
+      ocrSource: '',
+      isPrimary: slot === 1
     };
   }
 
-  function renderBeanAvatar() {
-    if (!els.beanAvatar) return;
+  function resetUploadedPhoto() {
+    state.uploadedPhotos = [
+      createEmptyUploadedPhoto(1, 'camera'),
+      createEmptyUploadedPhoto(2, 'gallery')
+    ];
+  }
 
-    if (!state.uploadedPhoto.previewDataUrl) {
-      els.beanAvatar.innerHTML = `<div class="bean-photo-preview--empty">No photo yet. Upload one to see a preview.</div>`;
+  function getActiveUploadedPhotos() {
+    return state.uploadedPhotos.filter((photo) => photo.fileId || photo.previewDataUrl || photo.fileName);
+  }
+
+  function getPrimaryUploadedPhoto() {
+    const photos = getActiveUploadedPhotos();
+    if (!photos.length) return null;
+    return photos.find((photo) => photo.isPrimary) || photos[0];
+  }
+
+  function syncPrimaryPhotoFields() {
+    const primary = getPrimaryUploadedPhoto();
+
+    if (els.beanExistingPhotoFileId) els.beanExistingPhotoFileId.value = primary ? primary.fileId : '';
+    if (els.beanExistingPhotoFileName) els.beanExistingPhotoFileName.value = primary ? primary.fileName : '';
+    if (els.beanExistingPhotoDriveLink) els.beanExistingPhotoDriveLink.value = primary ? primary.driveLink : '';
+    if (els.beanExistingPhotoPreviewDataUrl) els.beanExistingPhotoPreviewDataUrl.value = primary ? primary.previewDataUrl : '';
+  }
+
+  function combineUploadedPhotoText() {
+    return getActiveUploadedPhotos()
+      .map((photo) => String(photo.photoText || '').trim())
+      .filter(Boolean)
+      .join('\n\n---\n\n');
+  }
+
+  function setPrimaryUploadedPhoto(slot) {
+    state.uploadedPhotos = state.uploadedPhotos.map((photo) => ({
+      ...photo,
+      isPrimary: photo.slot === slot
+    }));
+    renderBeanPhotoGallery();
+    renderPhotoMeta();
+  }
+
+  function renderBeanPhotoGallery() {
+    if (!els.beanPhotoGallery) return;
+
+    const photos = getActiveUploadedPhotos();
+
+    if (!photos.length) {
+      els.beanPhotoGallery.innerHTML = `<div class="bean-photo-gallery__empty">No photos yet. Upload one or two photos to see previews.</div>`;
       return;
     }
 
-    els.beanAvatar.innerHTML = `<img src="${state.uploadedPhoto.previewDataUrl}" alt="Bean photo preview" />`;
+    els.beanPhotoGallery.innerHTML = photos.map((photo) => `
+      <div class="bean-photo-card ${photo.isPrimary ? 'bean-photo-card--primary' : ''}">
+        <div class="bean-photo-card__preview">
+          <img src="${escapeHtml(photo.previewDataUrl || '')}" alt="${escapeHtml(photo.source === 'camera' ? 'Camera photo preview' : 'Gallery photo preview')}" />
+        </div>
+        <div class="bean-photo-card__body">
+          <div class="bean-photo-card__title">
+            <strong>${escapeHtml(photo.source === 'camera' ? 'Camera photo' : 'Gallery photo')}</strong>
+            ${photo.isPrimary ? '<span class="tag-pill">Thumbnail</span>' : ''}
+          </div>
+          <div class="bean-photo-card__meta">${escapeHtml(photo.fileName || 'Uploaded photo')}</div>
+          <label class="thumbnail-choice">
+            <input type="radio" name="beanThumbnailChoice" value="${photo.slot}" ${photo.isPrimary ? 'checked' : ''} />
+            <span>Use as bean thumbnail</span>
+          </label>
+        </div>
+      </div>
+    `).join('');
+
+    Array.from(els.beanPhotoGallery.querySelectorAll('input[name="beanThumbnailChoice"]')).forEach((input) => {
+      input.addEventListener('change', () => {
+        setPrimaryUploadedPhoto(Number(input.value));
+      });
+    });
   }
 
   function renderPhotoMeta() {
+    const photos = getActiveUploadedPhotos();
+    const primary = getPrimaryUploadedPhoto();
+
     if (els.beanPhotoMeta) {
-      if (state.uploadedPhoto.fileName) {
-        const parts = [state.uploadedPhoto.fileName];
-        if (state.uploadedPhoto.driveLink) {
-          parts.push('Saved to Drive');
-        }
-        els.beanPhotoMeta.textContent = parts.join(' · ');
+      if (photos.length) {
+        const names = photos.map((photo) => photo.fileName).filter(Boolean);
+        els.beanPhotoMeta.textContent = `${photos.length} photo${photos.length === 1 ? '' : 's'} uploaded${names.length ? ` · ${names.join(' · ')}` : ''}`;
       } else {
         els.beanPhotoMeta.textContent = 'No photo uploaded yet.';
       }
     }
 
     if (els.ocrStatusLine) {
-      const status = state.uploadedPhoto.ocrStatus || 'not run yet';
-      const source = state.uploadedPhoto.ocrSource ? ` (${state.uploadedPhoto.ocrSource})` : '';
-      els.ocrStatusLine.textContent = `OCR: ${status}${source}`;
+      const doneCount = photos.filter((photo) => String(photo.ocrStatus || '').toLowerCase() === 'ok').length;
+      const sourceText = primary && primary.ocrSource ? ` · primary: ${primary.ocrSource}` : '';
 
-      els.ocrStatusLine.classList.remove('ocr-status--neutral', 'ocr-status--success', 'ocr-status--warn');
-      if (status === 'ok') {
-        els.ocrStatusLine.classList.add('ocr-status--success');
-      } else if (status === 'empty' || status === 'missing_api_key') {
-        els.ocrStatusLine.classList.add('ocr-status--warn');
-      } else {
+      if (!photos.length) {
+        els.ocrStatusLine.textContent = 'OCR: not run yet';
+        els.ocrStatusLine.classList.remove('ocr-status--success', 'ocr-status--warn');
         els.ocrStatusLine.classList.add('ocr-status--neutral');
+      } else if (doneCount === photos.length) {
+        els.ocrStatusLine.textContent = `OCR: ${doneCount}/${photos.length} photos processed${sourceText}`;
+        els.ocrStatusLine.classList.remove('ocr-status--neutral', 'ocr-status--warn');
+        els.ocrStatusLine.classList.add('ocr-status--success');
+      } else {
+        els.ocrStatusLine.textContent = `OCR: ${doneCount}/${photos.length} photos processed${sourceText}`;
+        els.ocrStatusLine.classList.remove('ocr-status--neutral', 'ocr-status--success');
+        els.ocrStatusLine.classList.add('ocr-status--warn');
       }
     }
 
     if (els.beanPhotoText) {
-      els.beanPhotoText.value = state.uploadedPhoto.photoText || '';
+      els.beanPhotoText.value = combineUploadedPhotoText();
     }
 
-    if (els.beanExistingPhotoFileId) els.beanExistingPhotoFileId.value = state.uploadedPhoto.fileId || '';
-    if (els.beanExistingPhotoFileName) els.beanExistingPhotoFileName.value = state.uploadedPhoto.fileName || '';
-    if (els.beanExistingPhotoDriveLink) els.beanExistingPhotoDriveLink.value = state.uploadedPhoto.driveLink || '';
-    if (els.beanExistingPhotoPreviewDataUrl) els.beanExistingPhotoPreviewDataUrl.value = state.uploadedPhoto.previewDataUrl || '';
+    syncPrimaryPhotoFields();
   }
 
   function renderBeanTagsPreview() {
@@ -1268,7 +1316,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.addBeanSubtitle) {
       els.addBeanSubtitle.textContent = bean
         ? 'Review OCR, update details, then save changes.'
-        : 'Upload a photo, research the bean, then save.';
+        : 'Upload photos, research the bean, then save.';
     }
 
     if (els.addBeanForm) els.addBeanForm.reset();
@@ -1290,24 +1338,29 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.beanProcess) els.beanProcess.value = bean.process || '';
       if (els.beanRoast) els.beanRoast.value = bean.roast || '';
       if (els.beanNotes) els.beanNotes.value = bean.notes || '';
-
       state.beanTags = normalizeTags(bean.tags);
 
-      state.uploadedPhoto = {
-        fileId: bean.photo_file_id || '',
-        fileName: bean.photo_file_name || '',
-        driveLink: bean.photo_drive_link || '',
-        previewDataUrl: bean.photo_preview_data_url || '',
-        photoText: bean.photo_text || '',
-        ocrStatus: bean.photo_text ? 'ok' : 'not run yet',
-        ocrSource: bean.photo_text ? 'saved' : ''
-      };
+      state.uploadedPhotos = [
+        {
+          slot: 1,
+          source: 'saved',
+          fileId: bean.photo_file_id || '',
+          fileName: bean.photo_file_name || '',
+          driveLink: bean.photo_drive_link || '',
+          previewDataUrl: bean.photo_preview_data_url || '',
+          photoText: bean.photo_text || '',
+          ocrStatus: bean.photo_text ? 'ok' : 'not run yet',
+          ocrSource: bean.photo_text ? 'saved' : '',
+          isPrimary: true
+        },
+        createEmptyUploadedPhoto(2, 'gallery')
+      ];
     } else {
       if (els.beanId) els.beanId.value = '';
     }
 
     renderBeanTagsPreview();
-    renderBeanAvatar();
+    renderBeanPhotoGallery();
     renderPhotoMeta();
 
     if (els.addBeanModal) {
@@ -1325,6 +1378,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function collectBeanFormData() {
     const selectedBean = getSelectedHelperBean();
+    const primary = getPrimaryUploadedPhoto();
+
     return {
       id: els.beanId ? els.beanId.value.trim() : '',
       bean: els.beanName ? els.beanName.value.trim() : '',
@@ -1341,11 +1396,11 @@ document.addEventListener('DOMContentLoaded', () => {
       roast: els.beanRoast ? els.beanRoast.value.trim() : '',
       notes: els.beanNotes ? els.beanNotes.value.trim() : '',
       tags: uniqueStrings(state.beanTags.slice()),
-      photo_file_id: state.uploadedPhoto.fileId || '',
-      photo_file_name: state.uploadedPhoto.fileName || '',
-      photo_drive_link: state.uploadedPhoto.driveLink || '',
-      photo_preview_data_url: state.uploadedPhoto.previewDataUrl || '',
-      photo_text: els.beanPhotoText ? els.beanPhotoText.value.trim() : (state.uploadedPhoto.photoText || ''),
+      photo_file_id: primary ? primary.fileId || '' : '',
+      photo_file_name: primary ? primary.fileName || '' : '',
+      photo_drive_link: primary ? primary.driveLink || '' : '',
+      photo_preview_data_url: primary ? primary.previewDataUrl || '' : '',
+      photo_text: els.beanPhotoText ? els.beanPhotoText.value.trim() : combineUploadedPhotoText(),
       recipe_locked: selectedBean ? !!selectedBean.recipe_locked : false,
       locked_recipe_json: selectedBean ? (selectedBean.locked_recipe_json || '') : ''
     };
@@ -1369,7 +1424,10 @@ document.addEventListener('DOMContentLoaded', () => {
     state.beanTags = uniqueStrings(normalizeTags(bean.tags));
     renderBeanTagsPreview();
 
-    state.uploadedPhoto.photoText = bean.photo_text || state.uploadedPhoto.photoText || '';
+    state.uploadedPhotos = state.uploadedPhotos.map((photo) => ({
+      ...photo,
+      photoText: photo.photoText || bean.photo_text || ''
+    }));
     renderPhotoMeta();
   }
 
@@ -1383,40 +1441,67 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function uploadPhoto() {
-    if (!els.beanPhotoFile || !els.beanPhotoFile.files || !els.beanPhotoFile.files[0]) {
-      setStatus('Choose a photo first.', 'warn');
+    const cameraFile = els.beanCameraPhotoFile && els.beanCameraPhotoFile.files ? els.beanCameraPhotoFile.files[0] : null;
+    const galleryFile = els.beanGalleryPhotoFile && els.beanGalleryPhotoFile.files ? els.beanGalleryPhotoFile.files[0] : null;
+
+    if (!cameraFile && !galleryFile) {
+      setStatus('Choose at least one photo first.', 'warn');
       return;
     }
 
-    const file = els.beanPhotoFile.files[0];
-
     try {
-      setStatus('Uploading photo and running OCR…', 'info');
-      const previewDataUrl = await readFileAsDataUrl(file);
+      setStatus('Uploading photos and running OCR…', 'info');
 
-      const response = await fetchJson(resolveScriptUrl(), {
-        method: 'POST',
-        body: {
-          action: 'uploadBeanPhoto',
-          previewDataUrl,
-          fileName: file.name
-        }
-      });
+      const uploads = [
+        { slot: 1, source: 'camera', file: cameraFile },
+        { slot: 2, source: 'gallery', file: galleryFile }
+      ];
 
-      const data = response.data || {};
-      state.uploadedPhoto = {
-        fileId: data.fileId || '',
-        fileName: data.fileName || file.name,
-        driveLink: data.driveLink || '',
-        previewDataUrl: data.previewDataUrl || previewDataUrl,
-        photoText: data.photoText || '',
-        ocrStatus: data.ocrStatus || '',
-        ocrSource: data.ocrSource || ''
-      };
+      for (const item of uploads) {
+        if (!item.file) continue;
 
-      renderBeanAvatar();
+        const previewDataUrl = await readFileAsDataUrl(item.file);
+        const response = await fetchJson(resolveScriptUrl(), {
+          method: 'POST',
+          body: {
+            action: 'uploadBeanPhoto',
+            previewDataUrl,
+            fileName: item.file.name
+          }
+        });
+
+        const data = response.data || {};
+
+        state.uploadedPhotos[item.slot - 1] = {
+          slot: item.slot,
+          source: item.source,
+          fileId: data.fileId || '',
+          fileName: data.fileName || item.file.name,
+          driveLink: data.driveLink || '',
+          previewDataUrl: data.previewDataUrl || previewDataUrl,
+          photoText: data.photoText || '',
+          ocrStatus: data.ocrStatus || '',
+          ocrSource: data.ocrSource || '',
+          isPrimary: item.slot === 1 ? true : state.uploadedPhotos[item.slot - 1].isPrimary
+        };
+      }
+
+      const activePhotos = getActiveUploadedPhotos();
+      if (activePhotos.length === 1) {
+        state.uploadedPhotos = state.uploadedPhotos.map((photo) => ({
+          ...photo,
+          isPrimary: photo.slot === activePhotos[0].slot
+        }));
+      } else if (!activePhotos.some((photo) => photo.isPrimary)) {
+        state.uploadedPhotos = state.uploadedPhotos.map((photo) => ({
+          ...photo,
+          isPrimary: photo.slot === activePhotos[0].slot
+        }));
+      }
+
+      renderBeanPhotoGallery();
       renderPhotoMeta();
-      setStatus('Photo uploaded.', 'success');
+      setStatus('Photo upload complete.', 'success');
     } catch (error) {
       setStatus(error.message || 'Photo upload failed.', 'error');
     }
@@ -1625,7 +1710,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setView('library');
     renderRecipeOutput();
     renderBeanTagsPreview();
-    renderBeanAvatar();
+    renderBeanPhotoGallery();
     renderPhotoMeta();
     renderBrewLogList();
     resetBrewLogForm();
