@@ -136,7 +136,7 @@
 
                     <div>
                       <label for="brewGrind">Grind</label>
-                      <input id="brewGrind" type="text" placeholder="e.g. 5.5" />
+                      <input id="brewGrind" type="text" placeholder="e.g. 5.5 on Eureka Mignon Perfetto" />
                     </div>
 
                     <div>
@@ -253,7 +253,7 @@
       <div class="modal-header">
         <div>
           <h2>Add / Edit Bean</h2>
-          <p class="muted" id="addBeanSubtitle">Upload a photo, research the bean, then save.</p>
+          <p class="muted" id="addBeanSubtitle">Upload photos, research the bean, then save.</p>
         </div>
         <button class="icon-btn" id="closeAddBeanBtn" type="button" aria-label="Close">✕</button>
       </div>
@@ -276,27 +276,36 @@
                 <div class="photo-upload-header">
                   <div>
                     <h3>Bean photo</h3>
-                    <p class="muted">Tap one button, then choose camera or gallery if your device offers both.</p>
+                    <p class="muted">Use camera or gallery. You can add multiple photos, then choose one primary thumbnail before saving.</p>
                   </div>
                 </div>
 
-                <input id="beanPhotoFile" type="file" accept="image/*" class="hidden-file-input" />
+                <input id="beanPhotoFileCamera" type="file" accept="image/*" capture="environment" class="hidden-file-input" />
+                <input id="beanPhotoFileGallery" type="file" accept="image/*" multiple class="hidden-file-input" />
 
                 <div class="photo-upload-card__actions">
-                  <button id="pickPhotoBtn" type="button">Add Photo</button>
-                  <button id="uploadPhotoBtn" type="button">Upload Photo</button>
+                  <button id="pickPhotoBtn" type="button">Take Photo</button>
+                  <button id="pickGalleryBtn" type="button">Choose Photos</button>
+                  <button id="uploadPhotoBtn" type="button">Upload Selected Photos</button>
                   <button id="researchBeanBtn" type="button">Research Bean</button>
                 </div>
 
                 <div class="field-hint" id="researchStatus"></div>
-                <div class="photo-meta" id="beanPhotoMeta">No photo uploaded yet.</div>
+                <div class="photo-meta" id="beanPhotoMeta">No photos selected yet.</div>
                 <div class="ocr-status ocr-status--neutral" id="ocrStatusLine">OCR: not run yet</div>
               </div>
             </div>
 
             <div class="photo-file-meta">
+              <label>Selected photos</label>
+              <div id="beanPhotoThumbGrid" class="photo-thumb-grid">
+                <div class="empty-state">No photos selected yet.</div>
+              </div>
+            </div>
+
+            <div class="photo-file-meta">
               <label for="beanPhotoText">Photo OCR text</label>
-              <textarea id="beanPhotoText" rows="4" placeholder="Detected label text appears here."></textarea>
+              <textarea id="beanPhotoText" rows="6" placeholder="Merged OCR text from the uploaded photos appears here."></textarea>
             </div>
           </div>
 
