@@ -88,22 +88,6 @@
 
               <button id="generateRecipeBtn" type="button">Generate Recipe</button>
               <div class="field-hint" id="recipeStatus">No recipe generated yet.</div>
-
-              <div class="helper-lock-box">
-                <div class="helper-lock-box__top">
-                  <label class="checkbox-inline" for="lockRecipeCheckbox">
-                    <input id="lockRecipeCheckbox" type="checkbox" />
-                    <span>Lock this recipe for the bean</span>
-                  </label>
-                </div>
-                <div class="action-row helper-lock-actions">
-                  <button id="saveRecipeLockBtn" type="button">Save Lock State</button>
-                  <button id="forceRegenerateBtn" type="button" class="bean-use-btn">Regenerate with AI</button>
-                </div>
-                <div class="field-hint brew-log-status" id="recipeEngineStatus" data-status="info">
-                  No recipe generated yet.
-                </div>
-              </div>
             </aside>
 
             <div class="helper-output">
@@ -111,7 +95,7 @@
                 <div class="recipe-card__header">
                   <div>
                     <h3>Recommendation</h3>
-                    <p class="muted">Generated from bean details, brew history, and lock state.</p>
+                    <p class="muted">Generated from bean details, brew history, and grinder context.</p>
                   </div>
                 </div>
                 <div id="helperOutput">
@@ -152,7 +136,7 @@
 
                     <div>
                       <label for="brewGrind">Grind</label>
-                      <input id="brewGrind" type="text" placeholder="e.g. medium-fine" />
+                      <input id="brewGrind" type="text" placeholder="e.g. 5.5 on Eureka Mignon Perfetto" />
                     </div>
 
                     <div>
@@ -190,6 +174,31 @@
                     Select a bean to begin logging brews.
                   </div>
                 </form>
+              </article>
+
+              <article class="recipe-card">
+                <div class="recipe-card__header">
+                  <div>
+                    <h3>Recipe Lock</h3>
+                    <p class="muted">Save the current recipe as the locked default for this bean, or force a fresh AI version.</p>
+                  </div>
+                </div>
+
+                <div class="helper-lock-box">
+                  <label class="checkbox-inline" for="lockRecipeCheckbox">
+                    <input id="lockRecipeCheckbox" type="checkbox" />
+                    <span>Lock this recipe for the bean</span>
+                  </label>
+
+                  <div class="action-row">
+                    <button id="saveRecipeLockBtn" type="button">Save Lock State</button>
+                    <button id="forceRegenerateBtn" type="button" class="bean-use-btn">Regenerate with AI</button>
+                  </div>
+
+                  <div class="field-hint brew-log-status" id="recipeEngineStatus" data-status="info">
+                    No recipe generated yet.
+                  </div>
+                </div>
               </article>
             </div>
           </div>
