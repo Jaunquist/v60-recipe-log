@@ -67,6 +67,15 @@ label {
   display: none !important;
 }
 
+.hidden-file-input {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .app {
   min-height: 100vh;
   display: grid;
@@ -286,13 +295,6 @@ textarea {
   background: var(--accent-soft);
 }
 
-.tag-filter--toggle {
-  background: var(--panel-2);
-  color: var(--accent-strong);
-  border-color: rgba(139, 94, 60, 0.18);
-  font-weight: 600;
-}
-
 .bean-list {
   display: grid;
   gap: 14px;
@@ -339,26 +341,6 @@ textarea {
   line-height: 1.2;
 }
 
-.bean-card__line {
-  min-width: 0;
-  line-height: 1.4;
-}
-
-.bean-card__line--meta {
-  color: var(--text-soft);
-  font-size: 0.95rem;
-}
-
-.bean-card__line--notes {
-  color: var(--text);
-  font-size: 0.96rem;
-}
-
-.bean-card__line--count {
-  color: var(--text-soft);
-  font-size: 0.94rem;
-}
-
 .bean-card__summary-meta {
   display: flex;
   flex-wrap: wrap;
@@ -384,36 +366,6 @@ textarea {
 .bean-card__details {
   padding: 0 20px 18px;
   border-top: 1px solid rgba(139, 94, 60, 0.1);
-}
-
-.bean-card__detail-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.bean-card__detail-line {
-  display: grid;
-  gap: 4px;
-  margin-top: 14px;
-  padding: 12px 14px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-}
-
-.bean-card__detail-line strong {
-  display: block;
-  font-size: 0.8rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.bean-card__detail-line span {
-  color: var(--text-soft);
-  line-height: 1.45;
 }
 
 .bean-card__notes {
@@ -631,12 +583,6 @@ textarea {
   min-width: 0;
 }
 
-.brew-log-item__summary-date span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .brew-log-item__summary-toggle {
   width: 30px;
   height: 30px;
@@ -655,24 +601,6 @@ textarea {
   gap: 12px;
   padding: 0 16px 16px;
   border-top: 1px solid rgba(139, 94, 60, 0.1);
-}
-
-.brew-log-item__top {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.brew-log-item__date {
-  font-weight: 700;
-  color: var(--text);
-}
-
-.brew-log-item__stamp {
-  color: var(--text-faint);
-  font-size: 0.86rem;
 }
 
 .brew-log-item__grid {
@@ -766,6 +694,7 @@ textarea {
 
 .save-btn,
 .action-row button,
+#pickPhotoBtn,
 #uploadPhotoBtn,
 #generateRecipeBtn,
 #researchBeanBtn,
@@ -781,6 +710,7 @@ textarea {
 
 .save-btn:hover,
 .action-row button:hover,
+#pickPhotoBtn:hover,
 #uploadPhotoBtn:hover,
 #generateRecipeBtn:hover,
 #researchBeanBtn:hover,
@@ -904,8 +834,31 @@ textarea {
   align-items: start;
 }
 
-.photo-upload-card__top--stack {
-  grid-template-columns: 1fr;
+.photo-upload-card__controls {
+  display: grid;
+  gap: 12px;
+}
+
+.bean-photo-preview {
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px dashed var(--line-strong);
+  display: grid;
+  place-items: center;
+}
+
+.bean-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bean-photo-preview--empty {
+  text-align: center;
+  color: var(--text-faint);
+  padding: 18px;
 }
 
 .photo-upload-header h3 {
@@ -913,43 +866,20 @@ textarea {
   font-size: 1.2rem;
 }
 
-.photo-dual-inputs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.photo-input-block {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #fffdf9;
-}
-
 .photo-upload-card__actions {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: end;
-}
-
-.photo-upload-card__actions--stackable {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  align-items: center;
 }
 
 .photo-meta {
-  margin-top: 12px;
+  margin-top: 6px;
   color: var(--text-soft);
   font-size: 0.9rem;
 }
 
 .ocr-status {
-  margin-top: 10px;
+  margin-top: 4px;
   font-size: 0.9rem;
   padding: 10px 12px;
   border-radius: 12px;
@@ -979,83 +909,6 @@ textarea {
   gap: 8px;
 }
 
-.bean-photo-gallery {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.bean-photo-gallery__empty {
-  border: 1px dashed var(--line-strong);
-  border-radius: 18px;
-  background: #fffdf9;
-  min-height: 180px;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  color: var(--text-faint);
-  padding: 20px;
-  grid-column: 1 / -1;
-}
-
-.bean-photo-card {
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: #fffdf9;
-  overflow: hidden;
-}
-
-.bean-photo-card--primary {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(139, 94, 60, 0.08);
-}
-
-.bean-photo-card__preview {
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
-  aspect-ratio: 4 / 3;
-  overflow: hidden;
-}
-
-.bean-photo-card__preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.bean-photo-card__body {
-  padding: 12px 14px;
-  display: grid;
-  gap: 10px;
-}
-
-.bean-photo-card__title {
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.bean-photo-card__meta {
-  color: var(--text-soft);
-  font-size: 0.9rem;
-  word-break: break-word;
-}
-
-.thumbnail-choice {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  color: var(--text);
-}
-
-.thumbnail-choice input[type='radio'] {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-}
-
 .empty-state {
   background: rgba(255, 250, 244, 0.92);
   border: 1px dashed var(--line-strong);
@@ -1083,9 +936,7 @@ textarea {
     position: static;
   }
 
-  .photo-upload-card__top,
-  .photo-dual-inputs,
-  .bean-photo-gallery {
+  .photo-upload-card__top {
     grid-template-columns: 1fr;
   }
 
@@ -1102,8 +953,7 @@ textarea {
   .topbar,
   .section-head,
   .recipe-card__header,
-  .modal-header,
-  .brew-log-item__top {
+  .modal-header {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1117,10 +967,6 @@ textarea {
   }
 
   .brew-form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .photo-upload-card__actions {
     grid-template-columns: 1fr;
   }
 
