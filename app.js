@@ -228,6 +228,104 @@ document.addEventListener('DOMContentLoaded', () => {
     return raw;
   }
 
+  function normalizeRecipeStyleKey(style) {
+    return style === 'icedhalfshaken' ? 'iced_half_shaken' : style;
+  }
+
+  function normalizeRecipeDataShape(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    const normalized = {
+      ...data,
+      defaultStyle: normalizeRecipeStyleKey(data.defaultStyle || 'hot'),
+      availableStyles: Array.isArray(data.availableStyles)
+        ? data.availableStyles.map(normalizeRecipeStyleKey)
+        : ['hot'],
+      recipes: {}
+    };
+
+    const incomingRecipes = data.recipes || {};
+    Object.keys(incomingRecipes).forEach((key) => {
+      const normalizedKey = normalizeRecipeStyleKey(key);
+      const recipe = incomingRecipes[key] || {};
+      normalized.recipes[normalizedKey] = {
+        ...recipe,
+        pours: normalizePours(recipe.pours)
+      };
+    });
+
+    return normalized;
+  }
+
+  function normalizePours(pours) {
+    if (!Array.isArray(pours)) return [];
+
+    return pours.map((pour) => {
+      if (typeof pour === 'string') {
+        return {
+          start: '',
+          end: '',
+          water_g: '',
+          text: pour
+        };
+      }
+
+      if (!pour || typeof pour !== 'object') {
+        return {
+          start: '',
+          end: '',
+          water_g: '',
+          text: ''
+        };
+      }
+
+      return {
+        start: String(pour.start || pour.start_time || '').trim(),
+        end: String(pour.end || pour.end_time || '').trim(),
+        water_g: String(pour.water_g != null ? pour.water_g : (pour.water || '')).trim(),
+        text: String(pour.text || '').trim()
+      };
+    });
+  }
+
+  function renderPoursHtml(pours) {
+    const normalized = normalizePours(pours).filter((pour) => {
+      return pour.text || pour.start || pour.end || pour.water_g;
+    });
+
+    if (!normalized.length) return '';
+
+    return `
+      <div class="recipe-block">
+        <h4>Pours</h4>
+        <ul class="pour-list">
+          ${normalized.map((pour) => {
+            if (pour.text && !pour.start && !pour.end && !pour.water_g) {
+              return `<li>${escapeHtml(pour.text)}</li>`;
+            }
+
+            return `
+              <li class="pour-item">
+                <div class="pour-pill">
+                  <strong>Start</strong>
+                  <span>${escapeHtml(pour.start || '—')}</span>
+                </div>
+                <div class="pour-pill">
+                  <strong>End</strong>
+                  <span>${escapeHtml(pour.end || '—')}</span>
+                </div>
+                <div class="pour-water">
+                  <strong>Water</strong>
+                  <span>${escapeHtml(pour.water_g || '—')} g</span>
+                </div>
+              </li>
+            `;
+          }).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
   async function fetchJson(url, options = {}) {
     const method = options.method || 'GET';
     const init = { method, headers: {} };
@@ -327,7 +425,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.scriptUrl) els.scriptUrl.value = state.settings.scriptUrl || APPS_SCRIPT_URL;
     if (els.photoFolder) els.photoFolder.value = state.settings.photoFolder || '';
     if (els.settingsLocked) els.settingsLocked.checked = true;
-
     state.settings.settingsLocked = true;
     applySettingsLockState();
     updatePhotoFolderHint();
@@ -569,7 +666,9 @@ document.addEventListener('DOMContentLoaded', () => {
           if (state.selectedBeanId === beanId) {
             state.selectedBeanId = '';
             state.currentLogs = [];
+            state.currentRecipeData = null;
             renderBrewLogList();
+            renderRecipeOutput();
             resetBrewLogForm();
           }
 
@@ -639,7 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function getLockedRecipeFromBean(bean) {
     if (!bean || !bean.locked_recipe_json) return null;
     try {
-      return JSON.parse(bean.locked_recipe_json);
+      return normalizeRecipeDataShape(JSON.parse(bean.locked_recipe_json));
     } catch (error) {
       return null;
     }
@@ -652,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderRecipeStyleToggle(data) {
     if (!els.recipeStyleToggle) return;
 
-    const styles = Array.isArray(data.availableStyles) ? data.availableStyles : [];
+    const styles = Array.isArray(data.availableStyles) ? data.availableStyles.map(normalizeRecipeStyleKey) : [];
     if (styles.length <= 1) {
       els.recipeStyleToggle.classList.add('hidden');
       els.recipeStyleToggle.innerHTML = '';
@@ -668,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     Array.from(els.recipeStyleToggle.querySelectorAll('[data-recipe-style]')).forEach((btn) => {
       btn.addEventListener('click', () => {
-        state.currentRecipeStyle = btn.dataset.recipeStyle || 'hot';
+        state.currentRecipeStyle = normalizeRecipeStyleKey(btn.dataset.recipeStyle || 'hot');
         renderRecipeOutput();
         refillBrewLogForm();
       });
@@ -699,7 +798,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderRecipeStyleToggle(state.currentRecipeData);
 
-    const pours = Array.isArray(recipe.pours) ? recipe.pours : [];
     const extraIcedFields = recipe.hot_water_g || recipe.brew_ice_g ? `
       <div class="recipe-grid">
         ${recipe.hot_water_g ? `<div><strong>Hot water</strong><span>${escapeHtml(recipe.hot_water_g)} g</span></div>` : ''}
@@ -709,11 +807,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     els.helperOutput.innerHTML = `
       <div class="recipe-output">
+        <div class="grinder-chip">Using Eureka Mignon Perfetto</div>
+
         <div class="recipe-grid">
           <div><strong>Grind</strong><span>${escapeHtml(recipe.grind || '')}</span></div>
           <div><strong>Dose</strong><span>${escapeHtml(recipe.dose_g || '')} g</span></div>
           <div><strong>Water</strong><span>${escapeHtml(recipe.water_total_g || '')} g</span></div>
-          <div><strong>Temp</strong><span>${escapeHtml(recipe.water_temp_c || '')} C</span></div>
+          <div><strong>Temp</strong><span>${escapeHtml(recipe.water_temp_c || '')} °C</span></div>
           <div><strong>Time</strong><span>${escapeHtml(recipe.target_time || '')}</span></div>
           <div><strong>Ratio</strong><span>${escapeHtml(recipe.ratio || '')}</span></div>
         </div>
@@ -727,14 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         ` : ''}
 
-        ${pours.length ? `
-          <div class="recipe-block">
-            <h4>Pours</h4>
-            <ol>
-              ${pours.map((pour) => `<li>${escapeHtml(pour)}</li>`).join('')}
-            </ol>
-          </div>
-        ` : ''}
+        ${renderPoursHtml(recipe.pours)}
 
         ${recipe.expected_notes ? `
           <div class="recipe-block">
@@ -1062,8 +1155,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const isLocked = !!bean.recipe_locked;
 
     if (isLocked && lockedRecipe && !forceAi) {
-      state.currentRecipeData = lockedRecipe;
-      state.currentRecipeStyle = lockedRecipe.defaultStyle || 'hot';
+      state.currentRecipeData = normalizeRecipeDataShape(lockedRecipe);
+      state.currentRecipeStyle = state.currentRecipeData.defaultStyle || 'hot';
       renderRecipeOutput();
       refillBrewLogForm();
       setRecipeEngineStatus('This bean is locked to its ideal recipe. AI generation was skipped.', 'success');
@@ -1109,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      state.currentRecipeData = response.data || null;
+      state.currentRecipeData = normalizeRecipeDataShape(response.data || null);
       state.currentRecipeStyle = (state.currentRecipeData && state.currentRecipeData.defaultStyle) || 'hot';
       renderRecipeOutput();
       refillBrewLogForm();
@@ -1232,7 +1325,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (els.addBeanForm) els.addBeanForm.reset();
-
     state.beanTags = [];
     resetUploadedPhoto();
 
@@ -1250,8 +1342,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.beanProcess) els.beanProcess.value = bean.process || '';
       if (els.beanRoast) els.beanRoast.value = bean.roast || '';
       if (els.beanNotes) els.beanNotes.value = bean.notes || '';
-      state.beanTags = normalizeTags(bean.tags);
 
+      state.beanTags = normalizeTags(bean.tags);
       state.uploadedPhoto = {
         fileId: bean.photo_file_id || '',
         fileName: bean.photo_file_name || '',
@@ -1261,8 +1353,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ocrStatus: bean.photo_text ? 'ok' : 'not run yet',
         ocrSource: bean.photo_text ? 'saved' : ''
       };
-    } else {
-      if (els.beanId) els.beanId.value = '';
+    } else if (els.beanId) {
+      els.beanId.value = '';
     }
 
     renderBeanTagsPreview();
@@ -1304,9 +1396,9 @@ document.addEventListener('DOMContentLoaded', () => {
       photo_file_name: state.uploadedPhoto.fileName || '',
       photo_drive_link: state.uploadedPhoto.driveLink || '',
       photo_preview_data_url: state.uploadedPhoto.previewDataUrl || '',
-      photo_text: els.beanPhotoText ? els.beanPhotoText.value.trim() : (state.uploadedPhoto.photoText || ''),
+      photo_text: els.beanPhotoText ? els.beanPhotoText.value.trim() : state.uploadedPhoto.photoText,
       recipe_locked: selectedBean ? !!selectedBean.recipe_locked : false,
-      locked_recipe_json: selectedBean ? (selectedBean.locked_recipe_json || '') : ''
+      locked_recipe_json: selectedBean ? selectedBean.locked_recipe_json || '' : ''
     };
   }
 
@@ -1328,7 +1420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.beanTags = uniqueStrings(normalizeTags(bean.tags));
     renderBeanTagsPreview();
 
-    state.uploadedPhoto.photoText = bean.photo_text || state.uploadedPhoto.photoText || '';
+    state.uploadedPhoto.photoText = bean.photo_text || state.uploadedPhoto.photoText;
     renderPhotoMeta();
   }
 
@@ -1385,34 +1477,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const beanData = collectBeanFormData();
 
     try {
-      if (els.researchStatus) {
-        els.researchStatus.textContent = 'Researching bean and translating to English…';
-      }
+      if (els.researchStatus) els.researchStatus.textContent = 'Researching bean and translating to English…';
       setStatus('Researching bean…', 'info');
 
       const response = await fetchJson(resolveScriptUrl(), {
         method: 'POST',
-        body: {
-          action: 'researchBean',
-          beanData
-        }
+        body: { action: 'researchBean', beanData }
       });
 
       const researchedBean = response.data && response.data.bean ? response.data.bean : null;
-      if (!researchedBean) {
-        throw new Error('No researched bean returned.');
-      }
+      if (!researchedBean) throw new Error('No researched bean returned.');
 
       applyResearchedBean(researchedBean);
-
-      if (els.researchStatus) {
-        els.researchStatus.textContent = 'Research complete. English details applied.';
-      }
+      if (els.researchStatus) els.researchStatus.textContent = 'Research complete. English details applied.';
       setStatus('Research complete.', 'success');
     } catch (error) {
-      if (els.researchStatus) {
-        els.researchStatus.textContent = error.message || 'Research failed.';
-      }
+      if (els.researchStatus) els.researchStatus.textContent = error.message || 'Research failed.';
       setStatus(error.message || 'Research failed.', 'error');
     }
   }
@@ -1425,28 +1505,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       setStatus(beanData.id ? 'Updating bean…' : 'Saving bean…', 'info');
-
       const response = await fetchJson(resolveScriptUrl(), {
         method: 'POST',
-        body: {
-          action,
-          beanData
-        }
+        body: { action, beanData }
       });
 
       const savedBean = response.data && response.data.bean ? response.data.bean : null;
-      if (!savedBean) {
-        throw new Error('Bean save did not return a bean.');
-      }
+      if (!savedBean) throw new Error('Bean save did not return a bean.');
 
       closeBeanModal();
       await loadBeans();
 
-      state.selectedBeanId = savedBean.id || state.selectedBeanId;
-      if (els.helperBeanSelect) {
-        els.helperBeanSelect.value = state.selectedBeanId;
+      if (state.selectedBeanId === savedBean.id) {
+        if (els.helperBeanSelect) els.helperBeanSelect.value = state.selectedBeanId;
+        syncHelperBeanSummary();
       }
-      syncHelperBeanSummary();
 
       setStatus(beanData.id ? 'Bean updated.' : 'Bean saved.', 'success');
     } catch (error) {
