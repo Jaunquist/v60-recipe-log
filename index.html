@@ -107,7 +107,19 @@
             </aside>
 
             <div class="helper-output">
-              <div id="helperOutput"></div>
+              <article class="recipe-card">
+                <div class="recipe-card__header">
+                  <div>
+                    <h3>Recommendation</h3>
+                    <p class="muted">Generated from bean details, brew history, and lock state.</p>
+                  </div>
+                </div>
+                <div id="helperOutput">
+                  <div class="helper-placeholder">
+                    Generate a recipe to see grind size, pours, time, and expected notes.
+                  </div>
+                </div>
+              </article>
 
               <article class="recipe-card brew-log-card">
                 <div class="recipe-card__header">
@@ -232,7 +244,7 @@
       <div class="modal-header">
         <div>
           <h2>Add / Edit Bean</h2>
-          <p class="muted" id="addBeanSubtitle">Upload photos, research the bean, then save.</p>
+          <p class="muted" id="addBeanSubtitle">Upload a photo, research the bean, then save.</p>
         </div>
         <button class="icon-btn" id="closeAddBeanBtn" type="button" aria-label="Close">✕</button>
       </div>
@@ -246,46 +258,36 @@
           <input id="beanExistingPhotoPreviewDataUrl" type="hidden" />
 
           <div class="photo-upload-card">
-            <div class="photo-upload-card__top photo-upload-card__top--stack">
-              <div class="photo-upload-header">
-                <div>
-                  <h3>Bean photos</h3>
-                  <p class="muted">Take a photo and/or choose one from the gallery. AI reads both, and you can choose the bean thumbnail.</p>
-                </div>
+            <div class="photo-upload-card__top">
+              <div id="beanAvatar" class="bean-photo-preview">
+                <div class="bean-photo-preview--empty">No photo yet. Upload one to see a preview.</div>
               </div>
 
-              <div class="photo-dual-inputs">
-                <div class="photo-input-block">
-                  <label for="beanCameraPhotoFile">Take photo</label>
-                  <input id="beanCameraPhotoFile" type="file" accept="image/*" capture="environment" />
-                  <div class="field-hint">Use camera for the front label or bag.</div>
+              <div class="photo-upload-card__controls">
+                <div class="photo-upload-header">
+                  <div>
+                    <h3>Bean photo</h3>
+                    <p class="muted">Tap one button, then choose camera or gallery if your device offers both.</p>
+                  </div>
                 </div>
 
-                <div class="photo-input-block">
-                  <label for="beanGalleryPhotoFile">Choose from gallery</label>
-                  <input id="beanGalleryPhotoFile" type="file" accept="image/*" />
-                  <div class="field-hint">Use gallery for the back label or a second angle.</div>
+                <input id="beanPhotoFile" type="file" accept="image/*" class="hidden-file-input" />
+
+                <div class="photo-upload-card__actions">
+                  <button id="pickPhotoBtn" type="button">Add Photo</button>
+                  <button id="uploadPhotoBtn" type="button">Upload Photo</button>
+                  <button id="researchBeanBtn" type="button">Research Bean</button>
                 </div>
+
+                <div class="field-hint" id="researchStatus"></div>
+                <div class="photo-meta" id="beanPhotoMeta">No photo uploaded yet.</div>
+                <div class="ocr-status ocr-status--neutral" id="ocrStatusLine">OCR: not run yet</div>
               </div>
-
-              <div class="photo-upload-card__actions photo-upload-card__actions--stackable">
-                <button id="uploadPhotoBtn" type="button">Upload Selected Photos</button>
-                <button id="researchBeanBtn" type="button">Research Bean</button>
-              </div>
-
-              <div class="field-hint" id="researchStatus"></div>
-
-              <div class="bean-photo-gallery" id="beanPhotoGallery">
-                <div class="bean-photo-gallery__empty">No photos yet. Upload one or two photos to see previews.</div>
-              </div>
-
-              <div class="photo-meta" id="beanPhotoMeta">No photo uploaded yet.</div>
-              <div class="ocr-status ocr-status--neutral" id="ocrStatusLine">OCR: not run yet</div>
             </div>
 
             <div class="photo-file-meta">
               <label for="beanPhotoText">Photo OCR text</label>
-              <textarea id="beanPhotoText" rows="4" placeholder="Detected label text from one or both photos appears here."></textarea>
+              <textarea id="beanPhotoText" rows="4" placeholder="Detected label text appears here."></textarea>
             </div>
           </div>
 
