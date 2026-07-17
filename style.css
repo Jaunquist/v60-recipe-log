@@ -714,7 +714,6 @@ textarea {
 .save-btn,
 .action-row button,
 #pickPhotoBtn,
-#pickGalleryBtn,
 #uploadPhotoBtn,
 #generateRecipeBtn,
 #researchBeanBtn,
@@ -731,7 +730,6 @@ textarea {
 .save-btn:hover,
 .action-row button:hover,
 #pickPhotoBtn:hover,
-#pickGalleryBtn:hover,
 #uploadPhotoBtn:hover,
 #generateRecipeBtn:hover,
 #researchBeanBtn:hover,
@@ -741,27 +739,19 @@ textarea {
 }
 
 .bean-delete-btn,
-.bean-delete-btn--ghost,
-.photo-thumb__remove {
+.bean-delete-btn--ghost {
   background: transparent !important;
   color: var(--error) !important;
   border: 1px solid rgba(159, 63, 63, 0.18) !important;
 }
 
 .bean-edit-btn,
-.bean-use-btn,
-.photo-thumb__primary {
+.bean-use-btn {
   background: #fffdf9;
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 10px 14px;
-}
-
-.photo-thumb__primary.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
 }
 
 .action-row {
@@ -938,65 +928,6 @@ textarea {
   gap: 8px;
 }
 
-.photo-thumb-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.photo-thumb {
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #fffdf9;
-  overflow: hidden;
-  display: grid;
-  gap: 10px;
-  padding: 10px;
-}
-
-.photo-thumb--primary {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(139, 94, 60, 0.10);
-}
-
-.photo-thumb__image {
-  aspect-ratio: 1 / 1;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--panel);
-  border: 1px solid var(--line);
-}
-
-.photo-thumb__image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.photo-thumb__meta {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.photo-thumb__name {
-  font-size: 0.86rem;
-  color: var(--text);
-  word-break: break-word;
-}
-
-.photo-thumb__status {
-  font-size: 0.78rem;
-  color: var(--text-soft);
-}
-
-.photo-thumb__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .empty-state {
   background: rgba(255, 250, 244, 0.92);
   border: 1px dashed var(--line-strong);
@@ -1072,8 +1003,7 @@ textarea {
 
 @media (max-width: 520px) {
   .recipe-grid,
-  .brew-log-item__grid,
-  .photo-thumb-grid {
+  .brew-log-item__grid {
     grid-template-columns: 1fr;
   }
 
