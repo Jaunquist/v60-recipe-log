@@ -232,6 +232,31 @@ document.addEventListener('DOMContentLoaded', () => {
     return style === 'icedhalfshaken' ? 'iced_half_shaken' : style;
   }
 
+  function normalizeRecipeDataShape(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    const normalized = {
+      ...data,
+      defaultStyle: normalizeRecipeStyleKey(data.defaultStyle || 'hot'),
+      availableStyles: Array.isArray(data.availableStyles)
+        ? data.availableStyles.map(normalizeRecipeStyleKey)
+        : ['hot'],
+      recipes: {}
+    };
+
+    const incomingRecipes = data.recipes || {};
+    Object.keys(incomingRecipes).forEach((key) => {
+      const normalizedKey = normalizeRecipeStyleKey(key);
+      const recipe = incomingRecipes[key] || {};
+      normalized.recipes[normalizedKey] = {
+        ...recipe,
+        pours: normalizePours(recipe.pours)
+      };
+    });
+
+    return normalized;
+  }
+
   function normalizePours(pours) {
     if (!Array.isArray(pours)) return [];
 
@@ -261,31 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
         text: String(pour.text || '').trim()
       };
     });
-  }
-
-  function normalizeRecipeDataShape(data) {
-    if (!data || typeof data !== 'object') return data;
-
-    const normalized = {
-      ...data,
-      defaultStyle: normalizeRecipeStyleKey(data.defaultStyle || 'hot'),
-      availableStyles: Array.isArray(data.availableStyles)
-        ? data.availableStyles.map(normalizeRecipeStyleKey)
-        : ['hot'],
-      recipes: {}
-    };
-
-    const incomingRecipes = data.recipes || {};
-    Object.keys(incomingRecipes).forEach((key) => {
-      const normalizedKey = normalizeRecipeStyleKey(key);
-      const recipe = incomingRecipes[key] || {};
-      normalized.recipes[normalizedKey] = {
-        ...recipe,
-        pours: normalizePours(recipe.pours)
-      };
-    });
-
-    return normalized;
   }
 
   function renderPoursHtml(pours) {
@@ -807,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     els.helperOutput.innerHTML = `
       <div class="recipe-output">
-        <div class="grinder-chip">Using Eureka Mignon Perfetto</div>
+        <div class="grinder-chip">Using Eureka Mignon Perfetto baseline calibration</div>
 
         <div class="recipe-grid">
           <div><strong>Grind</strong><span>${escapeHtml(recipe.grind || '')}</span></div>
