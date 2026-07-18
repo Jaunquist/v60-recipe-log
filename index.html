@@ -280,27 +280,12 @@
                   </div>
                 </div>
 
-                <!-- Camera-first input -->
-                <input
-                  id="beanPhotoCameraFile"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  class="hidden-file-input"
-                />
-
-                <!-- Gallery-only input (no capture) -->
-                <input
-                  id="beanPhotoGalleryFile"
-                  type="file"
-                  accept="image/*"
-                  class="hidden-file-input"
-                />
+                <input id="beanPhotoFile" type="file" accept="image/*" class="hidden-file-input" />
+                <input id="beanPhotoCameraFile" type="file" accept="image/*" capture="environment" class="hidden-file-input" />
 
                 <div class="photo-upload-card__actions">
-                  <button id="pickPhotoBtn" type="button">Take Photo</button>
-                  <button id="pickGalleryBtn" type="button">Choose from Gallery</button>
-                  <button id="uploadPhotoBtn" type="button">Upload & Run OCR</button>
+                  <button id="cameraPhotoBtn" type="button">Take Photo</button>
+                  <button id="pickPhotoBtn" type="button">Choose from Gallery</button>
                   <button id="researchBeanBtn" type="button">Research Bean</button>
                 </div>
 
@@ -314,8 +299,6 @@
               <label for="beanPhotoText">Photo OCR text</label>
               <textarea id="beanPhotoText" rows="4" placeholder="Detected label text appears here."></textarea>
             </div>
-
-            <div class="photo-thumb-grid" id="beanPhotoThumbGrid"></div>
           </div>
 
           <div class="settings-grid">
