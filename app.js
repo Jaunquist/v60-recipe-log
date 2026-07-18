@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMNB7D2p_qCWhvTulP9GY274aSkJPxr-7l8YGkVFj3hPYlISysdNfAw0ndFYNNII4-gw/exec';
+  const APPS_SCRIPT_URL =
+    'https://script.google.com/macros/s/AKfycbzMNB7D2p_qCWhvTulP9GY274aSkJPxr-7l8YGkVFj3hPYlISysdNfAw0ndFYNNII4-gw/exec';
 
   const COUNTRY_LIST = [
     'Ethiopia', 'Colombia', 'Brazil', 'Kenya', 'Panama', 'Costa Rica', 'Guatemala', 'El Salvador',
@@ -10,38 +11,38 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
 
   const COUNTRY_FLAGS = {
-    'Ethiopia': '🇪🇹',
-    'Colombia': '🇨🇴',
-    'Brazil': '🇧🇷',
-    'Kenya': '🇰🇪',
-    'Panama': '🇵🇦',
+    Ethiopia: '🇪🇹',
+    Colombia: '🇨🇴',
+    Brazil: '🇧🇷',
+    Kenya: '🇰🇪',
+    Panama: '🇵🇦',
     'Costa Rica': '🇨🇷',
-    'Guatemala': '🇬🇹',
+    Guatemala: '🇬🇹',
     'El Salvador': '🇸🇻',
-    'Honduras': '🇭🇳',
-    'Nicaragua': '🇳🇮',
-    'Rwanda': '🇷🇼',
-    'Burundi': '🇧🇮',
-    'Uganda': '🇺🇬',
-    'Tanzania': '🇹🇿',
-    'Peru': '🇵🇪',
-    'Bolivia': '🇧🇴',
-    'Mexico': '🇲🇽',
-    'Indonesia': '🇮🇩',
-    'Yemen': '🇾🇪',
-    'Ecuador': '🇪🇨',
+    Honduras: '🇭🇳',
+    Nicaragua: '🇳🇮',
+    Rwanda: '🇷🇼',
+    Burundi: '🇧🇮',
+    Uganda: '🇺🇬',
+    Tanzania: '🇹🇿',
+    Peru: '🇵🇪',
+    Bolivia: '🇧🇴',
+    Mexico: '🇲🇽',
+    Indonesia: '🇮🇩',
+    Yemen: '🇾🇪',
+    Ecuador: '🇪🇨',
     'Papua New Guinea': '🇵🇬',
-    'India': '🇮🇳',
-    'China': '🇨🇳',
-    'Vietnam': '🇻🇳',
-    'Thailand': '🇹🇭',
-    'Laos': '🇱🇦',
-    'Myanmar': '🇲🇲',
+    India: '🇮🇳',
+    China: '🇨🇳',
+    Vietnam: '🇻🇳',
+    Thailand: '🇹🇭',
+    Laos: '🇱🇦',
+    Myanmar: '🇲🇲',
     'Dominican Republic': '🇩🇴',
-    'Jamaica': '🇯🇲',
-    'Haiti': '🇭🇹',
-    'Japan': '🇯🇵',
-    'Taiwan': '🇹🇼',
+    Jamaica: '🇯🇲',
+    Haiti: '🇭🇹',
+    Japan: '🇯🇵',
+    Taiwan: '🇹🇼',
     'South Korea': '🇰🇷',
     'United States': '🇺🇸'
   };
@@ -70,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ocrStatus: '',
       ocrSource: ''
     },
+    photoThumbs: [],
     currentRecipeData: null,
     currentRecipeStyle: 'hot',
     currentLogs: [],
@@ -130,7 +132,9 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAddBeanBtn: document.getElementById('closeAddBeanBtn'),
     addBeanSubtitle: document.getElementById('addBeanSubtitle'),
     addBeanForm: document.getElementById('addBeanForm'),
+
     pickPhotoBtn: document.getElementById('pickPhotoBtn'),
+    pickGalleryBtn: document.getElementById('pickGalleryBtn'),
     uploadPhotoBtn: document.getElementById('uploadPhotoBtn'),
     researchBeanBtn: document.getElementById('researchBeanBtn'),
     researchStatus: document.getElementById('researchStatus'),
@@ -142,10 +146,12 @@ document.addEventListener('DOMContentLoaded', () => {
     beanExistingPhotoPreviewDataUrl: document.getElementById('beanExistingPhotoPreviewDataUrl'),
 
     beanAvatar: document.getElementById('beanAvatar'),
-    beanPhotoFile: document.getElementById('beanPhotoFile'),
+    beanPhotoCameraFile: document.getElementById('beanPhotoCameraFile'),
+    beanPhotoGalleryFile: document.getElementById('beanPhotoGalleryFile'),
     beanPhotoMeta: document.getElementById('beanPhotoMeta'),
     ocrStatusLine: document.getElementById('ocrStatusLine'),
     beanPhotoText: document.getElementById('beanPhotoText'),
+    beanPhotoThumbGrid: document.getElementById('beanPhotoThumbGrid'),
 
     beanName: document.getElementById('beanName'),
     beanRoaster: document.getElementById('beanRoaster'),
@@ -232,31 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return style === 'icedhalfshaken' ? 'iced_half_shaken' : style;
   }
 
-  function normalizeRecipeDataShape(data) {
-    if (!data || typeof data !== 'object') return data;
-
-    const normalized = {
-      ...data,
-      defaultStyle: normalizeRecipeStyleKey(data.defaultStyle || 'hot'),
-      availableStyles: Array.isArray(data.availableStyles)
-        ? data.availableStyles.map(normalizeRecipeStyleKey)
-        : ['hot'],
-      recipes: {}
-    };
-
-    const incomingRecipes = data.recipes || {};
-    Object.keys(incomingRecipes).forEach((key) => {
-      const normalizedKey = normalizeRecipeStyleKey(key);
-      const recipe = incomingRecipes[key] || {};
-      normalized.recipes[normalizedKey] = {
-        ...recipe,
-        pours: normalizePours(recipe.pours)
-      };
-    });
-
-    return normalized;
-  }
-
   function normalizePours(pours) {
     if (!Array.isArray(pours)) return [];
 
@@ -269,7 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
           text: pour
         };
       }
-
       if (!pour || typeof pour !== 'object') {
         return {
           start: '',
@@ -278,11 +258,12 @@ document.addEventListener('DOMContentLoaded', () => {
           text: ''
         };
       }
-
       return {
         start: String(pour.start || pour.start_time || '').trim(),
         end: String(pour.end || pour.end_time || '').trim(),
-        water_g: String(pour.water_g != null ? pour.water_g : (pour.water || '')).trim(),
+        water_g: String(
+          pour.water_g != null ? pour.water_g : pour.water != null ? pour.water : ''
+        ).trim(),
         text: String(pour.text || '').trim()
       };
     });
@@ -299,28 +280,29 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="recipe-block">
         <h4>Pours</h4>
         <ul class="pour-list">
-          ${normalized.map((pour) => {
-            if (pour.text && !pour.start && !pour.end && !pour.water_g) {
-              return `<li>${escapeHtml(pour.text)}</li>`;
-            }
-
-            return `
-              <li class="pour-item">
-                <div class="pour-pill">
-                  <strong>Start</strong>
-                  <span>${escapeHtml(pour.start || '—')}</span>
-                </div>
-                <div class="pour-pill">
-                  <strong>End</strong>
-                  <span>${escapeHtml(pour.end || '—')}</span>
-                </div>
-                <div class="pour-water">
-                  <strong>Water</strong>
-                  <span>${escapeHtml(pour.water_g || '—')} g</span>
-                </div>
-              </li>
-            `;
-          }).join('')}
+          ${normalized
+            .map((pour) => {
+              if (pour.text && !pour.start && !pour.end && !pour.water_g) {
+                return `<li>${escapeHtml(pour.text)}</li>`;
+              }
+              return `
+                <li class="pour-item">
+                  <div class="pour-pill">
+                    <strong>Start</strong>
+                    <span>${escapeHtml(pour.start || '—')}</span>
+                  </div>
+                  <div class="pour-pill">
+                    <strong>End</strong>
+                    <span>${escapeHtml(pour.end || '—')}</span>
+                  </div>
+                  <div class="pour-water">
+                    <strong>Water</strong>
+                    <span>${escapeHtml(pour.water_g || '—')} g</span>
+                  </div>
+                </li>
+              `;
+            })
+            .join('')}
         </ul>
       </div>
     `;
@@ -354,9 +336,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function populateCountryDatalist() {
     if (!els.countryOptions) return;
-    els.countryOptions.innerHTML = COUNTRY_LIST
-      .map((country) => `<option value="${escapeHtml(country)}"></option>`)
-      .join('');
+    els.countryOptions.innerHTML = COUNTRY_LIST.map(
+      (country) => `<option value="${escapeHtml(country)}"></option>`
+    ).join('');
   }
 
   function setView(viewName) {
@@ -396,7 +378,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (folderId) {
       els.photoFolderHint.textContent = `Using Drive folder ID: ${folderId}`;
     } else {
-      els.photoFolderHint.textContent = 'Paste a full Google Drive folder URL and it will auto-convert to the folder ID.';
+      els.photoFolderHint.textContent =
+        'Paste a full Google Drive folder URL and it will auto-convert to the folder ID.';
     }
   }
 
@@ -477,7 +460,9 @@ document.addEventListener('DOMContentLoaded', () => {
       id: String(bean.id || ''),
       bean: bean.bean || bean.name || '',
       tags,
-      recipe_locked: bean.recipe_locked === true || String(bean.recipe_locked).toLowerCase() === 'true',
+      recipe_locked:
+        bean.recipe_locked === true ||
+        String(bean.recipe_locked || '').toLowerCase() === 'true',
       locked_recipe_json: bean.locked_recipe_json || '',
       brew_count: Number(bean.brew_count || 0)
     };
@@ -487,11 +472,16 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       setStatus('Loading beans…', 'info');
       const response = await fetchJson(`${resolveScriptUrl()}?type=beans`);
-      state.beans = Array.isArray(response.data) ? response.data.map(normalizeBeanFromApi) : [];
+      state.beans = Array.isArray(response.data)
+        ? response.data.map(normalizeBeanFromApi)
+        : [];
       filterAndRenderBeans();
       renderHelperBeanOptions();
       syncHelperBeanSummary();
-      setStatus(`Loaded ${state.beans.length} bean${state.beans.length === 1 ? '' : 's'}.`, 'success');
+      setStatus(
+        `Loaded ${state.beans.length} bean${state.beans.length === 1 ? '' : 's'}.`,
+        'success'
+      );
     } catch (error) {
       state.beans = [];
       filterAndRenderBeans();
@@ -522,7 +512,9 @@ document.addEventListener('DOMContentLoaded', () => {
       `<button type="button" class="tag-filter ${allActive}" data-tag-filter="">All</button>`,
       ...counts.map(([tag, count]) => {
         const active = state.activeTag === tag ? 'active' : '';
-        return `<button type="button" class="tag-filter ${active}" data-tag-filter="${escapeHtml(tag)}">${escapeHtml(tag)} <span>${count}</span></button>`;
+        return `<button type="button" class="tag-filter ${active}" data-tag-filter="${escapeHtml(
+          tag
+        )}">${escapeHtml(tag)} <span>${count}</span></button>`;
       })
     ];
 
@@ -537,7 +529,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function filterAndRenderBeans() {
-    const search = String(els.beanSearchInput ? els.beanSearchInput.value : '').trim().toLowerCase();
+    const search = String(els.beanSearchInput ? els.beanSearchInput.value : '')
+      .trim()
+      .toLowerCase();
 
     state.filteredBeans = state.beans.filter((bean) => {
       const matchesTag = !state.activeTag || bean.tags.includes(state.activeTag);
@@ -558,7 +552,9 @@ document.addEventListener('DOMContentLoaded', () => {
         bean.notes,
         bean.photo_text,
         bean.tags.join(' ')
-      ].join(' ').toLowerCase();
+      ]
+        .join(' ')
+        .toLowerCase();
 
       return haystack.includes(search);
     });
@@ -577,52 +573,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const openBeanId = state.openBeanId || '';
 
-    els.beanList.innerHTML = state.filteredBeans.map((bean) => {
-      const flag = countryFlag(bean.origin_country);
-      const originLine = [flag, bean.origin_country, bean.origin_region].filter(Boolean).join(' ');
-      const isOpen = openBeanId === bean.id;
-      const tagHtml = bean.tags.length
-        ? `<div class="tags-wrap">${bean.tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</div>`
-        : '';
-      const brewCount = Number(bean.brew_count || 0);
-      const lockBadge = bean.recipe_locked ? `<span class="tag-pill">Locked recipe</span>` : '';
+    els.beanList.innerHTML = state.filteredBeans
+      .map((bean) => {
+        const flag = countryFlag(bean.origin_country);
+        const originLine = [flag, bean.origin_country, bean.origin_region]
+          .filter(Boolean)
+          .join(' ');
+        const isOpen = openBeanId === bean.id;
+        const tagHtml = bean.tags.length
+          ? `<div class="tags-wrap">${bean.tags
+              .map(
+                (tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`
+              )
+              .join('')}</div>`
+          : '';
+        const brewCount = Number(bean.brew_count || 0);
+        const lockBadge = bean.recipe_locked
+          ? `<span class="tag-pill">Locked recipe</span>`
+          : '';
 
-      return `
-        <article class="bean-card ${isOpen ? 'bean-card--open' : ''}" data-bean-card="${escapeHtml(bean.id)}">
-          <button
-            type="button"
-            class="bean-card__summary"
-            data-bean-toggle="${escapeHtml(bean.id)}"
-            aria-expanded="${isOpen ? 'true' : 'false'}"
-          >
-            <div class="bean-card__summary-main">
-              <div>
-                <h3>${escapeHtml(bean.bean || 'Untitled bean')}</h3>
-                <div class="muted">${escapeHtml(bean.roaster || 'Unknown roaster')}</div>
+        return `
+          <article class="bean-card ${isOpen ? 'bean-card--open' : ''}" data-bean-card="${escapeHtml(
+            bean.id
+          )}">
+            <button
+              type="button"
+              class="bean-card__summary"
+              data-bean-toggle="${escapeHtml(bean.id)}"
+              aria-expanded="${isOpen ? 'true' : 'false'}"
+            >
+              <div class="bean-card__summary-main">
+                <div>
+                  <h3>${escapeHtml(bean.bean || 'Untitled bean')}</h3>
+                  <div class="muted">${escapeHtml(
+                    bean.roaster || 'Unknown roaster'
+                  )}</div>
+                </div>
+                <div class="bean-card__summary-meta">
+                  ${originLine ? `<div>${escapeHtml(originLine)}</div>` : ''}
+                  ${bean.process ? `<div>${escapeHtml(bean.process)}</div>` : ''}
+                  ${bean.roast ? `<div>${escapeHtml(bean.roast)}</div>` : ''}
+                  <div>${brewCount} brew${brewCount === 1 ? '' : 's'}</div>
+                </div>
               </div>
-              <div class="bean-card__summary-meta">
-                ${originLine ? `<div>${escapeHtml(originLine)}</div>` : ''}
-                ${bean.process ? `<div>${escapeHtml(bean.process)}</div>` : ''}
-                ${bean.roast ? `<div>${escapeHtml(bean.roast)}</div>` : ''}
-                <div>${brewCount} brew${brewCount === 1 ? '' : 's'}</div>
+              <span class="bean-card__chevron" aria-hidden="true">${
+                isOpen ? '−' : '+'
+              }</span>
+            </button>
+
+            <div class="bean-card__details ${isOpen ? '' : 'hidden'}" data-bean-details="${escapeHtml(
+              bean.id
+            )}">
+              ${lockBadge}
+              ${tagHtml}
+              ${
+                bean.notes
+                  ? `<p class="bean-card__notes">${escapeHtml(bean.notes)}</p>`
+                  : ''
+              }
+              <div class="action-row">
+                <button type="button" class="bean-use-btn" data-bean-id="${escapeHtml(
+                  bean.id
+                )}">Use this bean</button>
+                <button type="button" class="bean-edit-btn" data-bean-id="${escapeHtml(
+                  bean.id
+                )}">Edit</button>
+                <button type="button" class="bean-delete-btn bean-delete-btn--ghost" data-bean-id="${escapeHtml(
+                  bean.id
+                )}">Delete</button>
               </div>
             </div>
-            <span class="bean-card__chevron" aria-hidden="true">${isOpen ? '−' : '+'}</span>
-          </button>
-
-          <div class="bean-card__details ${isOpen ? '' : 'hidden'}" data-bean-details="${escapeHtml(bean.id)}">
-            ${lockBadge}
-            ${tagHtml}
-            ${bean.notes ? `<p class="bean-card__notes">${escapeHtml(bean.notes)}</p>` : ''}
-            <div class="action-row">
-              <button type="button" class="bean-use-btn" data-bean-id="${escapeHtml(bean.id)}">Use this bean</button>
-              <button type="button" class="bean-edit-btn" data-bean-id="${escapeHtml(bean.id)}">Edit</button>
-              <button type="button" class="bean-delete-btn bean-delete-btn--ghost" data-bean-id="${escapeHtml(bean.id)}">Delete</button>
-            </div>
-          </div>
-        </article>
-      `;
-    }).join('');
+          </article>
+        `;
+      })
+      .join('');
 
     Array.from(document.querySelectorAll('[data-bean-toggle]')).forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -686,7 +710,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const options = [
       `<option value="">Select bean</option>`,
-      ...state.beans.map((bean) => `<option value="${escapeHtml(bean.id)}">${escapeHtml(bean.bean || bean.name || 'Untitled bean')}</option>`)
+      ...state.beans.map(
+        (bean) =>
+          `<option value="${escapeHtml(bean.id)}">${escapeHtml(
+            bean.bean || bean.name || 'Untitled bean'
+          )}</option>`
+      )
     ];
 
     els.helperBeanSelect.innerHTML = options.join('');
@@ -706,7 +735,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!bean) {
       if (els.helperBeanSummary) {
-        els.helperBeanSummary.textContent = 'Select a bean to see its summary.';
+        els.helperBeanSummary.textContent =
+          'Select a bean to see its summary, recipe suggestions, and brew history.';
       }
       if (els.lockRecipeCheckbox) {
         els.lockRecipeCheckbox.checked = false;
@@ -716,14 +746,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     state.selectedBeanId = bean.id;
     const flag = countryFlag(bean.origin_country);
-    const origin = [flag, bean.origin_country, bean.origin_region].filter(Boolean).join(' ');
+    const origin = [flag, bean.origin_country, bean.origin_region]
+      .filter(Boolean)
+      .join(' ');
     const lines = [
       bean.bean || '',
       bean.roaster || '',
       origin || '',
       bean.process || '',
       bean.roast || '',
-      `${Number(bean.brew_count || 0)} brew${Number(bean.brew_count || 0) === 1 ? '' : 's'}`
+      `${Number(bean.brew_count || 0)} brew${
+        Number(bean.brew_count || 0) === 1 ? '' : 's'
+      }`
     ].filter(Boolean);
 
     if (els.helperBeanSummary) {
@@ -738,20 +772,54 @@ document.addEventListener('DOMContentLoaded', () => {
   function getLockedRecipeFromBean(bean) {
     if (!bean || !bean.locked_recipe_json) return null;
     try {
-      return normalizeRecipeDataShape(JSON.parse(bean.locked_recipe_json));
+      const parsed = JSON.parse(bean.locked_recipe_json);
+      return normalizeRecipePayload(parsed);
     } catch (error) {
       return null;
     }
   }
 
+  function normalizeRecipePayload(payload) {
+    if (!payload || typeof payload !== 'object') return payload;
+
+    const normalized = {
+      defaultStyle:
+        payload.defaultStyle === 'icedhalfshaken'
+          ? 'iced_half_shaken'
+          : payload.defaultStyle || 'hot',
+      availableStyles: Array.isArray(payload.availableStyles)
+        ? payload.availableStyles.map((style) =>
+            style === 'icedhalfshaken' ? 'iced_half_shaken' : style
+          )
+        : ['hot'],
+      recipes: {},
+      meta: payload.meta || {}
+    };
+
+    const recipes = payload.recipes || {};
+    Object.keys(recipes).forEach((key) => {
+      const normalizedKey = key === 'icedhalfshaken' ? 'iced_half_shaken' : key;
+      normalized.recipes[normalizedKey] = {
+        ...recipes[key],
+        pours: normalizePours(recipes[key].pours)
+      };
+    });
+
+    return normalized;
+  }
+
   function getLatestLog() {
-    return Array.isArray(state.currentLogs) && state.currentLogs.length ? state.currentLogs[0] : null;
+    return Array.isArray(state.currentLogs) && state.currentLogs.length
+      ? state.currentLogs[0]
+      : null;
   }
 
   function renderRecipeStyleToggle(data) {
     if (!els.recipeStyleToggle) return;
 
-    const styles = Array.isArray(data.availableStyles) ? data.availableStyles.map(normalizeRecipeStyleKey) : [];
+    const styles = Array.isArray(data.availableStyles)
+      ? data.availableStyles.map(normalizeRecipeStyleKey)
+      : [];
     if (styles.length <= 1) {
       els.recipeStyleToggle.classList.add('hidden');
       els.recipeStyleToggle.innerHTML = '';
@@ -759,19 +827,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     els.recipeStyleToggle.classList.remove('hidden');
-    els.recipeStyleToggle.innerHTML = styles.map((style) => {
-      const label = style === 'iced_half_shaken' ? 'Iced' : 'Hot';
-      const active = style === state.currentRecipeStyle ? 'active' : '';
-      return `<button type="button" class="recipe-style-btn ${active}" data-recipe-style="${style}">${label}</button>`;
-    }).join('');
+    els.recipeStyleToggle.innerHTML = styles
+      .map((style) => {
+        const label = style === 'iced_half_shaken' ? 'Iced' : 'Hot';
+        const active = style === state.currentRecipeStyle ? 'active' : '';
+        return `<button type="button" class="recipe-style-btn ${active}" data-recipe-style="${style}">${label}</button>`;
+      })
+      .join('');
 
-    Array.from(els.recipeStyleToggle.querySelectorAll('[data-recipe-style]')).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        state.currentRecipeStyle = normalizeRecipeStyleKey(btn.dataset.recipeStyle || 'hot');
-        renderRecipeOutput();
-        refillBrewLogForm();
-      });
-    });
+    Array.from(els.recipeStyleToggle.querySelectorAll('[data-recipe-style]')).forEach(
+      (btn) => {
+        btn.addEventListener('click', () => {
+          state.currentRecipeStyle =
+            normalizeRecipeStyleKey(btn.dataset.recipeStyle || 'hot');
+          renderRecipeOutput();
+          refillBrewLogForm();
+        });
+      }
+    );
   }
 
   function renderRecipeOutput() {
@@ -790,7 +863,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const recipe = state.currentRecipeData.recipes[state.currentRecipeStyle] || state.currentRecipeData.recipes.hot;
+    const recipe =
+      state.currentRecipeData.recipes[state.currentRecipeStyle] ||
+      state.currentRecipeData.recipes.hot;
     if (!recipe) {
       els.helperOutput.innerHTML = `<div class="helper-placeholder">No recipe returned.</div>`;
       return;
@@ -798,43 +873,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderRecipeStyleToggle(state.currentRecipeData);
 
-    const extraIcedFields = recipe.hot_water_g || recipe.brew_ice_g ? `
+    const extraIcedFields =
+      recipe.hot_water_g || recipe.brew_ice_g
+        ? `
       <div class="recipe-grid">
-        ${recipe.hot_water_g ? `<div><strong>Hot water</strong><span>${escapeHtml(recipe.hot_water_g)} g</span></div>` : ''}
-        ${recipe.brew_ice_g ? `<div><strong>Ice</strong><span>${escapeHtml(recipe.brew_ice_g)} g</span></div>` : ''}
+        ${
+          recipe.hot_water_g
+            ? `<div><strong>Hot water</strong><span>${escapeHtml(
+                recipe.hot_water_g
+              )} g</span></div>`
+            : ''
+        }
+        ${
+          recipe.brew_ice_g
+            ? `<div><strong>Ice</strong><span>${escapeHtml(
+                recipe.brew_ice_g
+              )} g</span></div>`
+            : ''
+        }
       </div>
-    ` : '';
+    `
+        : '';
 
     els.helperOutput.innerHTML = `
       <div class="recipe-output">
-        <div class="grinder-chip">Using Eureka Mignon Perfetto baseline calibration</div>
+        <div class="grinder-chip">Using Eureka Mignon Perfetto</div>
 
         <div class="recipe-grid">
           <div><strong>Grind</strong><span>${escapeHtml(recipe.grind || '')}</span></div>
           <div><strong>Dose</strong><span>${escapeHtml(recipe.dose_g || '')} g</span></div>
-          <div><strong>Water</strong><span>${escapeHtml(recipe.water_total_g || '')} g</span></div>
-          <div><strong>Temp</strong><span>${escapeHtml(recipe.water_temp_c || '')} °C</span></div>
-          <div><strong>Time</strong><span>${escapeHtml(recipe.target_time || '')}</span></div>
+          <div><strong>Water</strong><span>${escapeHtml(
+            recipe.water_total_g || ''
+          )} g</span></div>
+          <div><strong>Temp</strong><span>${escapeHtml(
+            recipe.water_temp_c || ''
+          )} °C</span></div>
+          <div><strong>Time</strong><span>${escapeHtml(
+            recipe.target_time || ''
+          )}</span></div>
           <div><strong>Ratio</strong><span>${escapeHtml(recipe.ratio || '')}</span></div>
         </div>
 
         ${extraIcedFields}
 
-        ${recipe.why ? `
+        ${
+          recipe.why
+            ? `
           <div class="recipe-block">
             <h4>Why this recipe</h4>
             <p>${escapeHtml(recipe.why)}</p>
           </div>
-        ` : ''}
+        `
+            : ''
+        }
 
         ${renderPoursHtml(recipe.pours)}
 
-        ${recipe.expected_notes ? `
+        ${
+          recipe.expected_notes
+            ? `
           <div class="recipe-block">
             <h4>Expected notes</h4>
             <p>${escapeHtml(recipe.expected_notes)}</p>
           </div>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
     `;
   }
@@ -858,9 +962,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.brewLogDraftId) return;
 
     const latestLog = getLatestLog();
-    const recipe = state.currentRecipeData && state.currentRecipeData.recipes
-      ? (state.currentRecipeData.recipes[state.currentRecipeStyle] || state.currentRecipeData.recipes.hot)
-      : null;
+    const recipe =
+      state.currentRecipeData && state.currentRecipeData.recipes
+        ? state.currentRecipeData.recipes[state.currentRecipeStyle] ||
+          state.currentRecipeData.recipes.hot
+        : null;
 
     if (els.brewDate && !els.brewDate.value) {
       els.brewDate.value = new Date().toISOString().slice(0, 10);
@@ -887,7 +993,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (state.selectedBeanId) {
-      setBrewLogStatus('No previous brew or recipe yet. Fill in the brew details manually.', 'info');
+      setBrewLogStatus(
+        'No previous brew or recipe yet. Fill in the brew details manually.',
+        'info'
+      );
     }
   }
 
@@ -895,48 +1004,64 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!els.brewLogList) return;
 
     if (!state.selectedBeanId) {
-      els.brewLogList.innerHTML = `<div class="empty-state">Select a bean to see its brew log.</div>`;
+      els.brewLogList.innerHTML =
+        '<div class="empty-state">Select a bean to see its brew log.</div>';
       return;
     }
 
     if (!state.currentLogs.length) {
-      els.brewLogList.innerHTML = `<div class="empty-state">No brew logs yet for this bean.</div>`;
+      els.brewLogList.innerHTML =
+        '<div class="empty-state">No brew logs yet for this bean.</div>';
       return;
     }
 
-    els.brewLogList.innerHTML = state.currentLogs.map((log) => {
-      const isOpen = state.openLogIds.has(log.id);
-      return `
-        <article class="brew-log-item">
-          <button
-            type="button"
-            class="brew-log-item__summary"
-            data-log-toggle="${escapeHtml(log.id)}"
-            aria-expanded="${isOpen ? 'true' : 'false'}"
-          >
-            <span class="brew-log-item__summary-date">
-              <span>☕</span>
-              <span>${escapeHtml(log.brew_date || 'Unknown date')}</span>
-            </span>
-            <span class="brew-log-item__summary-toggle" aria-hidden="true">${isOpen ? '−' : '+'}</span>
-          </button>
+    els.brewLogList.innerHTML = state.currentLogs
+      .map((log) => {
+        const isOpen = state.openLogIds.has(log.id);
+        return `
+          <article class="brew-log-item">
+            <button
+              type="button"
+              class="brew-log-item__summary"
+              data-log-toggle="${escapeHtml(log.id)}"
+              aria-expanded="${isOpen ? 'true' : 'false'}"
+            >
+              <span class="brew-log-item__summary-date">
+                <span>☕</span>
+                <span>${escapeHtml(log.brew_date || 'Unknown date')}</span>
+              </span>
+              <span class="brew-log-item__summary-toggle" aria-hidden="true">${
+                isOpen ? '−' : '+'
+              }</span>
+            </button>
 
-          <div class="brew-log-item__details ${isOpen ? '' : 'hidden'}">
-            <div class="brew-log-item__grid">
-              <div><strong>Grind</strong>${escapeHtml(log.grind || '')}</div>
-              <div><strong>Dose</strong>${escapeHtml(log.dose_g || '')} g</div>
-              <div><strong>Water</strong>${escapeHtml(log.water_g || '')} g</div>
-              <div><strong>Temp</strong>${escapeHtml(log.water_temp_c || '')} °C</div>
+            <div class="brew-log-item__details ${isOpen ? '' : 'hidden'}">
+              <div class="brew-log-item__grid">
+                <div><strong>Grind</strong>${escapeHtml(log.grind || '')}</div>
+                <div><strong>Dose</strong>${escapeHtml(log.dose_g || '')} g</div>
+                <div><strong>Water</strong>${escapeHtml(log.water_g || '')} g</div>
+                <div><strong>Temp</strong>${escapeHtml(log.water_temp_c || '')} °C</div>
+              </div>
+              ${
+                log.notes
+                  ? `<div class="brew-log-item__notes">${escapeHtml(
+                      log.notes || ''
+                    )}</div>`
+                  : ''
+              }
+              <div class="action-row">
+                <button type="button" class="bean-edit-btn" data-log-edit="${escapeHtml(
+                  log.id
+                )}">Edit Log</button>
+                <button type="button" class="bean-delete-btn bean-delete-btn--ghost" data-log-delete="${escapeHtml(
+                  log.id
+                )}">Delete Log</button>
+              </div>
             </div>
-            ${log.notes ? `<div class="brew-log-item__notes">${escapeHtml(log.notes || '')}</div>` : ''}
-            <div class="action-row">
-              <button type="button" class="bean-edit-btn" data-log-edit="${escapeHtml(log.id)}">Edit Log</button>
-              <button type="button" class="bean-delete-btn bean-delete-btn--ghost" data-log-delete="${escapeHtml(log.id)}">Delete Log</button>
-            </div>
-          </div>
-        </article>
-      `;
-    }).join('');
+          </article>
+        `;
+      })
+      .join('');
 
     Array.from(els.brewLogList.querySelectorAll('[data-log-toggle]')).forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -999,7 +1124,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      const response = await fetchJson(`${resolveScriptUrl()}?type=logs&beanId=${encodeURIComponent(bean.id)}`);
+      const response = await fetchJson(
+        `${resolveScriptUrl()}?type=logs&beanId=${encodeURIComponent(bean.id)}`
+      );
       state.currentLogs = Array.isArray(response.data) ? response.data : [];
       state.openLogIds = new Set();
       renderBrewLogList();
@@ -1071,8 +1198,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       await loadLogsForSelectedBean();
       await refreshSelectedBeanCounts();
-      setStatus(logData.id ? 'Brew log updated.' : 'Brew log saved.', 'success');
-      setBrewLogStatus(logData.id ? 'Brew log updated.' : 'Brew log saved.', 'success');
+      setStatus(
+        logData.id ? 'Brew log updated.' : 'Brew log saved.',
+        'success'
+      );
+      setBrewLogStatus(
+        logData.id ? 'Brew log updated.' : 'Brew log saved.',
+        'success'
+      );
     } catch (error) {
       setStatus(error.message || 'Could not save brew log.', 'error');
       setBrewLogStatus(error.message || 'Could not save brew log.', 'error');
@@ -1116,7 +1249,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         bean.recipe_locked = true;
         bean.locked_recipe_json = JSON.stringify(state.currentRecipeData);
-        setRecipeEngineStatus('Ideal recipe locked. Future generate actions can skip AI.', 'success');
+        setRecipeEngineStatus(
+          'Ideal recipe locked. Future generate actions can skip AI.',
+          'success'
+        );
         setStatus('Recipe locked.', 'success');
       } else {
         await fetchJson(resolveScriptUrl(), {
@@ -1129,13 +1265,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         bean.recipe_locked = false;
         bean.locked_recipe_json = '';
-        setRecipeEngineStatus('Recipe unlocked. AI can generate new versions again.', 'warn');
+        setRecipeEngineStatus(
+          'Recipe unlocked. AI can generate new versions again.',
+          'warn'
+        );
         setStatus('Recipe unlocked.', 'success');
       }
 
       await refreshSelectedBeanCounts();
     } catch (error) {
-      setRecipeEngineStatus(error.message || 'Could not save recipe lock state.', 'error');
+      setRecipeEngineStatus(
+        error.message || 'Could not save recipe lock state.',
+        'error'
+      );
       setStatus(error.message || 'Could not save recipe lock state.', 'error');
     }
   }
@@ -1155,11 +1297,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const isLocked = !!bean.recipe_locked;
 
     if (isLocked && lockedRecipe && !forceAi) {
-      state.currentRecipeData = normalizeRecipeDataShape(lockedRecipe);
+      state.currentRecipeData = lockedRecipe;
       state.currentRecipeStyle = state.currentRecipeData.defaultStyle || 'hot';
       renderRecipeOutput();
       refillBrewLogForm();
-      setRecipeEngineStatus('This bean is locked to its ideal recipe. AI generation was skipped.', 'success');
+      setRecipeEngineStatus(
+        'This bean is locked to its ideal recipe. AI generation was skipped.',
+        'success'
+      );
       if (els.recipeStatus) els.recipeStatus.textContent = 'Loaded locked recipe.';
       setStatus('Loaded locked recipe.', 'success');
       return;
@@ -1202,14 +1347,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      state.currentRecipeData = normalizeRecipeDataShape(response.data || null);
-      state.currentRecipeStyle = (state.currentRecipeData && state.currentRecipeData.defaultStyle) || 'hot';
+      state.currentRecipeData = normalizeRecipePayload(response.data || null);
+      state.currentRecipeStyle =
+        (state.currentRecipeData && state.currentRecipeData.defaultStyle) || 'hot';
       renderRecipeOutput();
       refillBrewLogForm();
 
-      const meta = state.currentRecipeData && state.currentRecipeData.meta ? state.currentRecipeData.meta : null;
+      const meta =
+        state.currentRecipeData && state.currentRecipeData.meta
+          ? state.currentRecipeData.meta
+          : null;
       if (meta && meta.source === 'fallback') {
-        setRecipeEngineStatus(meta.message || 'Fallback recipe used because AI was unavailable.', 'warn');
+        setRecipeEngineStatus(
+          meta.message || 'Fallback recipe used because AI was unavailable.',
+          'warn'
+        );
       } else if (meta && meta.source === 'locked') {
         setRecipeEngineStatus(meta.message || 'Locked recipe loaded.', 'success');
       } else if (meta && meta.source === 'ai') {
@@ -1241,17 +1393,100 @@ document.addEventListener('DOMContentLoaded', () => {
       ocrStatus: '',
       ocrSource: ''
     };
+    state.photoThumbs = [];
   }
 
   function renderBeanAvatar() {
     if (!els.beanAvatar) return;
 
     if (!state.uploadedPhoto.previewDataUrl) {
-      els.beanAvatar.innerHTML = `<div class="bean-photo-preview--empty">No photo yet. Upload one to see a preview.</div>`;
+      els.beanAvatar.innerHTML =
+        '<div class="bean-photo-preview--empty">No photo yet. Upload one to see a preview.</div>';
       return;
     }
 
     els.beanAvatar.innerHTML = `<img src="${state.uploadedPhoto.previewDataUrl}" alt="Bean photo preview" />`;
+  }
+
+  function renderPhotoThumbs() {
+    if (!els.beanPhotoThumbGrid) return;
+
+    if (!state.photoThumbs.length) {
+      els.beanPhotoThumbGrid.innerHTML = '';
+      return;
+    }
+
+    els.beanPhotoThumbGrid.innerHTML = state.photoThumbs
+      .map((thumb, index) => {
+        const isPrimary =
+          state.uploadedPhoto.fileId &&
+          state.uploadedPhoto.fileId === thumb.fileId &&
+          state.uploadedPhoto.previewDataUrl === thumb.previewDataUrl;
+        return `
+          <div class="photo-thumb ${
+            isPrimary ? 'photo-thumb--primary' : ''
+          }" data-thumb-index="${index}">
+            <div class="photo-thumb__image">
+              <img src="${thumb.previewDataUrl}" alt="${escapeHtml(
+          thumb.fileName || 'Bean photo'
+        )}" />
+            </div>
+            <div class="photo-thumb__meta">
+              <div class="photo-thumb__name">${escapeHtml(
+                thumb.fileName || 'Untitled'
+              )}</div>
+              <div class="photo-thumb__status">${
+                thumb.ocrStatus === 'ok'
+                  ? 'OCR ready'
+                  : thumb.ocrStatus || 'Not processed'
+              }</div>
+            </div>
+            <div class="photo-thumb__actions">
+              <button type="button" class="photo-thumb__primary ${
+                isPrimary ? 'active' : ''
+              }">Use as primary</button>
+              <button type="button" class="photo-thumb__remove">Remove</button>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    Array.from(
+      els.beanPhotoThumbGrid.querySelectorAll('.photo-thumb__primary')
+    ).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const parent = btn.closest('.photo-thumb');
+        if (!parent) return;
+        const index = Number(parent.dataset.thumbIndex || '0');
+        const thumb = state.photoThumbs[index];
+        if (!thumb) return;
+        state.uploadedPhoto = { ...thumb };
+        renderBeanAvatar();
+        renderPhotoMeta();
+        renderPhotoThumbs();
+      });
+    });
+
+    Array.from(
+      els.beanPhotoThumbGrid.querySelectorAll('.photo-thumb__remove')
+    ).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const parent = btn.closest('.photo-thumb');
+        if (!parent) return;
+        const index = Number(parent.dataset.thumbIndex || '0');
+        const thumb = state.photoThumbs[index];
+        state.photoThumbs.splice(index, 1);
+
+        if (thumb && thumb.fileId === state.uploadedPhoto.fileId) {
+          resetUploadedPhoto();
+        }
+
+        renderBeanAvatar();
+        renderPhotoMeta();
+        renderPhotoThumbs();
+      });
+    });
   }
 
   function renderPhotoMeta() {
@@ -1269,10 +1504,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (els.ocrStatusLine) {
       const status = state.uploadedPhoto.ocrStatus || 'not run yet';
-      const source = state.uploadedPhoto.ocrSource ? ` (${state.uploadedPhoto.ocrSource})` : '';
+      const source = state.uploadedPhoto.ocrSource
+        ? ` (${state.uploadedPhoto.ocrSource})`
+        : '';
       els.ocrStatusLine.textContent = `OCR: ${status}${source}`;
 
-      els.ocrStatusLine.classList.remove('ocr-status--neutral', 'ocr-status--success', 'ocr-status--warn');
+      els.ocrStatusLine.classList.remove(
+        'ocr-status--neutral',
+        'ocr-status--success',
+        'ocr-status--warn'
+      );
       if (status === 'ok') {
         els.ocrStatusLine.classList.add('ocr-status--success');
       } else if (status === 'empty' || status === 'missing_api_key') {
@@ -1286,33 +1527,44 @@ document.addEventListener('DOMContentLoaded', () => {
       els.beanPhotoText.value = state.uploadedPhoto.photoText || '';
     }
 
-    if (els.beanExistingPhotoFileId) els.beanExistingPhotoFileId.value = state.uploadedPhoto.fileId || '';
-    if (els.beanExistingPhotoFileName) els.beanExistingPhotoFileName.value = state.uploadedPhoto.fileName || '';
-    if (els.beanExistingPhotoDriveLink) els.beanExistingPhotoDriveLink.value = state.uploadedPhoto.driveLink || '';
-    if (els.beanExistingPhotoPreviewDataUrl) els.beanExistingPhotoPreviewDataUrl.value = state.uploadedPhoto.previewDataUrl || '';
+    if (els.beanExistingPhotoFileId)
+      els.beanExistingPhotoFileId.value = state.uploadedPhoto.fileId || '';
+    if (els.beanExistingPhotoFileName)
+      els.beanExistingPhotoFileName.value = state.uploadedPhoto.fileName || '';
+    if (els.beanExistingPhotoDriveLink)
+      els.beanExistingPhotoDriveLink.value = state.uploadedPhoto.driveLink || '';
+    if (els.beanExistingPhotoPreviewDataUrl)
+      els.beanExistingPhotoPreviewDataUrl.value =
+        state.uploadedPhoto.previewDataUrl || '';
   }
 
   function renderBeanTagsPreview() {
     if (!els.beanTagsPreview) return;
 
     if (!state.beanTags.length) {
-      els.beanTagsPreview.innerHTML = `<div class="tags-empty">No tags added yet.</div>`;
+      els.beanTagsPreview.innerHTML =
+        '<div class="tags-empty">No tags added yet.</div>';
       return;
     }
 
-    els.beanTagsPreview.innerHTML = state.beanTags.map((tag, index) => `
-      <button type="button" class="tag-pill tag-pill--removable" data-tag-index="${index}">
-        ${escapeHtml(tag)} <span aria-hidden="true">×</span>
-      </button>
-    `).join('');
+    els.beanTagsPreview.innerHTML = state.beanTags
+      .map(
+        (tag, index) =>
+          `<button type="button" class="tag-pill tag-pill--removable" data-tag-index="${index}">
+            ${escapeHtml(tag)} <span aria-hidden="true">×</span>
+          </button>`
+      )
+      .join('');
 
-    Array.from(els.beanTagsPreview.querySelectorAll('[data-tag-index]')).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const idx = Number(btn.dataset.tagIndex);
-        state.beanTags.splice(idx, 1);
-        renderBeanTagsPreview();
-      });
-    });
+    Array.from(els.beanTagsPreview.querySelectorAll('[data-tag-index]')).forEach(
+      (btn) => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.dataset.tagIndex);
+          state.beanTags.splice(idx, 1);
+          renderBeanTagsPreview();
+        });
+      }
+    );
   }
 
   function openBeanModal(bean = null) {
@@ -1334,7 +1586,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.beanRoaster) els.beanRoaster.value = bean.roaster || '';
       if (els.beanOriginCountry) els.beanOriginCountry.value = bean.origin_country || '';
       if (els.beanOriginRegion) els.beanOriginRegion.value = bean.origin_region || '';
-      if (els.beanPurchaseCountry) els.beanPurchaseCountry.value = bean.purchase_country || '';
+      if (els.beanPurchaseCountry)
+        els.beanPurchaseCountry.value = bean.purchase_country || '';
       if (els.beanVariety) els.beanVariety.value = bean.variety || '';
       if (els.beanProducer) els.beanProducer.value = bean.producer || '';
       if (els.beanFarm) els.beanFarm.value = bean.farm || '';
@@ -1353,6 +1606,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ocrStatus: bean.photo_text ? 'ok' : 'not run yet',
         ocrSource: bean.photo_text ? 'saved' : ''
       };
+
+      state.photoThumbs = state.uploadedPhoto.previewDataUrl
+        ? [
+            {
+              ...state.uploadedPhoto
+            }
+          ]
+        : [];
     } else if (els.beanId) {
       els.beanId.value = '';
     }
@@ -1360,6 +1621,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBeanTagsPreview();
     renderBeanAvatar();
     renderPhotoMeta();
+    renderPhotoThumbs();
 
     if (els.addBeanModal) {
       els.addBeanModal.classList.remove('hidden');
@@ -1383,7 +1645,9 @@ document.addEventListener('DOMContentLoaded', () => {
       roaster: els.beanRoaster ? els.beanRoaster.value.trim() : '',
       origin_country: els.beanOriginCountry ? els.beanOriginCountry.value.trim() : '',
       origin_region: els.beanOriginRegion ? els.beanOriginRegion.value.trim() : '',
-      purchase_country: els.beanPurchaseCountry ? els.beanPurchaseCountry.value.trim() : '',
+      purchase_country: els.beanPurchaseCountry
+        ? els.beanPurchaseCountry.value.trim()
+        : '',
       variety: els.beanVariety ? els.beanVariety.value.trim() : '',
       producer: els.beanProducer ? els.beanProducer.value.trim() : '',
       farm: els.beanFarm ? els.beanFarm.value.trim() : '',
@@ -1396,7 +1660,10 @@ document.addEventListener('DOMContentLoaded', () => {
       photo_file_name: state.uploadedPhoto.fileName || '',
       photo_drive_link: state.uploadedPhoto.driveLink || '',
       photo_preview_data_url: state.uploadedPhoto.previewDataUrl || '',
-      photo_text: els.beanPhotoText ? els.beanPhotoText.value.trim() : state.uploadedPhoto.photoText,
+      photo_text:
+        els.beanPhotoText && els.beanPhotoText.value
+          ? els.beanPhotoText.value.trim()
+          : state.uploadedPhoto.photoText || '',
       recipe_locked: selectedBean ? !!selectedBean.recipe_locked : false,
       locked_recipe_json: selectedBean ? selectedBean.locked_recipe_json || '' : ''
     };
@@ -1407,7 +1674,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.beanRoaster) els.beanRoaster.value = bean.roaster || '';
     if (els.beanOriginCountry) els.beanOriginCountry.value = bean.origin_country || '';
     if (els.beanOriginRegion) els.beanOriginRegion.value = bean.origin_region || '';
-    if (els.beanPurchaseCountry) els.beanPurchaseCountry.value = bean.purchase_country || '';
+    if (els.beanPurchaseCountry)
+      els.beanPurchaseCountry.value = bean.purchase_country || '';
     if (els.beanVariety) els.beanVariety.value = bean.variety || '';
     if (els.beanProducer) els.beanProducer.value = bean.producer || '';
     if (els.beanFarm) els.beanFarm.value = bean.farm || '';
@@ -1433,51 +1701,80 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  async function handlePhotoSource(file, sourceLabel) {
+    const previewDataUrl = await readFileAsDataUrl(file);
+
+    state.uploadedPhoto = {
+      ...state.uploadedPhoto,
+      fileName: file.name,
+      previewDataUrl,
+      driveLink: '',
+      fileId: '',
+      ocrStatus: 'selected',
+      ocrSource: sourceLabel,
+      photoText: state.uploadedPhoto.photoText || ''
+    };
+
+    state.photoThumbs.push({
+      ...state.uploadedPhoto
+    });
+
+    renderBeanAvatar();
+    renderPhotoMeta();
+    renderPhotoThumbs();
+    setStatus(
+      sourceLabel === 'camera'
+        ? 'Photo captured. Tap “Upload & Run OCR” to process.'
+        : 'Photo selected. Tap “Upload & Run OCR” to process.',
+      'info'
+    );
+  }
+
   async function uploadPhoto() {
-    if (!els.beanPhotoFile || !els.beanPhotoFile.files || !els.beanPhotoFile.files[0]) {
-      setStatus('Choose a photo first.', 'warn');
+    const { uploadedPhoto } = state;
+    if (!uploadedPhoto.previewDataUrl) {
+      setStatus('Choose or capture a photo first.', 'warn');
       return;
     }
 
-    const file = els.beanPhotoFile.files[0];
-
     try {
       setStatus('Uploading photo and running OCR…', 'info');
-      const previewDataUrl = await readFileAsDataUrl(file);
 
       const response = await fetchJson(resolveScriptUrl(), {
         method: 'POST',
         body: {
           action: 'uploadBeanPhoto',
-          previewDataUrl,
-          fileName: file.name
+          previewDataUrl: uploadedPhoto.previewDataUrl,
+          fileName: uploadedPhoto.fileName || 'bean-photo.jpg'
         }
       });
 
       const data = response.data || {};
       state.uploadedPhoto = {
         fileId: data.fileId || '',
-        fileName: data.fileName || file.name,
+        fileName: data.fileName || uploadedPhoto.fileName,
         driveLink: data.driveLink || '',
-        previewDataUrl: data.previewDataUrl || previewDataUrl,
-        photoText: data.photoText || '',
+        previewDataUrl: data.previewDataUrl || uploadedPhoto.previewDataUrl,
+        photoText: data.photoText || uploadedPhoto.photoText || '',
         ocrStatus: data.ocrStatus || '',
         ocrSource: data.ocrSource || ''
       };
 
       renderBeanAvatar();
       renderPhotoMeta();
-      setStatus('Photo uploaded.', 'success');
+      renderPhotoThumbs();
+      setStatus('Photo uploaded and OCR complete.', 'success');
     } catch (error) {
       setStatus(error.message || 'Photo upload failed.', 'error');
     }
   }
 
-  async function researchBean() {
+  async function researchBeanAction() {
     const beanData = collectBeanFormData();
 
     try {
-      if (els.researchStatus) els.researchStatus.textContent = 'Researching bean and translating to English…';
+      if (els.researchStatus)
+        els.researchStatus.textContent = 'Researching bean and translating to English…';
       setStatus('Researching bean…', 'info');
 
       const response = await fetchJson(resolveScriptUrl(), {
@@ -1485,14 +1782,17 @@ document.addEventListener('DOMContentLoaded', () => {
         body: { action: 'researchBean', beanData }
       });
 
-      const researchedBean = response.data && response.data.bean ? response.data.bean : null;
+      const researchedBean =
+        response.data && response.data.bean ? response.data.bean : null;
       if (!researchedBean) throw new Error('No researched bean returned.');
 
       applyResearchedBean(researchedBean);
-      if (els.researchStatus) els.researchStatus.textContent = 'Research complete. English details applied.';
+      if (els.researchStatus)
+        els.researchStatus.textContent = 'Research complete. English details applied.';
       setStatus('Research complete.', 'success');
     } catch (error) {
-      if (els.researchStatus) els.researchStatus.textContent = error.message || 'Research failed.';
+      if (els.researchStatus)
+        els.researchStatus.textContent = error.message || 'Research failed.';
       setStatus(error.message || 'Research failed.', 'error');
     }
   }
@@ -1510,7 +1810,8 @@ document.addEventListener('DOMContentLoaded', () => {
         body: { action, beanData }
       });
 
-      const savedBean = response.data && response.data.bean ? response.data.bean : null;
+      const savedBean =
+        response.data && response.data.bean ? response.data.bean : null;
       if (!savedBean) throw new Error('Bean save did not return a bean.');
 
       closeBeanModal();
@@ -1534,7 +1835,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const raw = els.beanTagInput ? els.beanTagInput.value.trim() : '';
     if (!raw) return;
 
-    const additions = raw.split(',').map((item) => item.trim()).filter(Boolean);
+    const additions = raw
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
     state.beanTags = uniqueStrings(state.beanTags.concat(additions));
     if (els.beanTagInput) els.beanTagInput.value = '';
     renderBeanTagsPreview();
@@ -1544,7 +1848,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const raw = els.beanTagInput ? els.beanTagInput.value.trim() : '';
     if (!raw) return;
 
-    const additions = raw.split(',').map((item) => item.trim()).filter(Boolean);
+    const additions = raw
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
     state.beanTags = uniqueStrings(state.beanTags.concat(additions));
     if (els.beanTagInput) els.beanTagInput.value = '';
     renderBeanTagsPreview();
@@ -1613,104 +1920,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (els.photoFolder) {
-      els.photoFolder.addEventListener('input', updatePhotoFolderHint);
-    }
-
-    if (els.openAddBeanBtn) {
-      els.openAddBeanBtn.addEventListener('click', () => openBeanModal());
-    }
-
-    if (els.closeAddBeanBtn) {
-      els.closeAddBeanBtn.addEventListener('click', closeBeanModal);
-    }
-
-    if (els.addBeanModal) {
-      els.addBeanModal.addEventListener('click', (event) => {
-        const target = event.target;
-        if (target instanceof HTMLElement && target.dataset.closeAddBean === 'true') {
-          closeBeanModal();
-        }
-      });
-    }
-
-    if (els.pickPhotoBtn) {
-      els.pickPhotoBtn.addEventListener('click', () => {
-        if (els.beanPhotoFile) {
-          els.beanPhotoFile.click();
-        }
-      });
-    }
-
-    if (els.beanPhotoFile) {
-      els.beanPhotoFile.addEventListener('change', async () => {
-        if (!els.beanPhotoFile.files || !els.beanPhotoFile.files[0]) return;
-
-        const file = els.beanPhotoFile.files[0];
-        const previewDataUrl = await readFileAsDataUrl(file);
-
-        state.uploadedPhoto = {
-          ...state.uploadedPhoto,
-          fileName: file.name,
-          previewDataUrl,
-          driveLink: '',
-          fileId: '',
-          ocrStatus: 'selected',
-          ocrSource: 'local',
-          photoText: state.uploadedPhoto.photoText || ''
-        };
-
-        renderBeanAvatar();
-        renderPhotoMeta();
-        setStatus('Photo selected. Tap Upload Photo to save and run OCR.', 'info');
-      });
-    }
-
-    if (els.uploadPhotoBtn) {
-      els.uploadPhotoBtn.addEventListener('click', uploadPhoto);
-    }
-
-    if (els.researchBeanBtn) {
-      els.researchBeanBtn.addEventListener('click', researchBean);
-    }
-
-    if (els.addBeanForm) {
-      els.addBeanForm.addEventListener('submit', saveBean);
-    }
-
-    if (els.beanTagInput) {
-      els.beanTagInput.addEventListener('keydown', handleTagInputKeydown);
-      els.beanTagInput.addEventListener('blur', handleTagInputBlur);
-    }
-  }
-
-  async function init() {
-    populateCountryDatalist();
-    bindEvents();
-    setView('library');
-    renderRecipeOutput();
-    renderBeanTagsPreview();
-    renderBeanAvatar();
-    renderPhotoMeta();
-    renderBrewLogList();
-    resetBrewLogForm();
-    setRecipeEngineStatus('No recipe generated yet.', 'info');
-    setBrewLogStatus('Select a bean to begin logging brews.', 'info');
-
-    try {
-      await loadSettings();
-    } catch (error) {
-      setStatus(error.message || 'Could not load settings.', 'error');
-    }
-
-    try {
-      await loadBeans();
-    } catch (error) {
-      setStatus(error.message || 'Could not load beans.', 'error');
-    }
-  }
-
-  init().catch((error) => {
-    console.error(error);
-    setStatus(error.message || 'App initialization failed.', 'error');
-  });
-});
+      els.photoFolder.addEventListener('input', updatePhotoFolder
