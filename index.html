@@ -276,15 +276,31 @@
                 <div class="photo-upload-header">
                   <div>
                     <h3>Bean photo</h3>
-                    <p class="muted">Tap one button, then choose camera or gallery if your device offers both.</p>
+                    <p class="muted">Choose camera or gallery. On mobile, “Take Photo” can prefer the rear camera.</p>
                   </div>
                 </div>
 
-                <input id="beanPhotoFile" type="file" accept="image/*" class="hidden-file-input" />
+                <!-- Camera-first input -->
+                <input
+                  id="beanPhotoCameraFile"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  class="hidden-file-input"
+                />
+
+                <!-- Gallery-only input (no capture) -->
+                <input
+                  id="beanPhotoGalleryFile"
+                  type="file"
+                  accept="image/*"
+                  class="hidden-file-input"
+                />
 
                 <div class="photo-upload-card__actions">
-                  <button id="pickPhotoBtn" type="button">Add Photo</button>
-                  <button id="uploadPhotoBtn" type="button">Upload Photo</button>
+                  <button id="pickPhotoBtn" type="button">Take Photo</button>
+                  <button id="pickGalleryBtn" type="button">Choose from Gallery</button>
+                  <button id="uploadPhotoBtn" type="button">Upload & Run OCR</button>
                   <button id="researchBeanBtn" type="button">Research Bean</button>
                 </div>
 
@@ -298,6 +314,8 @@
               <label for="beanPhotoText">Photo OCR text</label>
               <textarea id="beanPhotoText" rows="4" placeholder="Detected label text appears here."></textarea>
             </div>
+
+            <div class="photo-thumb-grid" id="beanPhotoThumbGrid"></div>
           </div>
 
           <div class="settings-grid">
