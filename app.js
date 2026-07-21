@@ -75,7 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
     currentLogs: [],
     openLogIds: new Set(),
     brewLogDraftId: '',
-    isResearchingBean: false
+    isResearchingBean: false,
+    autofillPreference: 'log' // 'log' by default; switches to 'recipe' right after generating one
   };
 
   const els = {
@@ -328,16 +329,49 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 
-  async function fetchJson(url, options = {}) {
+  const APP_TOKEN_STORAGE_KEY = 'beanLedgerAppToken';
+
+  function getAppToken() {
+    try {
+      return localStorage.getItem(APP_TOKEN_STORAGE_KEY) || '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function setAppToken(token) {
+    try {
+      localStorage.setItem(APP_TOKEN_STORAGE_KEY, String(token || '').trim());
+    } catch (error) {
+      // Ignore storage failures (private mode etc.); token just won't persist.
+    }
+  }
+
+  function promptForAppToken() {
+    const token = window.prompt(
+      'This app is protected by a token.\n\nEnter the value of the APP_TOKEN script property (Apps Script → Project Settings → Script properties):'
+    );
+    if (token === null) return false;
+    setAppToken(token);
+    return true;
+  }
+
+  async function fetchJson(url, options = {}, allowTokenRetry = true) {
     const method = options.method || 'GET';
+    const token = getAppToken();
     const init = { method, headers: {} };
+
+    let requestUrl = url;
+    if (method === 'GET' && token) {
+      requestUrl += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+    }
 
     if (method !== 'GET' && options.body) {
       init.headers['Content-Type'] = 'text/plain;charset=utf-8';
-      init.body = JSON.stringify(options.body);
+      init.body = JSON.stringify({ ...options.body, token });
     }
 
-    const response = await fetch(url, init);
+    const response = await fetch(requestUrl, init);
     const text = await response.text();
     let json;
 
@@ -348,7 +382,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!response.ok || json.success === false) {
-      throw new Error(json.error || `Request failed (${response.status})`);
+      const message = json.error || `Request failed (${response.status})`;
+
+      // If the backend rejected our token, ask for it once and retry.
+      if (allowTokenRetry && /unauthorized/i.test(message)) {
+        if (promptForAppToken()) {
+          return fetchJson(url, options, false);
+        }
+      }
+
+      throw new Error(message);
     }
 
     return json;
@@ -461,9 +504,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.sheetUrl) els.sheetUrl.value = state.settings.sheetUrl || '';
       if (els.scriptUrl) els.scriptUrl.value = state.settings.scriptUrl || APPS_SCRIPT_URL;
       if (els.photoFolder) els.photoFolder.value = state.settings.photoFolder || '';
-      if (els.settingsLocked) els.settingsLocked.checked = true;
+      if (els.settingsLocked) els.settingsLocked.checked = state.settings.settingsLocked;
 
-      state.settings.settingsLocked = true;
       applySettingsLockState();
       updatePhotoFolderHint();
       setStatus('Shared settings saved.', 'success');
@@ -868,6 +910,18 @@ document.addEventListener('DOMContentLoaded', () => {
       els.brewDate.value = new Date().toISOString().slice(0, 10);
     }
 
+    // Right after generating (or loading a locked) recipe, the recipe's numbers are
+    // what you're about to brew with — so they win over the previous log's values.
+    if (state.autofillPreference === 'recipe' && recipe) {
+      if (els.brewGrind) els.brewGrind.value = recipe.grind || '';
+      if (els.brewDose) els.brewDose.value = recipe.dose_g || '';
+      if (els.brewWater) els.brewWater.value = recipe.water_total_g || '';
+      if (els.brewTemp) els.brewTemp.value = recipe.water_temp_c || '';
+      if (els.brewNotes) els.brewNotes.value = '';
+      setBrewLogStatus('Autofilled from the current generated recipe.', 'success');
+      return;
+    }
+
     if (latestLog) {
       if (els.brewGrind) els.brewGrind.value = latestLog.grind || '';
       if (els.brewDose) els.brewDose.value = latestLog.dose_g || '';
@@ -990,6 +1044,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadLogsForSelectedBean() {
+    // Fresh log data means the latest log is the source of truth again,
+    // until the next recipe is generated.
+    state.autofillPreference = 'log';
+
     const bean = getSelectedHelperBean();
     if (!bean || !bean.id) {
       state.currentLogs = [];
@@ -1159,6 +1217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isLocked && lockedRecipe && !forceAi) {
       state.currentRecipeData = normalizeRecipeDataShape(lockedRecipe);
       state.currentRecipeStyle = state.currentRecipeData.defaultStyle || 'hot';
+      state.autofillPreference = 'recipe';
       renderRecipeOutput();
       refillBrewLogForm();
       setRecipeEngineStatus('This bean is locked to its ideal recipe. AI generation was skipped.', 'success');
@@ -1206,6 +1265,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       state.currentRecipeData = normalizeRecipeDataShape(response.data || null);
       state.currentRecipeStyle = (state.currentRecipeData && state.currentRecipeData.defaultStyle) || 'hot';
+      state.autofillPreference = 'recipe';
       renderRecipeOutput();
       refillBrewLogForm();
 
@@ -1253,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    els.beanAvatar.innerHTML = `<img src="${state.uploadedPhoto.previewDataUrl}" alt="Bean photo preview" />`;
+    els.beanAvatar.innerHTML = `<img src="${escapeHtml(state.uploadedPhoto.previewDataUrl)}" alt="Bean photo preview" />`;
   }
 
   function renderPhotoMeta() {
@@ -1381,7 +1441,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function collectBeanFormData() {
-    const selectedBean = getSelectedHelperBean();
+    // Look up the bean actually being edited in the modal (by its hidden id field),
+    // NOT the bean selected in the Recipe Helper. Using the helper selection here
+    // could copy another bean's lock state and locked recipe onto this one.
+    const editingId = els.beanId ? els.beanId.value.trim() : '';
+    const editingBean = editingId
+      ? state.beans.find((item) => item.id === editingId) || null
+      : null;
+
     return {
       id: els.beanId ? els.beanId.value.trim() : '',
       bean: els.beanName ? els.beanName.value.trim() : '',
@@ -1403,8 +1470,8 @@ document.addEventListener('DOMContentLoaded', () => {
       photo_drive_link: state.uploadedPhoto.driveLink || '',
       photo_preview_data_url: state.uploadedPhoto.previewDataUrl || '',
       photo_text: els.beanPhotoText ? els.beanPhotoText.value.trim() : state.uploadedPhoto.photoText,
-      recipe_locked: selectedBean ? !!selectedBean.recipe_locked : false,
-      locked_recipe_json: selectedBean ? selectedBean.locked_recipe_json || '' : ''
+      recipe_locked: editingBean ? !!editingBean.recipe_locked : false,
+      locked_recipe_json: editingBean ? editingBean.locked_recipe_json || '' : ''
     };
   }
 
@@ -1511,6 +1578,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ocrStatus: data.ocrStatus || '',
       ocrSource: data.ocrSource || ''
     };
+
+    if (data.driveStatus && String(data.driveStatus).indexOf('failed') === 0) {
+      setStatus(`Photo OCR ran, but the Drive upload failed (${data.driveStatus}). Check the photo folder in Settings.`, 'warn');
+    }
 
     renderBeanAvatar();
     renderPhotoMeta();
@@ -1667,8 +1738,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (els.settingsLocked) {
       els.settingsLocked.addEventListener('change', () => {
-        els.settingsLocked.checked = true;
-        state.settings.settingsLocked = true;
+        if (!els.settingsLocked.checked) {
+          const ok = window.confirm(
+            'Unlock shared settings for editing?\n\nRemember to tick the lock again before saving so they stay protected.'
+          );
+          if (!ok) {
+            els.settingsLocked.checked = true;
+            return;
+          }
+        }
+        state.settings.settingsLocked = els.settingsLocked.checked;
         applySettingsLockState();
       });
     }
