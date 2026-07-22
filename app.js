@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fileName: '',
       driveLink: '',
       previewDataUrl: '',
+      uploadDataUrl: '',
       photoText: '',
       ocrStatus: '',
       ocrSource: ''
@@ -168,10 +169,21 @@ document.addEventListener('DOMContentLoaded', () => {
     countryOptions: document.getElementById('countryOptions')
   };
 
+  let statusToastTimer = null;
+
   function setStatus(message, tone = 'info') {
     if (!els.appStatus) return;
     els.appStatus.textContent = message || '';
     els.appStatus.dataset.status = tone;
+
+    // On mobile the status is a floating toast; show it, then auto-hide.
+    // On desktop the visibility class has no effect (pill is always shown).
+    els.appStatus.classList.add('app-status--visible');
+    if (statusToastTimer) clearTimeout(statusToastTimer);
+    const hideDelay = tone === 'error' || tone === 'warn' ? 6000 : 3500;
+    statusToastTimer = setTimeout(() => {
+      if (els.appStatus) els.appStatus.classList.remove('app-status--visible');
+    }, hideDelay);
   }
 
   function setRecipeEngineStatus(message, tone = 'info') {
@@ -235,6 +247,27 @@ document.addEventListener('DOMContentLoaded', () => {
     return style === 'icedhalfshaken' ? 'iced_half_shaken' : style;
   }
 
+  // Mirrors the backend calibration so locked recipes rendered client-side
+  // (and any recipe saved before calibration existed) show the right dial number.
+  // On this Perfetto: espresso ~4.0–5.0, V60 filter 5.5–7.5; generic advice
+  // that puts espresso near 2.0 reads ~2.5 numbers too low.
+  const GRIND_FILTER_MIN = 5.0;
+  const GRIND_FILTER_MAX = 7.5;
+  const GRIND_LEGACY_OFFSET = 2.5;
+
+  function calibrateGrindText(grindText) {
+    const match = String(grindText || '').match(/(\d+(?:\.\d+)?)/);
+    if (!match) return grindText || '';
+
+    let value = Number(match[1]);
+    if (value < GRIND_FILTER_MIN) {
+      value += GRIND_LEGACY_OFFSET;
+    }
+    value = Math.max(GRIND_FILTER_MIN, Math.min(GRIND_FILTER_MAX, value));
+    value = Math.round(value * 2) / 2;
+    return `${value.toFixed(1)} on Eureka Mignon Perfetto`;
+  }
+
   function normalizeRecipeDataShape(data) {
     if (!data || typeof data !== 'object') return data;
 
@@ -253,6 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const recipe = incomingRecipes[key] || {};
       normalized.recipes[normalizedKey] = {
         ...recipe,
+        grind: calibrateGrindText(recipe.grind),
         pours: normalizePours(recipe.pours)
       };
     });
@@ -298,32 +332,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!normalized.length) return '';
 
+    let runningTotal = 0;
+
+    const rows = normalized.map((pour, index) => {
+      if (pour.text && !pour.start && !pour.end && !pour.water_g) {
+        return `<li class="pour-row pour-row--text">${escapeHtml(pour.text)}</li>`;
+      }
+
+      const amount = Number(pour.water_g) || 0;
+      runningTotal += amount;
+      const time = [pour.start, pour.end].filter(Boolean).join('–') || '—';
+
+      return `
+        <li class="pour-row">
+          <span class="pour-row__num">${index + 1}</span>
+          <span class="pour-row__time">${escapeHtml(time)}</span>
+          <span class="pour-row__add">+${amount} g</span>
+          <span class="pour-row__total">${runningTotal} g</span>
+        </li>
+      `;
+    }).join('');
+
     return `
       <div class="recipe-block">
         <h4>Pours</h4>
         <ul class="pour-list">
-          ${normalized.map((pour) => {
-            if (pour.text && !pour.start && !pour.end && !pour.water_g) {
-              return `<li>${escapeHtml(pour.text)}</li>`;
-            }
-
-            return `
-              <li class="pour-item">
-                <div class="pour-pill">
-                  <strong>Start</strong>
-                  <span>${escapeHtml(pour.start || '—')}</span>
-                </div>
-                <div class="pour-pill">
-                  <strong>End</strong>
-                  <span>${escapeHtml(pour.end || '—')}</span>
-                </div>
-                <div class="pour-water">
-                  <strong>Water</strong>
-                  <span>${escapeHtml(pour.water_g || '—')} g</span>
-                </div>
-              </li>
-            `;
-          }).join('')}
+          <li class="pour-row pour-row--head" aria-hidden="true">
+            <span class="pour-row__num">#</span>
+            <span class="pour-row__time">Time</span>
+            <span class="pour-row__add">Pour</span>
+            <span class="pour-row__total">Scale</span>
+          </li>
+          ${rows}
         </ul>
       </div>
     `;
@@ -1120,6 +1160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       setStatus(logData.id ? 'Updating brew log…' : 'Saving brew log…', 'info');
       setBrewLogStatus(logData.id ? 'Updating brew log…' : 'Saving brew log…', 'info');
+      setButtonsBusy([els.saveBrewLogBtn], true);
 
       await fetchJson(resolveScriptUrl(), {
         method: 'POST',
@@ -1136,6 +1177,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       setStatus(error.message || 'Could not save brew log.', 'error');
       setBrewLogStatus(error.message || 'Could not save brew log.', 'error');
+    } finally {
+      setButtonsBusy([els.saveBrewLogBtn], false);
     }
   }
 
@@ -1252,6 +1295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.recipeStatus.textContent = 'Generating recipe…';
       }
       setStatus('Generating recipe…', 'info');
+      setButtonsBusy([els.generateRecipeBtn, els.forceRegenerateBtn], true);
 
       const response = await fetchJson(resolveScriptUrl(), {
         method: 'POST',
@@ -1290,6 +1334,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setRecipeEngineStatus(error.message || 'Recipe generation failed.', 'error');
       setStatus(error.message || 'Recipe generation failed.', 'error');
+    } finally {
+      setButtonsBusy([els.generateRecipeBtn, els.forceRegenerateBtn], false);
     }
   }
 
@@ -1299,6 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fileName: '',
       driveLink: '',
       previewDataUrl: '',
+      uploadDataUrl: '',
       photoText: '',
       ocrStatus: '',
       ocrSource: ''
@@ -1309,7 +1356,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!els.beanAvatar) return;
 
     if (!state.uploadedPhoto.previewDataUrl) {
-      els.beanAvatar.innerHTML = `<div class="bean-photo-preview--empty">No photo yet. Upload one to see a preview.</div>`;
+      els.beanAvatar.innerHTML = `<div class="bean-photo-preview--empty">📷 Tap here to take a photo of the bag.</div>`;
       return;
     }
 
@@ -1411,6 +1458,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fileName: bean.photo_file_name || '',
         driveLink: bean.photo_drive_link || '',
         previewDataUrl: bean.photo_preview_data_url || '',
+        uploadDataUrl: '',
         photoText: bean.photo_text || '',
         ocrStatus: bean.photo_text ? 'ok' : 'not run yet',
         ocrSource: bean.photo_text ? 'saved' : ''
@@ -1431,6 +1479,7 @@ document.addEventListener('DOMContentLoaded', () => {
       els.addBeanModal.classList.remove('hidden');
       els.addBeanModal.setAttribute('aria-hidden', 'false');
     }
+    document.body.classList.add('modal-open');
   }
 
   function closeBeanModal() {
@@ -1438,6 +1487,7 @@ document.addEventListener('DOMContentLoaded', () => {
       els.addBeanModal.classList.add('hidden');
       els.addBeanModal.setAttribute('aria-hidden', 'true');
     }
+    document.body.classList.remove('modal-open');
   }
 
   function collectBeanFormData() {
@@ -1506,6 +1556,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function setButtonsBusy(buttons, busy) {
+    buttons.filter(Boolean).forEach((btn) => {
+      btn.disabled = !!busy;
+      btn.classList.toggle('is-busy', !!busy);
+    });
+  }
+
+  // Phone cameras produce 10–50MB images; base64-encoding those makes uploads
+  // slow/fragile and blows past Sheets' 50k-character cell limit. Downscale
+  // before anything leaves the device.
+  function resizeImageDataUrl(dataUrl, maxDimension, quality) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+          const width = Math.max(1, Math.round(img.width * scale));
+          const height = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (error) {
+          resolve(dataUrl); // Fall back to the original on any canvas failure.
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   function getActiveSelectedPhotoFile() {
     const galleryFile = els.beanPhotoFile && els.beanPhotoFile.files && els.beanPhotoFile.files[0]
       ? els.beanPhotoFile.files[0]
@@ -1521,12 +1604,19 @@ document.addEventListener('DOMContentLoaded', () => {
   async function syncSelectedPhotoPreview(file) {
     if (!file) return;
 
-    const previewDataUrl = await readFileAsDataUrl(file);
+    setStatus('Optimizing photo…', 'info');
+
+    const originalDataUrl = await readFileAsDataUrl(file);
+    // ~1600px is plenty for Vision OCR on a bag label; ~480px thumbnail
+    // is what we display and what gets stored in the sheet.
+    const uploadDataUrl = await resizeImageDataUrl(originalDataUrl, 1600, 0.85);
+    const previewDataUrl = await resizeImageDataUrl(uploadDataUrl, 480, 0.7);
 
     state.uploadedPhoto = {
       ...state.uploadedPhoto,
       fileName: file.name,
       previewDataUrl,
+      uploadDataUrl,
       driveLink: '',
       fileId: '',
       ocrStatus: 'selected',
@@ -1536,7 +1626,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderBeanAvatar();
     renderPhotoMeta();
-    setStatus('Photo selected. Tap Research Bean to upload, run OCR, and apply research.', 'info');
+    setStatus('Photo ready. Tap Research Bean to upload, run OCR, and apply research.', 'info');
   }
 
   async function uploadPhotoIfNeeded() {
@@ -1557,13 +1647,17 @@ document.addEventListener('DOMContentLoaded', () => {
       els.researchStatus.textContent = 'Uploading photo and running OCR…';
     }
 
-    const previewDataUrl = state.uploadedPhoto.previewDataUrl || await readFileAsDataUrl(file);
+    // Send the larger (but downscaled) version to Drive + Vision for OCR quality;
+    // keep the small thumbnail as the preview that gets saved to the sheet.
+    const uploadDataUrl = state.uploadedPhoto.uploadDataUrl
+      || state.uploadedPhoto.previewDataUrl
+      || await resizeImageDataUrl(await readFileAsDataUrl(file), 1600, 0.85);
 
     const response = await fetchJson(resolveScriptUrl(), {
       method: 'POST',
       body: {
         action: 'uploadBeanPhoto',
-        previewDataUrl,
+        previewDataUrl: uploadDataUrl,
         fileName: file.name
       }
     });
@@ -1573,7 +1667,8 @@ document.addEventListener('DOMContentLoaded', () => {
       fileId: data.fileId || '',
       fileName: data.fileName || file.name,
       driveLink: data.driveLink || '',
-      previewDataUrl: data.previewDataUrl || previewDataUrl,
+      previewDataUrl: state.uploadedPhoto.previewDataUrl || uploadDataUrl,
+      uploadDataUrl,
       photoText: data.photoText || '',
       ocrStatus: data.ocrStatus || '',
       ocrSource: data.ocrSource || ''
@@ -1592,7 +1687,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.isResearchingBean) return;
 
     state.isResearchingBean = true;
-    if (els.researchBeanBtn) els.researchBeanBtn.disabled = true;
+    setButtonsBusy([els.researchBeanBtn], true);
 
     try {
       await uploadPhotoIfNeeded();
@@ -1625,7 +1720,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setStatus(error.message || 'Research failed.', 'error');
     } finally {
       state.isResearchingBean = false;
-      if (els.researchBeanBtn) els.researchBeanBtn.disabled = false;
+      setButtonsBusy([els.researchBeanBtn], false);
     }
   }
 
@@ -1758,6 +1853,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (els.openAddBeanBtn) {
       els.openAddBeanBtn.addEventListener('click', () => openBeanModal());
+    }
+
+    // Bottom-nav "Add" button (mobile)
+    Array.from(document.querySelectorAll('[data-open-add-bean]')).forEach((btn) => {
+      btn.addEventListener('click', () => openBeanModal());
+    });
+
+    // Tapping the photo preview opens the camera (falls back to gallery)
+    if (els.beanAvatar) {
+      els.beanAvatar.addEventListener('click', () => {
+        if (els.beanPhotoCameraFile) {
+          els.beanPhotoCameraFile.click();
+        } else if (els.beanPhotoFile) {
+          els.beanPhotoFile.click();
+        }
+      });
     }
 
     if (els.closeAddBeanBtn) {
