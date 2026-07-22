@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --bg: #f5f1ea;
   --panel: #fcfaf6;
   --panel-2: #f8f2e9;
@@ -19,6 +20,18 @@
   --radius-lg: 18px;
   --radius-md: 14px;
   --radius-sm: 10px;
+  --surface: var(--surface);
+  --surface-2: var(--surface-2);
+  --surface-3: var(--surface-3);
+  --surface-4: var(--surface-4);
+  --card: var(--card);
+  --card-2: var(--card-2);
+  --sidebar-bg: var(--sidebar-bg);
+  --readonly-bg: var(--readonly-bg);
+  --pure: #ffffff;
+  --bg-grad-a: #f7f3ed;
+  --bg-grad-b: #f3eee6;
+  --nav-height: 64px;
 }
 
 *,
@@ -35,7 +48,7 @@ body {
 
 body {
   font-family: 'Work Sans', sans-serif;
-  background: linear-gradient(180deg, #f7f3ed 0%, #f3eee6 100%);
+  background: linear-gradient(180deg, var(--bg-grad-a) 0%, var(--bg-grad-b) 100%);
   color: var(--text);
 }
 
@@ -83,7 +96,7 @@ label {
 }
 
 .sidebar {
-  background: rgba(255, 252, 247, 0.72);
+  background: var(--sidebar-bg);
   border-right: 1px solid rgba(139, 94, 60, 0.12);
   padding: 24px 18px;
   backdrop-filter: blur(10px);
@@ -100,7 +113,7 @@ label {
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  background: #fff;
+  background: var(--pure);
   border: 1px solid rgba(139, 94, 60, 0.12);
   display: grid;
   place-items: center;
@@ -149,7 +162,7 @@ label {
   width: 100%;
   text-align: left;
   border: 1px solid var(--line);
-  background: #fffdf9;
+  background: var(--surface);
   color: var(--text);
   border-radius: 14px;
   padding: 12px 14px;
@@ -188,7 +201,7 @@ label {
   border-radius: 999px;
   font-size: 0.88rem;
   border: 1px solid var(--line);
-  background: #fffdf8;
+  background: var(--surface-3);
   color: var(--text-soft);
 }
 
@@ -211,7 +224,7 @@ label {
 }
 
 .section-head {
-  background: rgba(255, 250, 244, 0.92);
+  background: var(--card);
   border: 1px solid rgba(139, 94, 60, 0.12);
   box-shadow: var(--shadow);
   border-radius: 22px;
@@ -243,7 +256,7 @@ select,
 textarea {
   width: 100%;
   border: 1px solid var(--line);
-  background: #fffdf9;
+  background: var(--surface);
   border-radius: 14px;
   padding: 12px 14px;
   color: var(--text);
@@ -263,7 +276,7 @@ textarea {
 }
 
 .settings-readonly {
-  background: #f5efe7;
+  background: var(--readonly-bg);
   color: var(--text-soft);
 }
 
@@ -277,7 +290,7 @@ textarea {
 
 .tag-filter {
   border: 1px solid var(--line);
-  background: #fffcf8;
+  background: var(--surface-2);
   border-radius: 999px;
   padding: 8px 12px;
   color: var(--text-soft);
@@ -303,7 +316,7 @@ textarea {
 .bean-card {
   border: 1px solid rgba(139, 94, 60, 0.12);
   border-radius: 20px;
-  background: rgba(255, 251, 246, 0.96);
+  background: var(--card-2);
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(65, 45, 24, 0.05);
 }
@@ -385,7 +398,7 @@ textarea {
 .settings-grid,
 .photo-upload-card,
 .modal__dialog {
-  background: rgba(255, 250, 244, 0.95);
+  background: var(--card);
   border: 1px solid rgba(139, 94, 60, 0.12);
   box-shadow: var(--shadow);
 }
@@ -439,7 +452,7 @@ textarea {
 
 .recipe-style-btn {
   border: 1px solid var(--line);
-  background: #fffdf8;
+  background: var(--surface-3);
   border-radius: 999px;
   padding: 8px 12px;
 }
@@ -473,7 +486,7 @@ textarea {
 }
 
 .recipe-grid > div {
-  background: #fffdf9;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 12px 14px;
@@ -490,7 +503,7 @@ textarea {
 }
 
 .recipe-block {
-  background: #fffdf9;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 14px 16px;
@@ -525,39 +538,63 @@ textarea {
 
 .pour-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.pour-item {
+.pour-row {
   display: grid;
-  grid-template-columns: 120px 120px 1fr;
-  gap: 10px;
-  align-items: stretch;
-}
-
-.pour-pill,
-.pour-water {
+  grid-template-columns: 24px minmax(0, 1fr) auto minmax(64px, auto);
+  gap: 12px;
+  align-items: center;
+  padding: 11px 14px;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
-.pour-pill strong,
-.pour-water strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.76rem;
-  color: var(--text-faint);
+.pour-row--head {
+  background: transparent;
+  border: 0;
+  padding: 2px 14px;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
 }
 
-.pour-water {
-  background: #fffaf4;
+.pour-row__num {
+  color: var(--text-faint);
+  font-weight: 700;
+}
+
+.pour-row__time {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pour-row__add {
+  color: var(--text-soft);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pour-row__total {
+  font-weight: 700;
+  color: var(--accent-strong);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pour-row--text {
+  display: block;
+  color: var(--text-soft);
 }
 
 .brew-log-list {
@@ -566,7 +603,7 @@ textarea {
 }
 
 .brew-log-item {
-  background: #fffdf9;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
@@ -646,7 +683,7 @@ textarea {
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: #fffdf8;
+  background: var(--surface-3);
   color: var(--text-soft);
   font-size: 0.92rem;
 }
@@ -747,7 +784,7 @@ textarea {
 
 .bean-edit-btn,
 .bean-use-btn {
-  background: #fffdf9;
+  background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -812,7 +849,7 @@ textarea {
   margin: 16px auto;
   border-radius: 24px;
   padding: 22px;
-  background: #fffaf4;
+  background: var(--surface-4);
 }
 
 .modal-header {
@@ -833,7 +870,7 @@ textarea {
   height: 40px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--pure);
 }
 
 .modal-body {
@@ -903,7 +940,7 @@ textarea {
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: #fffdf8;
+  background: var(--surface-3);
 }
 
 .ocr-status--neutral {
@@ -929,7 +966,7 @@ textarea {
 }
 
 .empty-state {
-  background: rgba(255, 250, 244, 0.92);
+  background: var(--card);
   border: 1px dashed var(--line-strong);
   border-radius: 20px;
   padding: 28px;
@@ -969,10 +1006,8 @@ textarea {
     padding: 14px;
   }
 
-  .topbar,
   .section-head,
-  .recipe-card__header,
-  .modal-header {
+  .recipe-card__header {
     flex-direction: column;
     align-items: stretch;
   }
@@ -989,10 +1024,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .pour-item {
-    grid-template-columns: 1fr;
-  }
-
   .modal__dialog {
     width: calc(100vw - 16px);
     margin: 8px auto;
@@ -1004,7 +1035,7 @@ textarea {
 @media (max-width: 520px) {
   .recipe-grid,
   .brew-log-item__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .bean-card__summary {
@@ -1020,5 +1051,337 @@ textarea {
   .settings-grid,
   .photo-upload-card {
     padding: 16px;
+  }
+}
+/* ============================================================
+   Mobile & dark-mode refinements
+   ============================================================ */
+
+/* --- Touch ergonomics (all screens) --- */
+
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+
+.save-btn,
+.action-row button,
+.nav-btn,
+#pickPhotoBtn,
+#cameraPhotoBtn,
+#researchBeanBtn,
+#generateRecipeBtn,
+#saveBrewLogBtn,
+#saveRecipeLockBtn,
+.bean-edit-btn,
+.bean-use-btn,
+.bean-delete-btn,
+.recipe-style-btn,
+.tag-filter {
+  min-height: 44px;
+}
+
+button:active {
+  transform: scale(0.985);
+}
+
+/* Hover lifts only on devices that actually hover */
+@media (hover: none) {
+  .nav-btn:hover {
+    transform: none;
+  }
+
+  .bean-card__summary:hover,
+  .brew-log-item__summary:hover {
+    background: transparent;
+  }
+}
+
+/* Tappable photo preview */
+.bean-photo-preview {
+  cursor: pointer;
+}
+
+.bean-photo-preview:active {
+  border-color: var(--accent);
+}
+
+/* Busy spinner for async buttons */
+.is-busy {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.is-busy::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: busy-spin 0.7s linear infinite;
+}
+
+@keyframes busy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Keep the page behind a full-screen modal from scrolling */
+body.modal-open {
+  overflow: hidden;
+}
+
+#brewLogForm {
+  scroll-margin-top: 12px;
+}
+
+/* --- Bottom tab bar (hidden on desktop) --- */
+
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  /* Slim brand strip instead of a tall stacked sidebar */
+  .sidebar {
+    padding: 10px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+
+  .sidebar .nav {
+    display: none;
+  }
+
+  .brand {
+    margin-bottom: 0;
+    align-items: center;
+  }
+
+  .logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+  }
+
+  .brand h1 {
+    font-size: 1.25rem;
+  }
+
+  /* Reserve room for the fixed bottom nav + gesture bar */
+  .main {
+    padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 20px);
+  }
+
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    gap: 4px;
+    padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: var(--sidebar-bg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid rgba(139, 94, 60, 0.14);
+  }
+
+  .bottom-nav__btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 52px;
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+    color: var(--text-soft);
+    padding: 6px 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .bottom-nav__icon {
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  .bottom-nav__btn.active {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .bottom-nav__btn--add .bottom-nav__icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+
+  /* Compact page chrome: the topbar already names the view */
+  .topbar {
+    margin-bottom: 12px;
+  }
+
+  .section-head {
+    padding: 14px 16px;
+  }
+
+  .section-head > div:first-child h2,
+  .section-head > div:first-child p {
+    display: none;
+  }
+
+  /* Helper & Settings headers hold only the title (already in the topbar) */
+  #view-helper .section-head,
+  #view-settings .section-head {
+    display: none;
+  }
+
+  /* Status pill becomes a floating toast above the nav bar */
+  .app-status {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 12px);
+    z-index: 60;
+    text-align: center;
+    box-shadow: 0 12px 32px rgba(31, 21, 13, 0.18);
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 200ms ease, transform 200ms ease;
+  }
+
+  .app-status.app-status--visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Full-screen bottom sheet modal */
+  .modal__dialog {
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    padding: 0 16px 16px;
+  }
+
+  .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    margin: 0 -16px 14px;
+    padding: 14px 16px;
+    background: var(--surface-4);
+    border-bottom: 1px solid var(--line);
+    align-items: center;
+  }
+
+  .modal-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .modal-header .muted {
+    display: none;
+  }
+
+  /* Sticky save bar so Save is always reachable */
+  #addBeanForm .settings-grid > .action-row {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin: 8px -16px 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface-4);
+    border-top: 1px solid var(--line);
+  }
+
+  #addBeanForm .settings-grid > .action-row .save-btn {
+    width: 100%;
+  }
+
+  /* Photo actions: camera first and full width for one-thumb use */
+  .photo-upload-card__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .photo-upload-card__actions #researchBeanBtn {
+    grid-column: 1 / -1;
+  }
+
+  .bean-photo-preview {
+    max-width: 260px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}
+
+/* --- Dark mode (follows system setting) --- */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #171210;
+    --panel: #211a15;
+    --panel-2: #261e18;
+    --panel-3: #2e241c;
+    --line: #3a2e24;
+    --line-strong: #4d3d2f;
+    --text: #efe6db;
+    --text-soft: #b9ab9d;
+    --text-faint: #8e8174;
+    --accent: #a9744a;
+    --accent-strong: #c68f60;
+    --accent-soft: #3a2a1c;
+    --success: #66c095;
+    --warn: #d5a558;
+    --error: #e08585;
+    --shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
+    --surface: #241c16;
+    --surface-2: #261e18;
+    --surface-3: #241c16;
+    --surface-4: #211914;
+    --card: rgba(35, 27, 21, 0.95);
+    --card-2: rgba(37, 29, 22, 0.96);
+    --sidebar-bg: rgba(24, 18, 14, 0.82);
+    --readonly-bg: #1d1712;
+    --pure: #2e241c;
+    --bg-grad-a: #191310;
+    --bg-grad-b: #141009;
+  }
+
+  .modal__backdrop {
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .app-status {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .bottom-nav {
+    border-top-color: rgba(198, 143, 96, 0.16);
   }
 }
