@@ -83,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const els = {
     viewTitle: document.getElementById('viewTitle'),
     appStatus: document.getElementById('appStatus'),
+    themeToggleBtn: document.getElementById('themeToggleBtn'),
 
     navButtons: Array.from(document.querySelectorAll('.nav-btn[data-view]')),
     panels: {
@@ -255,17 +256,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const GRIND_FILTER_MAX = 7.5;
   const GRIND_LEGACY_OFFSET = 2.5;
 
-  function calibrateGrindText(grindText) {
+  function calibrateGrindInfo(grindText) {
     const match = String(grindText || '').match(/(\d+(?:\.\d+)?)/);
-    if (!match) return grindText || '';
+    if (!match) return { text: grindText || '', rawToken: '', finalToken: '' };
 
     let value = Number(match[1]);
     if (value < GRIND_FILTER_MIN) {
       value += GRIND_LEGACY_OFFSET;
     }
     value = Math.max(GRIND_FILTER_MIN, Math.min(GRIND_FILTER_MAX, value));
-    value = Math.round(value * 2) / 2;
-    return `${value.toFixed(1)} on Eureka Mignon Perfetto`;
+    // Stepless dial: keep 0.1 precision so the field matches the AI's prose.
+    value = Math.round(value * 10) / 10;
+
+    return {
+      text: `${value.toFixed(1)} on Eureka Mignon Perfetto`,
+      rawToken: match[1],
+      finalToken: value.toFixed(1)
+    };
+  }
+
+  function calibrateGrindText(grindText) {
+    return calibrateGrindInfo(grindText).text;
+  }
+
+  // If calibration changed the grind number, rewrite mentions of the old
+  // number in prose (why / expected notes) so they stay consistent.
+  function syncGrindMentions(text, rawToken, finalToken) {
+    if (!text || !rawToken || !finalToken) return text || '';
+    if (Number(rawToken) === Number(finalToken)) return text;
+
+    const escaped = rawToken.replace('.', '\\.');
+    const pattern = new RegExp(`(^|[^0-9.])${escaped}(?![0-9.])`, 'g');
+    return String(text).replace(pattern, (matched, prefix) => `${prefix}${finalToken}`);
   }
 
   function normalizeRecipeDataShape(data) {
@@ -284,9 +306,12 @@ document.addEventListener('DOMContentLoaded', () => {
     Object.keys(incomingRecipes).forEach((key) => {
       const normalizedKey = normalizeRecipeStyleKey(key);
       const recipe = incomingRecipes[key] || {};
+      const grindInfo = calibrateGrindInfo(recipe.grind);
       normalized.recipes[normalizedKey] = {
         ...recipe,
-        grind: calibrateGrindText(recipe.grind),
+        grind: grindInfo.text,
+        why: syncGrindMentions(recipe.why, grindInfo.rawToken, grindInfo.finalToken),
+        expected_notes: syncGrindMentions(recipe.expected_notes, grindInfo.rawToken, grindInfo.finalToken),
         pours: normalizePours(recipe.pours)
       };
     });
@@ -325,14 +350,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function renderPoursHtml(pours) {
+  function renderPoursHtml(pours, waterTargetG) {
     const normalized = normalizePours(pours).filter((pour) => {
       return pour.text || pour.start || pour.end || pour.water_g;
     });
 
     if (!normalized.length) return '';
 
-    let runningTotal = 0;
+    const structured = normalized.filter((p) => !(p.text && !p.start && !p.end && !p.water_g));
+    const amounts = structured.map((p) => Number(p.water_g) || 0);
+    const target = Number(waterTargetG) || 0;
+
+    // The AI is asked for per-pour amounts, but sometimes returns cumulative
+    // scale readings anyway. Detect that case so we never double-accumulate:
+    // non-decreasing values whose last entry already hits the target while
+    // their sum overshoots it are cumulative readings, not additions.
+    const sum = amounts.reduce((acc, value) => acc + value, 0);
+    const nonDecreasing = amounts.every((value, i) => i === 0 || value >= amounts[i - 1]);
+    const alreadyCumulative = target > 0
+      && amounts.length > 1
+      && nonDecreasing
+      && Math.abs(amounts[amounts.length - 1] - target) <= 2
+      && sum > target * 1.2;
+
+    let cumulative = 0;
 
     const rows = normalized.map((pour, index) => {
       if (pour.text && !pour.start && !pour.end && !pour.water_g) {
@@ -340,15 +381,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const amount = Number(pour.water_g) || 0;
-      runningTotal += amount;
+      let addition;
+      if (alreadyCumulative) {
+        addition = amount - cumulative;
+        cumulative = amount;
+      } else {
+        addition = amount;
+        cumulative += amount;
+      }
+
       const time = [pour.start, pour.end].filter(Boolean).join('–') || '—';
 
       return `
         <li class="pour-row">
           <span class="pour-row__num">${index + 1}</span>
           <span class="pour-row__time">${escapeHtml(time)}</span>
-          <span class="pour-row__add">+${amount} g</span>
-          <span class="pour-row__total">${runningTotal} g</span>
+          <span class="pour-row__total">${cumulative} g</span>
+          <span class="pour-row__add">+${addition}</span>
         </li>
       `;
     }).join('');
@@ -360,8 +409,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <li class="pour-row pour-row--head" aria-hidden="true">
             <span class="pour-row__num">#</span>
             <span class="pour-row__time">Time</span>
-            <span class="pour-row__add">Pour</span>
-            <span class="pour-row__total">Scale</span>
+            <span class="pour-row__total">Pour to</span>
+            <span class="pour-row__add">Add</span>
           </li>
           ${rows}
         </ul>
@@ -370,6 +419,42 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const APP_TOKEN_STORAGE_KEY = 'beanLedgerAppToken';
+  const THEME_STORAGE_KEY = 'beanLedgerTheme';
+
+  function getPreferredTheme() {
+    try {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch (error) {}
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+
+    // Keep Chrome's browser chrome tinted to match the active theme.
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+      meta.setAttribute('content', theme === 'dark' ? '#171210' : '#f5f1ea');
+    });
+
+    if (els.themeToggleBtn) {
+      els.themeToggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+      els.themeToggleBtn.setAttribute(
+        'aria-label',
+        theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+      );
+    }
+  }
+
+  function toggleTheme() {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch (error) {}
+    applyTheme(next);
+  }
 
   function getAppToken() {
     try {
@@ -911,7 +996,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         ` : ''}
 
-        ${renderPoursHtml(recipe.pours)}
+        ${renderPoursHtml(recipe.pours, recipe.hot_water_g || recipe.water_total_g)}
 
         ${recipe.expected_notes ? `
           <div class="recipe-block">
@@ -1851,6 +1936,10 @@ document.addEventListener('DOMContentLoaded', () => {
       els.photoFolder.addEventListener('input', updatePhotoFolderHint);
     }
 
+    if (els.themeToggleBtn) {
+      els.themeToggleBtn.addEventListener('click', toggleTheme);
+    }
+
     if (els.openAddBeanBtn) {
       els.openAddBeanBtn.addEventListener('click', () => openBeanModal());
     }
@@ -1935,6 +2024,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function init() {
+    applyTheme(getPreferredTheme());
     populateCountryDatalist();
     bindEvents();
     setView('library');
