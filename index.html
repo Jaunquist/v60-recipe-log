@@ -2,13 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#f5f1ea" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#171210" media="(prefers-color-scheme: dark)" />
   <title>Bean Ledger</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <script>
+    // Apply saved/system theme before styles load to avoid a flash.
+    (function () {
+      try {
+        var theme = localStorage.getItem('beanLedgerTheme');
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.dataset.theme = theme;
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
   <div class="app">
@@ -39,7 +54,10 @@
     <main class="main">
       <div class="topbar">
         <div class="top-title" id="viewTitle">Bean Library</div>
-        <div class="app-status" id="appStatus" data-status="info">Ready.</div>
+        <div class="topbar-actions">
+          <button id="themeToggleBtn" class="icon-btn theme-toggle" type="button" aria-label="Toggle light and dark mode">🌙</button>
+          <div class="app-status" id="appStatus" data-status="info">Ready.</div>
+        </div>
       </div>
 
       <div class="content">
@@ -52,7 +70,7 @@
 
             <div class="section-head__search">
               <label for="beanSearchInput">Search beans</label>
-              <input id="beanSearchInput" type="text" placeholder="Roaster, origin, process, notes…" />
+              <input id="beanSearchInput" type="search" enterkeyhint="search" placeholder="Roaster, origin, process, notes…" />
             </div>
           </div>
 
@@ -141,17 +159,17 @@
 
                     <div>
                       <label for="brewDose">Dose (g)</label>
-                      <input id="brewDose" type="number" step="0.1" placeholder="15" />
+                      <input id="brewDose" type="number" inputmode="decimal" step="0.1" placeholder="15" />
                     </div>
 
                     <div>
                       <label for="brewWater">Water (g)</label>
-                      <input id="brewWater" type="number" step="1" placeholder="250" />
+                      <input id="brewWater" type="number" inputmode="numeric" step="1" placeholder="250" />
                     </div>
 
                     <div>
                       <label for="brewTemp">Temp (°C)</label>
-                      <input id="brewTemp" type="number" step="1" placeholder="92" />
+                      <input id="brewTemp" type="number" inputmode="numeric" step="1" placeholder="92" />
                     </div>
 
                     <div>
@@ -379,6 +397,25 @@
 
   <datalist id="countryOptions"></datalist>
 
-  <script src="app.js"></script>
+  <nav class="bottom-nav" aria-label="Primary">
+    <button class="nav-btn bottom-nav__btn active" data-view="library" type="button">
+      <span class="bottom-nav__icon" aria-hidden="true">🫘</span>
+      <span class="bottom-nav__label">Beans</span>
+    </button>
+    <button class="nav-btn bottom-nav__btn" data-view="helper" type="button">
+      <span class="bottom-nav__icon" aria-hidden="true">☕</span>
+      <span class="bottom-nav__label">Brew</span>
+    </button>
+    <button class="bottom-nav__btn bottom-nav__btn--add" data-open-add-bean="true" type="button">
+      <span class="bottom-nav__icon" aria-hidden="true">＋</span>
+      <span class="bottom-nav__label">Add</span>
+    </button>
+    <button class="nav-btn bottom-nav__btn" data-view="settings" type="button">
+      <span class="bottom-nav__icon" aria-hidden="true">⚙️</span>
+      <span class="bottom-nav__label">Settings</span>
+    </button>
+  </nav>
+
+  <script src="app.js?v=4"></script>
 </body>
 </html>
