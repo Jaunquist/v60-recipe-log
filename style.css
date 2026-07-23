@@ -1339,49 +1339,68 @@ body.modal-open {
   }
 }
 
-/* --- Dark mode (follows system setting) --- */
+/* --- Dark mode (driven by html[data-theme]; a head script sets the initial
+       value from the saved choice or the system preference) --- */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --bg: #171210;
-    --panel: #211a15;
-    --panel-2: #261e18;
-    --panel-3: #2e241c;
-    --line: #3a2e24;
-    --line-strong: #4d3d2f;
-    --text: #efe6db;
-    --text-soft: #b9ab9d;
-    --text-faint: #8e8174;
-    --accent: #a9744a;
-    --accent-strong: #c68f60;
-    --accent-soft: #3a2a1c;
-    --success: #66c095;
-    --warn: #d5a558;
-    --error: #e08585;
-    --shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
-    --surface: #241c16;
-    --surface-2: #261e18;
-    --surface-3: #241c16;
-    --surface-4: #211914;
-    --card: rgba(35, 27, 21, 0.95);
-    --card-2: rgba(37, 29, 22, 0.96);
-    --sidebar-bg: rgba(24, 18, 14, 0.82);
-    --readonly-bg: #1d1712;
-    --pure: #2e241c;
-    --bg-grad-a: #191310;
-    --bg-grad-b: #141009;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #171210;
+  --panel: #211a15;
+  --panel-2: #261e18;
+  --panel-3: #2e241c;
+  --line: #3a2e24;
+  --line-strong: #4d3d2f;
+  --text: #efe6db;
+  --text-soft: #b9ab9d;
+  --text-faint: #8e8174;
+  --accent: #a9744a;
+  --accent-strong: #c68f60;
+  --accent-soft: #3a2a1c;
+  --success: #66c095;
+  --warn: #d5a558;
+  --error: #e08585;
+  --shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
+  --surface: #241c16;
+  --surface-2: #261e18;
+  --surface-3: #241c16;
+  --surface-4: #211914;
+  --card: rgba(35, 27, 21, 0.95);
+  --card-2: rgba(37, 29, 22, 0.96);
+  --sidebar-bg: rgba(24, 18, 14, 0.82);
+  --readonly-bg: #1d1712;
+  --pure: #2e241c;
+  --bg-grad-a: #191310;
+  --bg-grad-b: #141009;
+}
 
-  .modal__backdrop {
-    background: rgba(0, 0, 0, 0.6);
-  }
+[data-theme='dark'] .modal__backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
 
-  .app-status {
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-  }
+[data-theme='dark'] .app-status {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
 
-  .bottom-nav {
-    border-top-color: rgba(198, 143, 96, 0.16);
-  }
+[data-theme='dark'] .bottom-nav {
+  border-top-color: rgba(198, 143, 96, 0.16);
+}
+
+/* --- Theme toggle button --- */
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-toggle {
+  font-size: 1.05rem;
+  line-height: 1;
+  flex: 0 0 auto;
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+.theme-toggle:active {
+  transform: scale(0.92);
 }
