@@ -375,9 +375,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let cumulative = 0;
 
-    const rows = normalized.map((pour, index) => {
+    // Convert structured pours into per-pour additions (undoing cumulative
+    // input when detected), then condense to at most 3 pours — bloom, first,
+    // second — by merging any extra tail pours into the last one. Merging
+    // additions preserves the total water exactly.
+    let entries = [];
+    normalized.forEach((pour) => {
       if (pour.text && !pour.start && !pour.end && !pour.water_g) {
-        return `<li class="pour-row pour-row--text">${escapeHtml(pour.text)}</li>`;
+        entries.push({ text: pour.text });
+        return;
       }
 
       const amount = Number(pour.water_g) || 0;
@@ -389,15 +395,39 @@ document.addEventListener('DOMContentLoaded', () => {
         addition = amount;
         cumulative += amount;
       }
+      entries.push({ start: pour.start || '', end: pour.end || '', addition });
+    });
 
-      const time = [pour.start, pour.end].filter(Boolean).join('–') || '—';
+    const structuredEntries = entries.filter((e) => !e.text);
+    if (structuredEntries.length > 3) {
+      const kept = structuredEntries.slice(0, 2);
+      const tail = structuredEntries.slice(2);
+      kept.push({
+        start: tail[0].start,
+        end: tail[tail.length - 1].end || tail[tail.length - 1].start,
+        addition: tail.reduce((acc, e) => acc + e.addition, 0)
+      });
+      entries = entries.filter((e) => e.text).concat(kept);
+    }
+
+    let runningTotal = 0;
+    let pourNumber = 0;
+
+    const rows = entries.map((entry) => {
+      if (entry.text) {
+        return `<li class="pour-row pour-row--text">${escapeHtml(entry.text)}</li>`;
+      }
+
+      pourNumber += 1;
+      runningTotal += entry.addition;
+      const time = [entry.start, entry.end].filter(Boolean).join('–') || '—';
 
       return `
         <li class="pour-row">
-          <span class="pour-row__num">${index + 1}</span>
+          <span class="pour-row__num">${pourNumber}</span>
           <span class="pour-row__time">${escapeHtml(time)}</span>
-          <span class="pour-row__total">${cumulative} g</span>
-          <span class="pour-row__add">+${addition}</span>
+          <span class="pour-row__total">${runningTotal} g</span>
+          <span class="pour-row__add">+${entry.addition}</span>
         </li>
       `;
     }).join('');
