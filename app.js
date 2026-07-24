@@ -112,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
     brewLogFormTitle: document.getElementById('brewLogFormTitle'),
     brewLogId: document.getElementById('brewLogId'),
     brewDate: document.getElementById('brewDate'),
+    brewStyle: document.getElementById('brewStyle'),
     brewGrind: document.getElementById('brewGrind'),
     brewDose: document.getElementById('brewDose'),
     brewWater: document.getElementById('brewWater'),
@@ -350,7 +351,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function renderPoursHtml(pours, waterTargetG) {
+  // Show only the date (e.g. "Jul 24, 2026") no matter what shape the sheet
+  // sent back — full metadata stays untouched in the backend.
+  function formatLogDate(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return 'Unknown date';
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return raw;
+    return parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function brewStyleBadgeHtml(style) {
+    const key = String(style || '').toLowerCase();
+    if (key.indexOf('iced') !== -1) {
+      return '<span class="log-style log-style--iced">🧊 Iced</span>';
+    }
+    if (key.indexOf('hot') !== -1) {
+      return '<span class="log-style log-style--hot">🔥 Hot</span>';
+    }
+    return '';
+  }
+
+  function renderPoursHtml(pours, waterTargetG, targetTime) {
     const normalized = normalizePours(pours).filter((pour) => {
       return pour.text || pour.start || pour.end || pour.water_g;
     });
@@ -432,6 +454,10 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }).join('');
 
+    const drawdownRow = targetTime
+      ? `<li class="pour-row pour-row--drawdown">⏳ Drawdown — no more pours; let the bed drain until <strong>${escapeHtml(String(targetTime))}</strong>, then remove the dripper.</li>`
+      : '';
+
     return `
       <div class="recipe-block">
         <h4>Pours</h4>
@@ -443,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="pour-row__add">Add</span>
           </li>
           ${rows}
+          ${drawdownRow}
         </ul>
       </div>
     `;
@@ -1026,7 +1053,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         ` : ''}
 
-        ${renderPoursHtml(recipe.pours, recipe.hot_water_g || recipe.water_total_g)}
+        ${renderPoursHtml(recipe.pours, recipe.hot_water_g || recipe.water_total_g, recipe.target_time)}
 
         ${recipe.expected_notes ? `
           <div class="recipe-block">
@@ -1065,6 +1092,8 @@ document.addEventListener('DOMContentLoaded', () => {
       els.brewDate.value = new Date().toISOString().slice(0, 10);
     }
 
+    const activeStyleValue = String(state.currentRecipeStyle || 'hot').indexOf('iced') !== -1 ? 'iced' : 'hot';
+
     // Right after generating (or loading a locked) recipe, the recipe's numbers are
     // what you're about to brew with — so they win over the previous log's values.
     if (state.autofillPreference === 'recipe' && recipe) {
@@ -1072,6 +1101,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.brewDose) els.brewDose.value = recipe.dose_g || '';
       if (els.brewWater) els.brewWater.value = recipe.water_total_g || '';
       if (els.brewTemp) els.brewTemp.value = recipe.water_temp_c || '';
+      if (els.brewStyle) els.brewStyle.value = activeStyleValue;
       if (els.brewNotes) els.brewNotes.value = '';
       setBrewLogStatus('Autofilled from the current generated recipe.', 'success');
       return;
@@ -1082,6 +1112,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.brewDose) els.brewDose.value = latestLog.dose_g || '';
       if (els.brewWater) els.brewWater.value = latestLog.water_g || '';
       if (els.brewTemp) els.brewTemp.value = latestLog.water_temp_c || '';
+      if (els.brewStyle) {
+        els.brewStyle.value = String(latestLog.brew_style || '').toLowerCase().indexOf('iced') !== -1 ? 'iced' : 'hot';
+      }
       if (els.brewNotes) els.brewNotes.value = latestLog.notes || '';
       setBrewLogStatus('Autofilled from the latest brew log.', 'success');
       return;
@@ -1092,6 +1125,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.brewDose) els.brewDose.value = recipe.dose_g || '';
       if (els.brewWater) els.brewWater.value = recipe.water_total_g || '';
       if (els.brewTemp) els.brewTemp.value = recipe.water_temp_c || '';
+      if (els.brewStyle) els.brewStyle.value = activeStyleValue;
       if (els.brewNotes) els.brewNotes.value = '';
       setBrewLogStatus('Autofilled from the current generated recipe.', 'success');
       return;
@@ -1127,7 +1161,8 @@ document.addEventListener('DOMContentLoaded', () => {
           >
             <span class="brew-log-item__summary-date">
               <span>☕</span>
-              <span>${escapeHtml(log.brew_date || 'Unknown date')}</span>
+              <span>${escapeHtml(formatLogDate(log.brew_date))}</span>
+              ${brewStyleBadgeHtml(log.brew_style)}
             </span>
             <span class="brew-log-item__summary-toggle" aria-hidden="true">${isOpen ? '−' : '+'}</span>
           </button>
@@ -1244,6 +1279,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.brewDose) els.brewDose.value = log.dose_g || '';
     if (els.brewWater) els.brewWater.value = log.water_g || '';
     if (els.brewTemp) els.brewTemp.value = log.water_temp_c || '';
+    if (els.brewStyle) {
+      els.brewStyle.value = String(log.brew_style || '').toLowerCase().indexOf('iced') !== -1 ? 'iced' : 'hot';
+    }
     if (els.brewNotes) els.brewNotes.value = log.notes || '';
     setBrewLogStatus('Editing an existing brew log.', 'warn');
     if (els.brewLogForm) els.brewLogForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1267,6 +1305,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dose_g: els.brewDose ? els.brewDose.value.trim() : '',
       water_g: els.brewWater ? els.brewWater.value.trim() : '',
       water_temp_c: els.brewTemp ? els.brewTemp.value.trim() : '',
+      brew_style: els.brewStyle ? els.brewStyle.value : 'hot',
       notes: els.brewNotes ? els.brewNotes.value.trim() : ''
     };
 
