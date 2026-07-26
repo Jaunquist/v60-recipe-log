@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="favicon.svg?v=7" type="image/svg+xml" />
   <meta name="theme-color" content="#f5f1ea" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#171210" media="(prefers-color-scheme: dark)" />
   <title>Bean Ledger</title>
@@ -23,7 +24,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
   <div class="app">
@@ -71,6 +72,15 @@
             <div class="section-head__search">
               <label for="beanSearchInput">Search beans</label>
               <input id="beanSearchInput" type="search" enterkeyhint="search" placeholder="Roaster, origin, process, notes…" />
+              <div class="sort-row">
+                <label for="beanSortSelect">Sort</label>
+                <select id="beanSortSelect">
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="name">Name A–Z</option>
+                  <option value="brews">Most brewed</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -105,17 +115,23 @@
               </div>
 
               <button id="generateRecipeBtn" type="button">Generate Recipe</button>
+              <button id="forceRegenerateBtn" type="button" class="bean-use-btn">Generate New Recipe</button>
               <div class="field-hint" id="recipeStatus">No recipe generated yet.</div>
+              <div class="field-hint brew-log-status" id="recipeEngineStatus" data-status="info">
+                Generate uses the locked recipe when one exists. Generate New Recipe asks the AI for a fresh version from your brew feedback.
+              </div>
             </aside>
 
             <div class="helper-output">
               <article class="recipe-card">
-                <div class="recipe-card__header">
+                <div class="recipe-card__header recipe-card__header--lock">
                   <div>
                     <h3>Recommendation</h3>
                     <p class="muted">Generated from bean details, brew history, and grinder context.</p>
                   </div>
+                  <button id="lockToggleBtn" type="button" class="lock-toggle hidden">🔒 Lock This Recipe</button>
                 </div>
+                <div class="field-hint lock-status hidden" id="lockStatusText" data-status="info"></div>
                 <div id="helperOutput">
                   <div class="helper-placeholder">
                     Generate a recipe to see grind size, pours, time, and expected notes.
@@ -145,6 +161,7 @@
 
                 <form id="brewLogForm">
                   <input id="brewLogId" type="hidden" />
+                  <input id="brewStyle" type="hidden" value="hot" />
 
                   <div class="brew-form-grid">
                     <div>
@@ -153,11 +170,11 @@
                     </div>
 
                     <div>
-                      <label for="brewStyle">Style</label>
-                      <select id="brewStyle">
-                        <option value="hot">Hot</option>
-                        <option value="iced">Iced</option>
-                      </select>
+                      <label>Style</label>
+                      <div class="style-pills" role="group" aria-label="Brew style">
+                        <button type="button" class="style-pill active" data-brew-style="hot">🔥 Hot</button>
+                        <button type="button" class="style-pill" data-brew-style="iced">🧊 Iced</button>
+                      </div>
                     </div>
 
                     <div>
@@ -180,20 +197,17 @@
                       <input id="brewTemp" type="number" inputmode="numeric" step="1" placeholder="92" />
                     </div>
 
-                    <div>
-                      <label for="saveBrewLogBtn">Save</label>
-                      <button id="saveBrewLogBtn" type="submit">Save Brew Log</button>
-                    </div>
-
                     <div style="grid-column: 1 / -1;">
                       <label for="brewNotes">Notes / adjustments</label>
                       <textarea id="brewNotes" rows="5" placeholder="Too fast, grind finer next time. Sweetness good. Try +5°C or +10g water."></textarea>
                     </div>
                   </div>
 
-                  <div class="action-row">
-                    <button id="resetBrewLogBtn" type="button" class="bean-use-btn">Reset Autofill</button>
-                    <button id="cancelBrewLogEditBtn" type="button" class="bean-delete-btn bean-delete-btn--ghost hidden">Cancel Edit</button>
+                  <button id="saveBrewLogBtn" type="submit" class="save-brew-btn">Save Brew Log</button>
+
+                  <div class="action-row action-row--links">
+                    <button id="resetBrewLogBtn" type="button" class="link-btn">Re-fill from recipe</button>
+                    <button id="cancelBrewLogEditBtn" type="button" class="link-btn link-btn--danger hidden">Cancel Edit</button>
                   </div>
 
                   <div class="field-hint brew-log-status" id="brewLogStatus" data-status="info">
@@ -202,30 +216,6 @@
                 </form>
               </article>
 
-              <article class="recipe-card">
-                <div class="recipe-card__header">
-                  <div>
-                    <h3>Recipe Lock</h3>
-                    <p class="muted">Save the current recipe as the locked default for this bean, or force a fresh AI version.</p>
-                  </div>
-                </div>
-
-                <div class="helper-lock-box">
-                  <label class="checkbox-inline" for="lockRecipeCheckbox">
-                    <input id="lockRecipeCheckbox" type="checkbox" />
-                    <span>Lock this recipe for the bean</span>
-                  </label>
-
-                  <div class="action-row">
-                    <button id="saveRecipeLockBtn" type="button">Save Lock State</button>
-                    <button id="forceRegenerateBtn" type="button" class="bean-use-btn">Regenerate with AI</button>
-                  </div>
-
-                  <div class="field-hint brew-log-status" id="recipeEngineStatus" data-status="info">
-                    No recipe generated yet.
-                  </div>
-                </div>
-              </article>
             </div>
           </div>
         </section>
@@ -407,23 +397,31 @@
 
   <nav class="bottom-nav" aria-label="Primary">
     <button class="nav-btn bottom-nav__btn active" data-view="library" type="button">
-      <span class="bottom-nav__icon" aria-hidden="true">🫘</span>
+      <span class="bottom-nav__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 7.2c0-1.2.7-2.3 1.7-2.8L9.2 3h5.6l-.7 1.4c1 .5 1.7 1.6 1.7 2.8l1.4 10.6a2 2 0 0 1-2 2.2H8.8a2 2 0 0 1-2-2.2L8.2 7.2z"/><ellipse cx="12" cy="13.6" rx="2.3" ry="3" transform="rotate(-28 12 13.6)"/><path d="M10.9 11.3c1 .8 1.4 2.6 1 4.5" transform="rotate(-28 12 13.6)"/></svg>
+      </span>
       <span class="bottom-nav__label">Beans</span>
     </button>
     <button class="nav-btn bottom-nav__btn" data-view="helper" type="button">
-      <span class="bottom-nav__icon" aria-hidden="true">☕</span>
+      <span class="bottom-nav__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.4 10.2h8.4l1 8a1.8 1.8 0 0 1-1.8 2H8.2a1.8 1.8 0 0 1-1.8-2l1-8z"/><path d="M8.8 10.2c0-2 1.3-3.4 3.2-3.4s3.2 1.4 3.2 3.4"/><path d="M12 6.8V5.4"/><path d="M7.4 11.6C4.9 11 3.5 9 3.7 6.3l-1.3-1"/><path d="M15.8 9.6c2.7-1 3.7 2.1 1.3 3.2"/></svg>
+      </span>
       <span class="bottom-nav__label">Brew</span>
     </button>
     <button class="bottom-nav__btn bottom-nav__btn--add" data-open-add-bean="true" type="button">
-      <span class="bottom-nav__icon" aria-hidden="true">＋</span>
+      <span class="bottom-nav__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>
+      </span>
       <span class="bottom-nav__label">Add</span>
     </button>
     <button class="nav-btn bottom-nav__btn" data-view="settings" type="button">
-      <span class="bottom-nav__icon" aria-hidden="true">⚙️</span>
+      <span class="bottom-nav__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </span>
       <span class="bottom-nav__label">Settings</span>
     </button>
   </nav>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
