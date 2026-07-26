@@ -1449,3 +1449,158 @@ body.modal-open {
 .theme-toggle:active {
   transform: scale(0.92);
 }
+
+/* ============================================================
+   UX pass: style pills, lock toggle, sort, tags, nav icons
+   ============================================================ */
+
+/* Hot/Iced tap pills in the brew log form */
+.style-pills {
+  display: flex;
+  gap: 8px;
+}
+
+.style-pill {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.style-pill.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* Full-width save at the end of the log form */
+.save-brew-btn {
+  width: 100%;
+  margin-top: 14px;
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.save-brew-btn:hover {
+  background: var(--accent-strong);
+}
+
+/* Quiet text-link buttons (re-fill, cancel edit) */
+.action-row--links {
+  margin-top: 10px;
+  gap: 18px;
+}
+
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 6px 2px;
+  min-height: 36px;
+  color: var(--accent-strong);
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link-btn--danger {
+  color: var(--error);
+}
+
+/* Lock toggle in the Recommendation header */
+.recipe-card__header--lock {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.lock-toggle {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent-strong);
+  font-weight: 700;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.lock-toggle:disabled {
+  opacity: 0.45;
+}
+
+.lock-status {
+  margin: -6px 0 12px;
+}
+
+/* Grind card: big number, small grinder name */
+.grind-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.grind-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+/* Sort control under search */
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sort-row label {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 0.82rem;
+}
+
+.sort-row select {
+  flex: 1;
+  min-height: 42px;
+}
+
+/* Tag expander pill */
+.tag-filter--more {
+  border-style: dashed;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+/* SVG nav icons */
+.bottom-nav__icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.bottom-nav__btn--add .bottom-nav__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (max-width: 720px) {
+  .bottom-nav__icon {
+    display: grid;
+    place-items: center;
+    height: 24px;
+  }
+}
