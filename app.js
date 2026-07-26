@@ -77,7 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
     openLogIds: new Set(),
     brewLogDraftId: '',
     isResearchingBean: false,
-    autofillPreference: 'log' // 'log' by default; switches to 'recipe' right after generating one
+    autofillPreference: 'log', // 'log' by default; switches to 'recipe' right after generating one
+    beanSort: 'newest',
+    tagsExpanded: false,
+    recipeIsFreshProposal: false
   };
 
   const els = {
@@ -103,8 +106,9 @@ document.addEventListener('DOMContentLoaded', () => {
     recipeStyleToggle: document.getElementById('recipeStyleToggle'),
     helperOutput: document.getElementById('helperOutput'),
     recipeEngineStatus: document.getElementById('recipeEngineStatus'),
-    lockRecipeCheckbox: document.getElementById('lockRecipeCheckbox'),
-    saveRecipeLockBtn: document.getElementById('saveRecipeLockBtn'),
+    lockToggleBtn: document.getElementById('lockToggleBtn'),
+    lockStatusText: document.getElementById('lockStatusText'),
+    beanSortSelect: document.getElementById('beanSortSelect'),
     forceRegenerateBtn: document.getElementById('forceRegenerateBtn'),
 
     brewLogList: document.getElementById('brewLogList'),
@@ -370,6 +374,16 @@ document.addEventListener('DOMContentLoaded', () => {
       return '<span class="log-style log-style--hot">🔥 Hot</span>';
     }
     return '';
+  }
+
+  // Single entry point for the brew-style value: keeps the hidden input and
+  // the tap pills in sync no matter who sets it (user tap, autofill, edit).
+  function setBrewStyleValue(value) {
+    const normalized = String(value || '').toLowerCase().indexOf('iced') !== -1 ? 'iced' : 'hot';
+    if (els.brewStyle) els.brewStyle.value = normalized;
+    Array.from(document.querySelectorAll('[data-brew-style]')).forEach((btn) => {
+      btn.classList.toggle('active', (btn.dataset.brewStyle || '') === normalized);
+    });
   }
 
   function renderPoursHtml(pours, waterTargetG, targetTime) {
@@ -713,7 +727,9 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       setStatus('Loading beans…', 'info');
       const response = await fetchJson(`${resolveScriptUrl()}?type=beans`);
-      state.beans = Array.isArray(response.data) ? response.data.map(normalizeBeanFromApi) : [];
+      state.beans = Array.isArray(response.data)
+        ? response.data.map((bean, index) => ({ ...normalizeBeanFromApi(bean), _idx: index }))
+        : [];
       filterAndRenderBeans();
       renderHelperBeanOptions();
       syncHelperBeanSummary();
@@ -726,33 +742,70 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Tags arrive from AI research with inconsistent casing and occasional
+  // prefixes like "Tasting notes: buckwheat" — normalize before counting so
+  // "Ethiopia" and "ethiopia" merge and junk prefixes disappear.
+  function cleanTag(tag) {
+    return String(tag || '')
+      .replace(/^(tasting\s+)?notes?\s*:\s*/i, '')
+      .trim()
+      .toLowerCase();
+  }
+
   function buildTagCounts(beans) {
     const counts = new Map();
     beans.forEach((bean) => {
       bean.tags.forEach((tag) => {
-        const key = String(tag || '').trim();
+        const key = cleanTag(tag);
         if (!key) return;
         counts.set(key, (counts.get(key) || 0) + 1);
       });
     });
-    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    // Most-used first so the collapsed row shows the most useful filters.
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }
 
   function renderTagFilters(beans) {
     if (!els.tagFilterBar) return;
 
+    const VISIBLE_COLLAPSED = 8;
     const counts = buildTagCounts(beans);
     const allActive = !state.activeTag ? 'active' : '';
 
+    let visible = counts;
+    let hiddenCount = 0;
+    if (!state.tagsExpanded && counts.length > VISIBLE_COLLAPSED) {
+      visible = counts.slice(0, VISIBLE_COLLAPSED);
+      // Never hide the currently active tag.
+      if (state.activeTag && !visible.some(([tag]) => tag === state.activeTag)) {
+        const activeEntry = counts.find(([tag]) => tag === state.activeTag);
+        if (activeEntry) visible = visible.concat([activeEntry]);
+      }
+      hiddenCount = counts.length - visible.length;
+    }
+
     const buttons = [
       `<button type="button" class="tag-filter ${allActive}" data-tag-filter="">All</button>`,
-      ...counts.map(([tag, count]) => {
+      ...visible.map(([tag, count]) => {
         const active = state.activeTag === tag ? 'active' : '';
         return `<button type="button" class="tag-filter ${active}" data-tag-filter="${escapeHtml(tag)}">${escapeHtml(tag)} <span>${count}</span></button>`;
       })
     ];
 
+    if (hiddenCount > 0) {
+      buttons.push(`<button type="button" class="tag-filter tag-filter--more" data-tag-expand="true">+${hiddenCount} more ▾</button>`);
+    } else if (state.tagsExpanded && counts.length > VISIBLE_COLLAPSED) {
+      buttons.push(`<button type="button" class="tag-filter tag-filter--more" data-tag-expand="false">Show less ▴</button>`);
+    }
+
     els.tagFilterBar.innerHTML = buttons.join('');
+
+    Array.from(els.tagFilterBar.querySelectorAll('[data-tag-expand]')).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.tagsExpanded = btn.dataset.tagExpand === 'true';
+        renderTagFilters(state.beans);
+      });
+    });
 
     Array.from(els.tagFilterBar.querySelectorAll('[data-tag-filter]')).forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -766,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const search = String(els.beanSearchInput ? els.beanSearchInput.value : '').trim().toLowerCase();
 
     state.filteredBeans = state.beans.filter((bean) => {
-      const matchesTag = !state.activeTag || bean.tags.includes(state.activeTag);
+      const matchesTag = !state.activeTag || bean.tags.some((tag) => cleanTag(tag) === state.activeTag);
       if (!matchesTag) return false;
       if (!search) return true;
 
@@ -788,6 +841,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
       return haystack.includes(search);
     });
+
+    // Sort: created_at when present, otherwise sheet row order (which is add order).
+    const addStamp = (bean) => {
+      const t = bean.created_at ? new Date(bean.created_at).getTime() : NaN;
+      return Number.isNaN(t) ? (bean._idx || 0) : t;
+    };
+    const sorters = {
+      newest: (a, b) => addStamp(b) - addStamp(a),
+      oldest: (a, b) => addStamp(a) - addStamp(b),
+      name: (a, b) => String(a.bean || '').localeCompare(String(b.bean || '')),
+      brews: (a, b) => Number(b.brew_count || 0) - Number(a.brew_count || 0)
+    };
+    state.filteredBeans.sort(sorters[state.beanSort] || sorters.newest);
 
     renderTagFilters(state.beans);
     renderBeanList();
@@ -934,9 +1000,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.helperBeanSummary) {
         els.helperBeanSummary.textContent = 'Select a bean to see its summary.';
       }
-      if (els.lockRecipeCheckbox) {
-        els.lockRecipeCheckbox.checked = false;
-      }
+      updateLockUi();
       return;
     }
 
@@ -956,8 +1020,90 @@ document.addEventListener('DOMContentLoaded', () => {
       els.helperBeanSummary.textContent = lines.join(' · ');
     }
 
-    if (els.lockRecipeCheckbox) {
-      els.lockRecipeCheckbox.checked = !!bean.recipe_locked;
+    updateLockUi();
+  }
+
+  // One button, immediate action: lock the recipe on screen, or unlock.
+  function updateLockUi() {
+    const bean = getSelectedHelperBean();
+    const hasRecipe = !!(state.currentRecipeData && state.currentRecipeData.recipes);
+
+    if (!els.lockToggleBtn || !els.lockStatusText) return;
+
+    if (!bean) {
+      els.lockToggleBtn.classList.add('hidden');
+      els.lockStatusText.classList.add('hidden');
+      return;
+    }
+
+    const locked = !!bean.recipe_locked;
+    els.lockToggleBtn.classList.remove('hidden');
+    els.lockStatusText.classList.remove('hidden');
+
+    if (locked) {
+      els.lockToggleBtn.textContent = '🔓 Unlock';
+      els.lockToggleBtn.disabled = false;
+      els.lockStatusText.dataset.status = 'success';
+      els.lockStatusText.textContent = hasRecipe && state.recipeIsFreshProposal
+        ? 'New proposal shown — the previous locked recipe still wins on Generate. Lock this one to replace it.'
+        : 'Locked — Generate Recipe always returns this recipe.';
+    } else {
+      els.lockToggleBtn.textContent = '🔒 Lock This Recipe';
+      els.lockToggleBtn.disabled = !hasRecipe;
+      els.lockStatusText.dataset.status = hasRecipe ? 'warn' : 'info';
+      els.lockStatusText.textContent = hasRecipe
+        ? 'Not locked — this recipe will be lost unless you lock it.'
+        : 'Generate a recipe, then lock the one worth keeping.';
+    }
+  }
+
+  async function toggleRecipeLock() {
+    const bean = getSelectedHelperBean();
+    if (!bean) return;
+
+    try {
+      setButtonsBusy([els.lockToggleBtn], true);
+
+      if (!bean.recipe_locked) {
+        if (!state.currentRecipeData) {
+          setStatus('Generate a recipe first, then lock it.', 'warn');
+          return;
+        }
+
+        await fetchJson(resolveScriptUrl(), {
+          method: 'POST',
+          body: {
+            action: 'lockRecipe',
+            beanId: bean.id,
+            recipeData: state.currentRecipeData
+          }
+        });
+
+        bean.recipe_locked = true;
+        bean.locked_recipe_json = JSON.stringify(state.currentRecipeData);
+        state.recipeIsFreshProposal = false;
+        setStatus('Recipe locked for this bean.', 'success');
+      } else {
+        await fetchJson(resolveScriptUrl(), {
+          method: 'POST',
+          body: {
+            action: 'unlockRecipe',
+            beanId: bean.id
+          }
+        });
+
+        bean.recipe_locked = false;
+        bean.locked_recipe_json = '';
+        setStatus('Recipe unlocked.', 'success');
+      }
+
+      updateLockUi();
+      await refreshSelectedBeanCounts();
+    } catch (error) {
+      setStatus(error.message || 'Could not change recipe lock.', 'error');
+    } finally {
+      setButtonsBusy([els.lockToggleBtn], false);
+      updateLockUi();
     }
   }
 
@@ -1031,12 +1177,15 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     ` : '';
 
+    const grindText = String(recipe.grind || '');
+    const grindParts = grindText.split(/\s+on\s+/i);
+    const grindValue = grindParts[0] || grindText;
+    const grindSub = grindParts.length > 1 ? grindParts.slice(1).join(' on ') : '';
+
     els.helperOutput.innerHTML = `
       <div class="recipe-output">
-        <div class="grinder-chip">Using Eureka Mignon Perfetto</div>
-
         <div class="recipe-grid">
-          <div><strong>Grind</strong><span>${escapeHtml(recipe.grind || '')}</span></div>
+          <div><strong>Grind</strong><span class="grind-value">${escapeHtml(grindValue)}</span>${grindSub ? `<small class="grind-sub">${escapeHtml(grindSub)}</small>` : ''}</div>
           <div><strong>Dose</strong><span>${escapeHtml(recipe.dose_g || '')} g</span></div>
           <div><strong>Water</strong><span>${escapeHtml(recipe.water_total_g || '')} g</span></div>
           <div><strong>Temp</strong><span>${escapeHtml(recipe.water_temp_c || '')} °C</span></div>
@@ -1101,7 +1250,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.brewDose) els.brewDose.value = recipe.dose_g || '';
       if (els.brewWater) els.brewWater.value = recipe.water_total_g || '';
       if (els.brewTemp) els.brewTemp.value = recipe.water_temp_c || '';
-      if (els.brewStyle) els.brewStyle.value = activeStyleValue;
+      setBrewStyleValue(activeStyleValue);
       if (els.brewNotes) els.brewNotes.value = '';
       setBrewLogStatus('Autofilled from the current generated recipe.', 'success');
       return;
@@ -1112,9 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.brewDose) els.brewDose.value = latestLog.dose_g || '';
       if (els.brewWater) els.brewWater.value = latestLog.water_g || '';
       if (els.brewTemp) els.brewTemp.value = latestLog.water_temp_c || '';
-      if (els.brewStyle) {
-        els.brewStyle.value = String(latestLog.brew_style || '').toLowerCase().indexOf('iced') !== -1 ? 'iced' : 'hot';
-      }
+      setBrewStyleValue(latestLog.brew_style || 'hot');
       if (els.brewNotes) els.brewNotes.value = latestLog.notes || '';
       setBrewLogStatus('Autofilled from the latest brew log.', 'success');
       return;
@@ -1125,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (els.brewDose) els.brewDose.value = recipe.dose_g || '';
       if (els.brewWater) els.brewWater.value = recipe.water_total_g || '';
       if (els.brewTemp) els.brewTemp.value = recipe.water_temp_c || '';
-      if (els.brewStyle) els.brewStyle.value = activeStyleValue;
+      setBrewStyleValue(activeStyleValue);
       if (els.brewNotes) els.brewNotes.value = '';
       setBrewLogStatus('Autofilled from the current generated recipe.', 'success');
       return;
@@ -1279,9 +1426,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.brewDose) els.brewDose.value = log.dose_g || '';
     if (els.brewWater) els.brewWater.value = log.water_g || '';
     if (els.brewTemp) els.brewTemp.value = log.water_temp_c || '';
-    if (els.brewStyle) {
-      els.brewStyle.value = String(log.brew_style || '').toLowerCase().indexOf('iced') !== -1 ? 'iced' : 'hot';
-    }
+    setBrewStyleValue(log.brew_style || 'hot');
     if (els.brewNotes) els.brewNotes.value = log.notes || '';
     setBrewLogStatus('Editing an existing brew log.', 'warn');
     if (els.brewLogForm) els.brewLogForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1346,57 +1491,6 @@ document.addEventListener('DOMContentLoaded', () => {
     syncHelperBeanSummary();
   }
 
-  async function saveRecipeLockState() {
-    const bean = getSelectedHelperBean();
-    if (!bean) {
-      setRecipeEngineStatus('Select a bean before changing recipe lock state.', 'warn');
-      return;
-    }
-
-    const shouldLock = !!(els.lockRecipeCheckbox && els.lockRecipeCheckbox.checked);
-
-    try {
-      if (shouldLock) {
-        if (!state.currentRecipeData) {
-          setRecipeEngineStatus('Generate a recipe first, then lock it.', 'warn');
-          return;
-        }
-
-        await fetchJson(resolveScriptUrl(), {
-          method: 'POST',
-          body: {
-            action: 'lockRecipe',
-            beanId: bean.id,
-            recipeData: state.currentRecipeData
-          }
-        });
-
-        bean.recipe_locked = true;
-        bean.locked_recipe_json = JSON.stringify(state.currentRecipeData);
-        setRecipeEngineStatus('Ideal recipe locked. Future generate actions can skip AI.', 'success');
-        setStatus('Recipe locked.', 'success');
-      } else {
-        await fetchJson(resolveScriptUrl(), {
-          method: 'POST',
-          body: {
-            action: 'unlockRecipe',
-            beanId: bean.id
-          }
-        });
-
-        bean.recipe_locked = false;
-        bean.locked_recipe_json = '';
-        setRecipeEngineStatus('Recipe unlocked. AI can generate new versions again.', 'warn');
-        setStatus('Recipe unlocked.', 'success');
-      }
-
-      await refreshSelectedBeanCounts();
-    } catch (error) {
-      setRecipeEngineStatus(error.message || 'Could not save recipe lock state.', 'error');
-      setStatus(error.message || 'Could not save recipe lock state.', 'error');
-    }
-  }
-
   async function generateRecipe(forceAi = false) {
     const bean = getSelectedHelperBean();
 
@@ -1415,8 +1509,10 @@ document.addEventListener('DOMContentLoaded', () => {
       state.currentRecipeData = normalizeRecipeDataShape(lockedRecipe);
       state.currentRecipeStyle = state.currentRecipeData.defaultStyle || 'hot';
       state.autofillPreference = 'recipe';
+      state.recipeIsFreshProposal = false;
       renderRecipeOutput();
       refillBrewLogForm();
+      updateLockUi();
       setRecipeEngineStatus('This bean is locked to its ideal recipe. AI generation was skipped.', 'success');
       if (els.recipeStatus) els.recipeStatus.textContent = 'Loaded locked recipe.';
       setStatus('Loaded locked recipe.', 'success');
@@ -1464,8 +1560,10 @@ document.addEventListener('DOMContentLoaded', () => {
       state.currentRecipeData = normalizeRecipeDataShape(response.data || null);
       state.currentRecipeStyle = (state.currentRecipeData && state.currentRecipeData.defaultStyle) || 'hot';
       state.autofillPreference = 'recipe';
+      state.recipeIsFreshProposal = !!forceAi || !getSelectedHelperBean() || !getSelectedHelperBean().recipe_locked;
       renderRecipeOutput();
       refillBrewLogForm();
+      updateLockUi();
 
       const meta = state.currentRecipeData && state.currentRecipeData.meta ? state.currentRecipeData.meta : null;
       if (meta && meta.source === 'fallback') {
@@ -1473,7 +1571,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (meta && meta.source === 'locked') {
         setRecipeEngineStatus(meta.message || 'Locked recipe loaded.', 'success');
       } else if (meta && meta.source === 'ai') {
-        setRecipeEngineStatus(meta.message || 'Recipe generated with AI.', 'success');
+        setRecipeEngineStatus('Recipe generated with AI from your brew feedback. Not locked yet.', 'success');
       } else {
         setRecipeEngineStatus('Recipe generated.', 'success');
       }
@@ -1954,8 +2052,8 @@ document.addEventListener('DOMContentLoaded', () => {
       els.generateRecipeBtn.addEventListener('click', () => generateRecipe(false));
     }
 
-    if (els.saveRecipeLockBtn) {
-      els.saveRecipeLockBtn.addEventListener('click', saveRecipeLockState);
+    if (els.lockToggleBtn) {
+      els.lockToggleBtn.addEventListener('click', toggleRecipeLock);
     }
 
     if (els.forceRegenerateBtn) {
@@ -2007,6 +2105,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (els.themeToggleBtn) {
       els.themeToggleBtn.addEventListener('click', toggleTheme);
+    }
+
+    Array.from(document.querySelectorAll('[data-brew-style]')).forEach((btn) => {
+      btn.addEventListener('click', () => setBrewStyleValue(btn.dataset.brewStyle || 'hot'));
+    });
+
+    if (els.beanSortSelect) {
+      els.beanSortSelect.addEventListener('change', () => {
+        state.beanSort = els.beanSortSelect.value || 'newest';
+        filterAndRenderBeans();
+      });
     }
 
     if (els.openAddBeanBtn) {
