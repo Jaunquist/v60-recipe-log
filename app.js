@@ -233,8 +233,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const COUNTRY_FLAGS_LOWER = Object.keys(COUNTRY_FLAGS).reduce((acc, name) => {
+    acc[name.toLowerCase()] = COUNTRY_FLAGS[name];
+    return acc;
+  }, {});
+
   function countryFlag(country) {
-    return COUNTRY_FLAGS[country] || '';
+    const key = String(country || '').trim();
+    // Unknown or missing origin gets the white flag rather than nothing.
+    if (!key) return '🏳️';
+    return COUNTRY_FLAGS[key] || COUNTRY_FLAGS_LOWER[key.toLowerCase()] || '🏳️';
   }
 
   function resolveScriptUrl() {
