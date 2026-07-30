@@ -24,7 +24,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=9" />
+  <link rel="stylesheet" href="style.css?v=10" />
 </head>
 <body>
   <div class="app">
@@ -285,14 +285,14 @@
           <div class="photo-upload-card">
             <div class="photo-upload-card__top">
               <div id="beanAvatar" class="bean-photo-preview">
-                <div class="bean-photo-preview--empty">No photo yet. Upload one to see a preview.</div>
+                <div class="bean-photo-preview--empty">📷 Tap to take a photo, or use Choose from Gallery.</div>
               </div>
 
               <div class="photo-upload-card__controls">
                 <div class="photo-upload-header">
                   <div>
                     <h3>Bean photo</h3>
-                    <p class="muted">Choose camera or gallery. On mobile, “Take Photo” can prefer the rear camera.</p>
+                    <p class="muted">Tap the photo preview to shoot with the camera, or choose one from your gallery.</p>
                   </div>
                 </div>
 
@@ -300,7 +300,6 @@
                 <input id="beanPhotoCameraFile" type="file" accept="image/*" capture="environment" class="hidden-file-input" />
 
                 <div class="photo-upload-card__actions">
-                  <button id="cameraPhotoBtn" type="button">Take Photo</button>
                   <button id="pickPhotoBtn" type="button">Choose from Gallery</button>
                   <button id="researchBeanBtn" type="button">Research Bean</button>
                 </div>
@@ -422,6 +421,6 @@
     </button>
   </nav>
 
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>
