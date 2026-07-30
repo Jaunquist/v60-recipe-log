@@ -140,7 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
     addBeanSubtitle: document.getElementById('addBeanSubtitle'),
     addBeanForm: document.getElementById('addBeanForm'),
     pickPhotoBtn: document.getElementById('pickPhotoBtn'),
-    cameraPhotoBtn: document.getElementById('cameraPhotoBtn'),
     researchBeanBtn: document.getElementById('researchBeanBtn'),
     researchStatus: document.getElementById('researchStatus'),
 
@@ -1627,7 +1626,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!els.beanAvatar) return;
 
     if (!state.uploadedPhoto.previewDataUrl) {
-      els.beanAvatar.innerHTML = `<div class="bean-photo-preview--empty">📷 Tap here to take a photo of the bag.</div>`;
+      els.beanAvatar.innerHTML = `<div class="bean-photo-preview--empty">📷 Tap to take a photo, or use Choose from Gallery.</div>`;
       return;
     }
 
@@ -2174,14 +2173,6 @@ document.addEventListener('DOMContentLoaded', () => {
       els.pickPhotoBtn.addEventListener('click', () => {
         if (els.beanPhotoFile) {
           els.beanPhotoFile.click();
-        }
-      });
-    }
-
-    if (els.cameraPhotoBtn) {
-      els.cameraPhotoBtn.addEventListener('click', () => {
-        if (els.beanPhotoCameraFile) {
-          els.beanPhotoCameraFile.click();
         }
       });
     }
