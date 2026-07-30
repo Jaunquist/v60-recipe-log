@@ -1,15 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMNB7D2p_qCWhvTulP9GY274aSkJPxr-7l8YGkVFj3hPYlISysdNfAw0ndFYNNII4-gw/exec';
 
-  const COUNTRY_LIST = [
-    'Ethiopia', 'Colombia', 'Brazil', 'Kenya', 'Panama', 'Costa Rica', 'Guatemala', 'El Salvador',
-    'Honduras', 'Nicaragua', 'Rwanda', 'Burundi', 'Uganda', 'Tanzania', 'Peru', 'Bolivia',
-    'Mexico', 'Indonesia', 'Yemen', 'Ecuador', 'Papua New Guinea', 'India', 'China', 'Vietnam',
-    'Thailand', 'Laos', 'Myanmar', 'Dominican Republic', 'Jamaica', 'Haiti', 'Japan', 'Taiwan',
-    'South Korea', 'United States'
-  ];
+  // COUNTRY_LIST (below, after COUNTRY_FLAGS) drives the origin/purchase-country
+  // autocomplete; COUNTRY_FLAGS drives flag lookups. Deriving one from the
+  // other keeps them from silently drifting apart again.
 
   const COUNTRY_FLAGS = {
+    // Coffee-growing origins first (most likely values for this app)
     'Ethiopia': '🇪🇹',
     'Colombia': '🇨🇴',
     'Brazil': '🇧🇷',
@@ -43,8 +40,67 @@ document.addEventListener('DOMContentLoaded', () => {
     'Japan': '🇯🇵',
     'Taiwan': '🇹🇼',
     'South Korea': '🇰🇷',
-    'United States': '🇺🇸'
+    'United States': '🇺🇸',
+    'Philippines': '🇵🇭',
+    'Malawi': '🇲🇼',
+    'Zambia': '🇿🇲',
+    'Zimbabwe': '🇿🇼',
+    'DR Congo': '🇨🇩',
+    'Cameroon': '🇨🇲',
+    'Ivory Coast': '🇨🇮',
+    'Ghana': '🇬🇭',
+    'Sierra Leone': '🇸🇱',
+    'Timor-Leste': '🇹🇱',
+    'Nepal': '🇳🇵',
+    'Sri Lanka': '🇱🇰',
+    'Venezuela': '🇻🇪',
+    'Paraguay': '🇵🇾',
+    'Cuba': '🇨🇺',
+    'Puerto Rico': '🇵🇷',
+
+    // Purchase-country / roaster-market coverage (major world economies + APAC/SEA)
+    'Singapore': '🇸🇬',
+    'Malaysia': '🇲🇾',
+    'Hong Kong': '🇭🇰',
+    'Australia': '🇦🇺',
+    'New Zealand': '🇳🇿',
+    'United Kingdom': '🇬🇧',
+    'Ireland': '🇮🇪',
+    'France': '🇫🇷',
+    'Germany': '🇩🇪',
+    'Netherlands': '🇳🇱',
+    'Belgium': '🇧🇪',
+    'Switzerland': '🇨🇭',
+    'Austria': '🇦🇹',
+    'Italy': '🇮🇹',
+    'Spain': '🇪🇸',
+    'Portugal': '🇵🇹',
+    'Denmark': '🇩🇰',
+    'Sweden': '🇸🇪',
+    'Norway': '🇳🇴',
+    'Finland': '🇫🇮',
+    'Iceland': '🇮🇸',
+    'Poland': '🇵🇱',
+    'Czech Republic': '🇨🇿',
+    'Greece': '🇬🇷',
+    'Turkey': '🇹🇷',
+    'Israel': '🇮🇱',
+    'United Arab Emirates': '🇦🇪',
+    'Saudi Arabia': '🇸🇦',
+    'Qatar': '🇶🇦',
+    'South Africa': '🇿🇦',
+    'Nigeria': '🇳🇬',
+    'Egypt': '🇪🇬',
+    'Morocco': '🇲🇦',
+    'Canada': '🇨🇦',
+    'Argentina': '🇦🇷',
+    'Chile': '🇨🇱',
+    'Uruguay': '🇺🇾',
+    'Russia': '🇷🇺',
+    'Ukraine': '🇺🇦'
   };
+
+  const COUNTRY_LIST = Object.keys(COUNTRY_FLAGS);
 
   const state = {
     beans: [],
