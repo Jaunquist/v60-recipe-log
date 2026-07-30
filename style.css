@@ -1192,6 +1192,15 @@ body.modal-open {
   overflow: hidden;
 }
 
+/* The Add/Edit Bean sheet is full-screen on mobile and has its own sticky
+   Save bar docked to the true bottom edge — the fixed bottom-nav would
+   otherwise sit on top of it and clip the Save button. */
+@media (max-width: 720px) {
+  body.modal-open .bottom-nav {
+    display: none;
+  }
+}
+
 #brewLogForm {
   scroll-margin-top: 12px;
 }
@@ -1311,6 +1320,23 @@ body.modal-open {
     display: none;
   }
 
+  /* Tags are a secondary filter, not a primary action — shrink them so the
+     collapsed row (+ "more" expander) takes noticeably less vertical space. */
+  .tag-filter-bar {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .tag-filter {
+    min-height: 30px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+  }
+
+  .tag-filter span {
+    margin-left: 3px;
+  }
+
   /* Status pill becomes a floating toast above the nav bar */
   .app-status {
     position: fixed;
@@ -1375,15 +1401,11 @@ body.modal-open {
     width: 100%;
   }
 
-  /* Photo actions: camera first and full width for one-thumb use */
+  /* Photo actions: gallery + research, full width for one-thumb use */
   .photo-upload-card__actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-  }
-
-  .photo-upload-card__actions #researchBeanBtn {
-    grid-column: 1 / -1;
   }
 
   .bean-photo-preview {
