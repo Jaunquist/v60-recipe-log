@@ -1032,9 +1032,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // One button, immediate action: lock the recipe on screen, or unlock.
+  // Also gates "Generate New Recipe": with nothing locked, it's identical
+  // to plain Generate (both just call the AI), so disable it until locking
+  // gives it a distinct job — overriding the locked recipe on demand.
   function updateLockUi() {
     const bean = getSelectedHelperBean();
     const hasRecipe = !!(state.currentRecipeData && state.currentRecipeData.recipes);
+
+    if (els.forceRegenerateBtn) {
+      const locked = !!(bean && bean.recipe_locked);
+      els.forceRegenerateBtn.disabled = !locked;
+      els.forceRegenerateBtn.title = locked
+        ? 'Ask the AI for a fresh recipe, overriding the locked one for this generation.'
+        : 'Lock a recipe first to enable — with nothing locked, this does the same thing as Generate Recipe.';
+    }
 
     if (!els.lockToggleBtn || !els.lockStatusText) return;
 
