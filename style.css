@@ -1613,3 +1613,13 @@ body.modal-open {
     height: 24px;
   }
 }
+
+/* Global disabled-button treatment (e.g. Generate New Recipe before a lock exists) */
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button:disabled:active {
+  transform: none;
+}
