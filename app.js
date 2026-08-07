@@ -136,7 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
     autofillPreference: 'log', // 'log' by default; switches to 'recipe' right after generating one
     beanSort: 'newest',
     tagsExpanded: false,
-    recipeIsFreshProposal: false
+    recipeIsFreshProposal: false,
+    brewIntent: 'hot',
+    brewIntentTouched: false
   };
 
   const els = {
@@ -164,6 +166,11 @@ document.addEventListener('DOMContentLoaded', () => {
     recipeEngineStatus: document.getElementById('recipeEngineStatus'),
     lockToggleBtn: document.getElementById('lockToggleBtn'),
     lockStatusText: document.getElementById('lockStatusText'),
+    brewIntentToggle: document.getElementById('brewIntentToggle'),
+    generationNotice: document.getElementById('generationNotice'),
+    recipeCardBody: document.getElementById('recipeCardBody'),
+    recipeGeneratingOverlay: document.getElementById('recipeGeneratingOverlay'),
+    recipeGeneratingText: document.getElementById('recipeGeneratingText'),
     beanSortSelect: document.getElementById('beanSortSelect'),
     forceRegenerateBtn: document.getElementById('forceRegenerateBtn'),
 
@@ -990,6 +997,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Array.from(document.querySelectorAll('.bean-use-btn')).forEach((btn) => {
       btn.addEventListener('click', async () => {
         state.selectedBeanId = btn.dataset.beanId || '';
+        state.brewIntentTouched = false;
         if (els.helperBeanSelect) els.helperBeanSelect.value = state.selectedBeanId;
         syncHelperBeanSummary();
         await loadLogsForSelectedBean();
@@ -1233,6 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.recipeStyleToggle.classList.add('hidden');
         els.recipeStyleToggle.innerHTML = '';
       }
+      renderGenerationNotice(null);
       return;
     }
 
@@ -1466,6 +1475,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderBrewLogList();
       resetBrewLogForm();
       setBrewLogStatus('Select a bean to begin logging brews.', 'info');
+      renderBrewIntentToggle();
       return;
     }
 
@@ -1475,6 +1485,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.openLogIds = new Set();
       renderBrewLogList();
       resetBrewLogForm();
+      refreshBrewIntentDefault();
 
       if (state.currentLogs.length) {
         setBrewLogStatus('Loaded brew history for this bean.', 'success');
@@ -1565,6 +1576,91 @@ document.addEventListener('DOMContentLoaded', () => {
     syncHelperBeanSummary();
   }
 
+  // Reflects state.brewIntent in the pill UI. Called on bean change, on
+  // manual tap, and once brew history loads (to apply the smart default).
+  function renderBrewIntentToggle() {
+    if (!els.brewIntentToggle) return;
+    Array.from(els.brewIntentToggle.querySelectorAll('[data-brew-intent]')).forEach((btn) => {
+      btn.classList.toggle('active', (btn.dataset.brewIntent || '') === state.brewIntent);
+    });
+  }
+
+  // Smart default: once brew history for the selected bean has loaded, default
+  // the intent picker to whatever style was last actually brewed for this
+  // bean — but only if the user hasn't already made a deliberate choice this
+  // bean-session (don't clobber a manual tap that happened before logs loaded).
+  function refreshBrewIntentDefault() {
+    if (state.brewIntentTouched) return;
+    const latest = getLatestLog();
+    state.brewIntent = latest && String(latest.brew_style || '').toLowerCase().indexOf('iced') !== -1
+      ? 'iced'
+      : 'hot';
+    renderBrewIntentToggle();
+  }
+
+  const GENERATING_PHRASES = [
+    'Reading the bean profile…',
+    'Checking your last few brews…',
+    'Calibrating the grinder…',
+    'Dialing in the ratio…',
+    'Balancing temperature and time…',
+    'Writing up the pours…'
+  ];
+
+  function showRecipeGeneratingOverlay() {
+    if (!els.recipeGeneratingOverlay) return;
+    if (state.generatingPhraseTimer) {
+      clearInterval(state.generatingPhraseTimer);
+      state.generatingPhraseTimer = null;
+    }
+    els.recipeGeneratingOverlay.classList.remove('hidden');
+    let i = 0;
+    if (els.recipeGeneratingText) els.recipeGeneratingText.textContent = GENERATING_PHRASES[0];
+    state.generatingPhraseTimer = setInterval(() => {
+      i = (i + 1) % GENERATING_PHRASES.length;
+      if (els.recipeGeneratingText) els.recipeGeneratingText.textContent = GENERATING_PHRASES[i];
+    }, 1500);
+  }
+
+  function hideRecipeGeneratingOverlay() {
+    if (state.generatingPhraseTimer) {
+      clearInterval(state.generatingPhraseTimer);
+      state.generatingPhraseTimer = null;
+    }
+    if (els.recipeGeneratingOverlay) els.recipeGeneratingOverlay.classList.add('hidden');
+  }
+
+  // Picks which style to actually show given the user's upfront pick, and
+  // returns a notice to display when that pick couldn't be honored (e.g. the
+  // AI judged this bean unsuited for iced, so only "hot" came back).
+  function resolveRecipeStyleForIntent(recipeData, desiredStyleKey) {
+    const recipes = (recipeData && recipeData.recipes) || {};
+    if (recipes[desiredStyleKey]) {
+      return { style: desiredStyleKey, notice: null };
+    }
+    if (desiredStyleKey === 'iced_half_shaken') {
+      return {
+        style: 'hot',
+        notice: "This bean's profile doesn't suit an iced brew, so here's the hot recipe instead."
+      };
+    }
+    // Desired hot but somehow missing (shouldn't normally happen) — fall back
+    // to whatever the payload actually offers.
+    const fallbackKey = Object.keys(recipes)[0];
+    return { style: fallbackKey || 'hot', notice: null };
+  }
+
+  function renderGenerationNotice(message) {
+    if (!els.generationNotice) return;
+    if (!message) {
+      els.generationNotice.classList.add('hidden');
+      els.generationNotice.textContent = '';
+      return;
+    }
+    els.generationNotice.classList.remove('hidden');
+    els.generationNotice.textContent = message;
+  }
+
   async function generateRecipe(forceAi = false) {
     const bean = getSelectedHelperBean();
 
@@ -1576,17 +1672,30 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const desiredStyleKey = state.brewIntent === 'iced' ? 'iced_half_shaken' : 'hot';
     const lockedRecipe = getLockedRecipeFromBean(bean);
     const isLocked = !!bean.recipe_locked;
 
+    showRecipeGeneratingOverlay();
+
     if (isLocked && lockedRecipe && !forceAi) {
+      setButtonsBusy([els.generateRecipeBtn, els.forceRegenerateBtn], true);
+      // Instant (no network call), but keep the overlay's minimum beat so it
+      // doesn't just flash — a locked recipe still deserves a moment of
+      // visible feedback rather than an instant content swap.
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
       state.currentRecipeData = normalizeRecipeDataShape(lockedRecipe);
-      state.currentRecipeStyle = state.currentRecipeData.defaultStyle || 'hot';
+      const resolved = resolveRecipeStyleForIntent(state.currentRecipeData, desiredStyleKey);
+      state.currentRecipeStyle = resolved.style;
       state.autofillPreference = 'recipe';
       state.recipeIsFreshProposal = false;
+      renderGenerationNotice(resolved.notice);
       renderRecipeOutput();
       refillBrewLogForm();
       updateLockUi();
+      hideRecipeGeneratingOverlay();
+      setButtonsBusy([els.generateRecipeBtn, els.forceRegenerateBtn], false);
       setRecipeEngineStatus('This bean is locked to its ideal recipe. AI generation was skipped.', 'success');
       if (els.recipeStatus) els.recipeStatus.textContent = 'Loaded locked recipe.';
       setStatus('Loaded locked recipe.', 'success');
@@ -1632,9 +1741,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       state.currentRecipeData = normalizeRecipeDataShape(response.data || null);
-      state.currentRecipeStyle = (state.currentRecipeData && state.currentRecipeData.defaultStyle) || 'hot';
+      const resolved = resolveRecipeStyleForIntent(state.currentRecipeData, desiredStyleKey);
+      state.currentRecipeStyle = resolved.style;
       state.autofillPreference = 'recipe';
       state.recipeIsFreshProposal = !!forceAi || !getSelectedHelperBean() || !getSelectedHelperBean().recipe_locked;
+      renderGenerationNotice(resolved.notice);
       renderRecipeOutput();
       refillBrewLogForm();
       updateLockUi();
@@ -1655,6 +1766,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setStatus('Recipe generated.', 'success');
     } catch (error) {
+      renderGenerationNotice(null);
       if (els.recipeStatus) {
         els.recipeStatus.textContent = error.message || 'Recipe generation failed.';
       }
@@ -1662,6 +1774,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setStatus(error.message || 'Recipe generation failed.', 'error');
     } finally {
       setButtonsBusy([els.generateRecipeBtn, els.forceRegenerateBtn], false);
+      hideRecipeGeneratingOverlay();
     }
   }
 
@@ -2117,6 +2230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.helperBeanSelect) {
       els.helperBeanSelect.addEventListener('change', async () => {
         state.selectedBeanId = els.helperBeanSelect.value || '';
+        state.brewIntentTouched = false;
         syncHelperBeanSummary();
         await loadLogsForSelectedBean();
       });
@@ -2184,6 +2298,16 @@ document.addEventListener('DOMContentLoaded', () => {
     Array.from(document.querySelectorAll('[data-brew-style]')).forEach((btn) => {
       btn.addEventListener('click', () => setBrewStyleValue(btn.dataset.brewStyle || 'hot'));
     });
+
+    if (els.brewIntentToggle) {
+      Array.from(els.brewIntentToggle.querySelectorAll('[data-brew-intent]')).forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.brewIntent = btn.dataset.brewIntent === 'iced' ? 'iced' : 'hot';
+          state.brewIntentTouched = true;
+          renderBrewIntentToggle();
+        });
+      });
+    }
 
     if (els.beanSortSelect) {
       els.beanSortSelect.addEventListener('change', () => {
