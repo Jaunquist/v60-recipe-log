@@ -1337,7 +1337,10 @@ body.modal-open {
     margin-left: 3px;
   }
 
-  /* Status pill becomes a floating toast above the nav bar */
+  /* Status pill becomes a floating toast above the nav bar. It must be fully
+     opaque here — the low-alpha tint below is designed for the pill sitting
+     inline against plain page background, not floating over arbitrary
+     scrolled content (which was bleeding through, see feedback). */
   .app-status {
     position: fixed;
     left: 16px;
@@ -1345,11 +1348,28 @@ body.modal-open {
     bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 12px);
     z-index: 60;
     text-align: center;
-    box-shadow: 0 12px 32px rgba(31, 21, 13, 0.18);
+    font-weight: 600;
+    background: var(--surface-4, #fffaf4);
+    box-shadow: 0 12px 32px rgba(31, 21, 13, 0.22);
     opacity: 0;
     transform: translateY(8px);
     pointer-events: none;
     transition: opacity 200ms ease, transform 200ms ease;
+  }
+
+  .app-status[data-status='success'] {
+    background: var(--surface-4, #fffaf4);
+    border-color: var(--success);
+  }
+
+  .app-status[data-status='warn'] {
+    background: var(--surface-4, #fffaf4);
+    border-color: var(--warn);
+  }
+
+  .app-status[data-status='error'] {
+    background: var(--surface-4, #fffaf4);
+    border-color: var(--error);
   }
 
   .app-status.app-status--visible {
@@ -1644,4 +1664,92 @@ button:disabled {
 
 button:disabled:active {
   transform: none;
+}
+
+/* ============================================================
+   Brew-intent picker, generation notice, generating overlay
+   ============================================================ */
+
+.brew-intent-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.brew-intent-btn {
+  flex: 1;
+  min-height: 46px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-soft);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.brew-intent-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* Notice shown after generation when the AI couldn't honor the chosen
+   brew intent (e.g. picked Iced, bean profile didn't support it) */
+.generation-notice {
+  margin: -6px 0 12px;
+}
+
+/* Card needs a positioning context for the overlay to cover it */
+.recipe-card__body {
+  position: relative;
+}
+
+.recipe-generating-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--card, rgba(255, 250, 244, 0.95));
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  text-align: center;
+}
+
+.recipe-generating-overlay__spinner {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  animation: recipe-generating-pulse 1.6s ease-in-out infinite;
+}
+
+.recipe-generating-overlay__spinner svg {
+  width: 26px;
+  height: 26px;
+  animation: recipe-generating-spin 2.2s linear infinite;
+}
+
+.recipe-generating-overlay__text {
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 0.92rem;
+  min-height: 1.3em;
+}
+
+@keyframes recipe-generating-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 94, 60, 0.18); }
+  50% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(139, 94, 60, 0); }
+}
+
+@keyframes recipe-generating-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
