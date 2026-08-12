@@ -1753,3 +1753,36 @@ button:disabled:active {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ============================================================
+   Screen wake-lock toggle (Brew view)
+   ============================================================ */
+
+.wake-lock-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  margin-bottom: 4px;
+  padding: 8px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-faint);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.wake-lock-toggle--on {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.wake-lock-toggle__icon {
+  font-size: 1rem;
+  line-height: 1;
+}
