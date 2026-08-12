@@ -138,13 +138,16 @@ document.addEventListener('DOMContentLoaded', () => {
     tagsExpanded: false,
     recipeIsFreshProposal: false,
     brewIntent: 'hot',
-    brewIntentTouched: false
+    brewIntentTouched: false,
+    wakeLock: null,
+    wakeLockWanted: true
   };
 
   const els = {
     viewTitle: document.getElementById('viewTitle'),
     appStatus: document.getElementById('appStatus'),
     themeToggleBtn: document.getElementById('themeToggleBtn'),
+    wakeLockToggle: document.getElementById('wakeLockToggle'),
 
     navButtons: Array.from(document.querySelectorAll('.nav-btn[data-view]')),
     panels: {
@@ -597,6 +600,81 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(next);
   }
 
+  // --- Screen Wake Lock (keep the display on while actively brewing) ---
+  // Supported on Chrome/Android and Safari 16.4+; feature-detected so older
+  // browsers just don't see the toggle rather than erroring.
+  function wakeLockSupported() {
+    return typeof navigator !== 'undefined' && 'wakeLock' in navigator;
+  }
+
+  function updateWakeLockToggleUi() {
+    if (!els.wakeLockToggle) return;
+    if (!wakeLockSupported()) {
+      els.wakeLockToggle.classList.add('hidden');
+      return;
+    }
+    els.wakeLockToggle.classList.remove('hidden');
+
+    const held = !!state.wakeLock;
+    els.wakeLockToggle.classList.toggle('wake-lock-toggle--on', held);
+    const icon = els.wakeLockToggle.querySelector('.wake-lock-toggle__icon');
+    const label = els.wakeLockToggle.querySelector('.wake-lock-toggle__label');
+    if (icon) icon.textContent = held ? '☀️' : '🌙';
+    if (label) {
+      label.textContent = held
+        ? 'Screen staying on while you brew'
+        : (state.wakeLockWanted ? 'Screen will stay on here' : 'Tap to keep screen on while brewing');
+    }
+  }
+
+  async function requestWakeLock() {
+    if (!wakeLockSupported() || state.wakeLock) return;
+    try {
+      const sentinel = await navigator.wakeLock.request('screen');
+      state.wakeLock = sentinel;
+      // The OS/browser can release it on its own (e.g. very low battery) —
+      // reflect that back in the UI instead of showing a stale "on" state.
+      sentinel.addEventListener('release', () => {
+        if (state.wakeLock === sentinel) state.wakeLock = null;
+        updateWakeLockToggleUi();
+      });
+    } catch (error) {
+      state.wakeLock = null;
+    }
+    updateWakeLockToggleUi();
+  }
+
+  async function releaseWakeLock() {
+    if (state.wakeLock) {
+      try {
+        await state.wakeLock.release();
+      } catch (error) {}
+      state.wakeLock = null;
+    }
+    updateWakeLockToggleUi();
+  }
+
+  function toggleWakeLockWanted() {
+    state.wakeLockWanted = !state.wakeLockWanted;
+    if (state.wakeLockWanted && state.activeView === 'helper') {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+  }
+
+  // Wake locks are auto-released by the browser whenever the page goes
+  // hidden (screen off, app backgrounded, tab switched) — re-acquire the
+  // moment the Brew view becomes visible again, so a phone that locked
+  // itself mid-brew wakes back up already held rather than staying asleep.
+  function bindWakeLockVisibilityHandling() {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state.activeView === 'helper' && state.wakeLockWanted) {
+        requestWakeLock();
+      }
+    });
+  }
+
   function getAppToken() {
     try {
       return localStorage.getItem(APP_TOKEN_STORAGE_KEY) || '';
@@ -690,6 +768,15 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       els.viewTitle.textContent = titleMap[viewName] || 'Bean Ledger';
     }
+
+    // Only worth keeping the screen awake while actively on the brewing
+    // screen — release it everywhere else so it doesn't drain the battery
+    // while browsing the bean library or settings.
+    if (viewName === 'helper' && state.wakeLockWanted) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
   }
 
   function applySettingsLockState() {
@@ -705,9 +792,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!els.photoFolderHint) return;
     const folderId = extractFolderId(els.photoFolder ? els.photoFolder.value : '');
     if (folderId) {
-      els.photoFolderHint.textContent = `Using Drive folder ID: ${folderId}`;
+      els.photoFolderHint.textContent = `Using Drive folder ID: ${folderId}. Each bean's photos land in their own subfolder inside it.`;
     } else {
-      els.photoFolderHint.textContent = 'Paste a full Google Drive folder URL and it will auto-convert to the folder ID.';
+      els.photoFolderHint.textContent = 'Paste a full Google Drive folder URL and it will auto-convert to the folder ID. Photos are organized into a subfolder per bean inside it.';
     }
   }
 
@@ -2295,6 +2382,10 @@ document.addEventListener('DOMContentLoaded', () => {
       els.themeToggleBtn.addEventListener('click', toggleTheme);
     }
 
+    if (els.wakeLockToggle) {
+      els.wakeLockToggle.addEventListener('click', toggleWakeLockWanted);
+    }
+
     Array.from(document.querySelectorAll('[data-brew-style]')).forEach((btn) => {
       btn.addEventListener('click', () => setBrewStyleValue(btn.dataset.brewStyle || 'hot'));
     });
@@ -2393,6 +2484,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function init() {
     applyTheme(getPreferredTheme());
+    updateWakeLockToggleUi();
+    bindWakeLockVisibilityHandling();
     populateCountryDatalist();
     bindEvents();
     setView('library');
