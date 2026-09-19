@@ -24,7 +24,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=14" />
 </head>
 <body>
   <div class="app">
@@ -295,22 +295,16 @@
       <div class="modal-body">
         <form id="addBeanForm">
           <input id="beanId" type="hidden" />
-          <input id="beanExistingPhotoFileId" type="hidden" />
-          <input id="beanExistingPhotoFileName" type="hidden" />
-          <input id="beanExistingPhotoDriveLink" type="hidden" />
-          <input id="beanExistingPhotoPreviewDataUrl" type="hidden" />
 
           <div class="photo-upload-card">
             <div class="photo-upload-card__top">
-              <div id="beanAvatar" class="bean-photo-preview">
-                <div class="bean-photo-preview--empty">📷 Tap to take a photo, or use Choose from Gallery.</div>
-              </div>
+              <div id="beanAvatar" class="bean-photo-strip"></div>
 
               <div class="photo-upload-card__controls">
                 <div class="photo-upload-header">
                   <div>
-                    <h3>Bean photo</h3>
-                    <p class="muted">Tap the photo preview to shoot with the camera, or choose one from your gallery.</p>
+                    <h3>Bean photos</h3>
+                    <p class="muted">Up to 3 — front label, back label, anything else worth capturing. Tap ★ to set which one shows in your library.</p>
                   </div>
                 </div>
 
@@ -323,13 +317,14 @@
                 </div>
 
                 <div class="field-hint" id="researchStatus"></div>
-                <div class="photo-meta" id="beanPhotoMeta">No photo uploaded yet.</div>
+                <div class="field-hint research-source-note hidden" id="researchSourceNote"></div>
+                <div class="photo-meta" id="beanPhotoMeta">No photos uploaded yet.</div>
                 <div class="ocr-status ocr-status--neutral" id="ocrStatusLine">OCR: not run yet</div>
               </div>
             </div>
 
             <div class="photo-file-meta">
-              <label for="beanPhotoText">Photo OCR text</label>
+              <label for="beanPhotoText">Photo OCR text (default photo)</label>
               <textarea id="beanPhotoText" rows="4" placeholder="Detected label text appears here."></textarea>
             </div>
           </div>
@@ -439,6 +434,6 @@
     </button>
   </nav>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
