@@ -949,26 +949,89 @@ textarea {
   gap: 12px;
 }
 
-.bean-photo-preview {
+.bean-photo-strip {
+  display: flex;
+  gap: 10px;
+}
+
+.bean-photo-slot {
+  position: relative;
+  flex: 1;
   aspect-ratio: 1 / 1;
-  border-radius: 18px;
+  border-radius: 16px;
   overflow: hidden;
   background: var(--panel);
   border: 1px dashed var(--line-strong);
-  display: grid;
-  place-items: center;
 }
 
-.bean-photo-preview img {
+.bean-photo-slot--empty {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 8px;
+  color: var(--text-faint);
+  text-align: center;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.bean-photo-slot--empty:active {
+  border-color: var(--accent);
+}
+
+.bean-photo-slot__icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.bean-photo-slot--filled {
+  border-style: solid;
+  border-color: var(--line);
+}
+
+.bean-photo-slot--filled img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-.bean-photo-preview--empty {
-  text-align: center;
-  color: var(--text-faint);
-  padding: 18px;
+.bean-photo-slot__star,
+.bean-photo-slot__default-badge,
+.bean-photo-slot__remove {
+  position: absolute;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 7px;
+  cursor: pointer;
+}
+
+.bean-photo-slot__star,
+.bean-photo-slot__default-badge {
+  top: 5px;
+  left: 5px;
+  background: rgba(20, 14, 9, 0.62);
+  color: #fff;
+}
+
+.bean-photo-slot__default-badge {
+  background: var(--accent);
+  white-space: nowrap;
+}
+
+.bean-photo-slot__remove {
+  top: 5px;
+  right: 5px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: rgba(20, 14, 9, 0.62);
+  color: #fff;
 }
 
 .photo-upload-header h3 {
@@ -980,6 +1043,11 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.research-source-note {
+  color: var(--text-soft);
+  font-size: 0.85rem;
 }
 
 .photo-meta {
@@ -1152,12 +1220,12 @@ button:active {
   }
 }
 
-/* Tappable photo preview */
-.bean-photo-preview {
+/* Tappable empty photo slots */
+.bean-photo-slot--empty {
   cursor: pointer;
 }
 
-.bean-photo-preview:active {
+.bean-photo-slot--empty:active {
   border-color: var(--accent);
 }
 
@@ -1428,10 +1496,9 @@ body.modal-open {
     gap: 10px;
   }
 
-  .bean-photo-preview {
-    max-width: 260px;
+  .bean-photo-strip {
+    max-width: 320px;
     margin: 0 auto;
-    width: 100%;
   }
 }
 
