@@ -1568,6 +1568,43 @@ body.modal-open {
   transform: scale(0.92);
 }
 
+/* --- Install App button (shown only when the browser can actually install) --- */
+
+.install-app-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.install-app-btn:active {
+  transform: scale(0.96);
+}
+
+.install-app-btn:disabled {
+  opacity: 0.6;
+}
+
+@media (max-width: 720px) {
+  /* Icon-only on narrow screens so it doesn't crowd the status pill */
+  .install-app-btn {
+    padding: 7px 9px;
+  }
+
+  .install-app-btn__label {
+    display: none;
+  }
+}
+
 /* ============================================================
    UX pass: style pills, lock toggle, sort, tags, nav icons
    ============================================================ */

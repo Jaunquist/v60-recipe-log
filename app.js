@@ -139,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     viewTitle: document.getElementById('viewTitle'),
     appStatus: document.getElementById('appStatus'),
     themeToggleBtn: document.getElementById('themeToggleBtn'),
+    installAppBtn: document.getElementById('installAppBtn'),
     wakeLockToggle: document.getElementById('wakeLockToggle'),
 
     navButtons: Array.from(document.querySelectorAll('.nav-btn[data-view]')),
@@ -587,6 +588,61 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch (error) {}
     applyTheme(next);
+  }
+
+  // --- PWA install prompt (one-tap install instead of digging through the
+  // browser's ⋮ menu). Chrome only fires beforeinstallprompt when a service
+  // worker is registered, the manifest is valid, and the app isn't already
+  // installed — so the button only ever appears when it will actually work;
+  // there's no fallback UI for browsers that don't support this (e.g. iOS
+  // Safari), since a button that does nothing there would be worse than none.
+  let deferredInstallPrompt = null;
+
+  function isRunningInstalled() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+      || window.navigator.standalone === true; // iOS Safari's own flag, if ever opened there
+  }
+
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('service-worker.js').catch(() => {
+      // Non-fatal: without a service worker, the install button simply
+      // never appears (Chrome requires one) — the rest of the app is fine.
+    });
+  }
+
+  function bindInstallPrompt() {
+    if (isRunningInstalled()) return; // Already installed — nothing to offer.
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault(); // Suppress Chrome's default mini-infobar; we show our own button instead.
+      deferredInstallPrompt = event;
+      if (els.installAppBtn) els.installAppBtn.classList.remove('hidden');
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      if (els.installAppBtn) els.installAppBtn.classList.add('hidden');
+      setStatus('Installed — find Bean Ledger on your home screen.', 'success');
+    });
+
+    if (els.installAppBtn) {
+      els.installAppBtn.addEventListener('click', async () => {
+        if (!deferredInstallPrompt) return;
+        els.installAppBtn.disabled = true;
+        deferredInstallPrompt.prompt();
+        try {
+          await deferredInstallPrompt.userChoice; // Resolves once the person accepts or dismisses.
+        } catch (error) {}
+        // A captured prompt can only be used once either way — hide the
+        // button regardless of outcome; it reappears if the browser ever
+        // fires beforeinstallprompt again (e.g. after a dismissal, on some
+        // Chrome versions, after a delay).
+        deferredInstallPrompt = null;
+        els.installAppBtn.classList.add('hidden');
+        els.installAppBtn.disabled = false;
+      });
+    }
   }
 
   // --- Screen Wake Lock (keep the display on while actively brewing) ---
@@ -2584,6 +2640,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function init() {
     applyTheme(getPreferredTheme());
+    registerServiceWorker();
+    bindInstallPrompt();
     updateWakeLockToggleUi();
     bindWakeLockVisibilityHandling();
     populateCountryDatalist();

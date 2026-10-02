@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="favicon.svg?v=7" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1" />
+  <link rel="manifest" href="manifest.json?v=1" />
   <meta name="theme-color" content="#f5f1ea" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#171210" media="(prefers-color-scheme: dark)" />
   <title>Bean Ledger</title>
@@ -24,7 +26,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=14" />
+  <link rel="stylesheet" href="style.css?v=15" />
 </head>
 <body>
   <div class="app">
@@ -56,6 +58,10 @@
       <div class="topbar">
         <div class="top-title" id="viewTitle">Bean Library</div>
         <div class="topbar-actions">
+          <button id="installAppBtn" class="install-app-btn hidden" type="button" aria-label="Install Bean Ledger as an app">
+            <span aria-hidden="true">⬇️</span>
+            <span class="install-app-btn__label">Install App</span>
+          </button>
           <button id="themeToggleBtn" class="icon-btn theme-toggle" type="button" aria-label="Toggle light and dark mode">🌙</button>
           <div class="app-status" id="appStatus" data-status="info">Ready.</div>
         </div>
@@ -434,6 +440,6 @@
     </button>
   </nav>
 
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>
