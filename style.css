@@ -124,9 +124,9 @@ label {
   border-radius: 14px;
   background: var(--pure);
   border: 1px solid rgba(139, 94, 60, 0.12);
-  display: grid;
-  place-items: center;
   box-shadow: 0 8px 24px rgba(66, 40, 21, 0.06);
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .brand h1,
