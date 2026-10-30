@@ -1388,7 +1388,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const extraIcedFields = recipe.hot_water_g || recipe.brew_ice_g ? `
       <div class="recipe-grid">
         ${recipe.hot_water_g ? `<div><strong>Hot water</strong><span>${escapeHtml(recipe.hot_water_g)} g</span></div>` : ''}
-        ${recipe.brew_ice_g ? `<div><strong>Ice</strong><span>${escapeHtml(recipe.brew_ice_g)} g</span></div>` : ''}
+        ${recipe.brew_ice_g ? `<div><strong>Brew ice</strong><span>${escapeHtml(recipe.brew_ice_g)} g</span></div>` : ''}
+        ${recipe.shaker_ice_g ? `<div><strong>Shaker ice</strong><span>${escapeHtml(recipe.shaker_ice_g)} g</span></div>` : ''}
       </div>
     ` : '';
 
@@ -1418,6 +1419,13 @@ document.addEventListener('DOMContentLoaded', () => {
         ` : ''}
 
         ${renderPoursHtml(recipe.pours, recipe.hot_water_g || recipe.water_total_g, recipe.target_time)}
+
+        ${recipe.finish ? `
+          <div class="recipe-block">
+            <h4>Finish</h4>
+            <p>${escapeHtml(recipe.finish)}</p>
+          </div>
+        ` : ''}
 
         ${recipe.expected_notes ? `
           <div class="recipe-block">
